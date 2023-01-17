@@ -16,8 +16,6 @@
 - COM Breadboard:{0xC4, 0xDD, 0x57, 0x9E, 0x91, 0x6C};
 - DAQ Protoboard:
 
-## ESP32 Pinouts (Updated 4/6)
--DAQ Breadboard:
 
 
 
