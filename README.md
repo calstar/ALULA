@@ -1,5 +1,5 @@
-# ALLULA (LE2)
- Allula/ LE2 Hot-fire and Flight Vehicle Electronics Control
+# ALULA (LE2)
+ Alula/ LE2 Hot-fire and Flight Vehicle Electronics Control
 
 
 ## Summary
