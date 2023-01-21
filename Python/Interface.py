@@ -1,27 +1,31 @@
+import csv
+from os.path import isfile
+from serial import Serial
 import time
 
-import pandas as pd
-import csv
-import numpy as np
-import serial
-b = True
+# Port num of esp32 depends on OS and usb slot. Check the Arduino IDE to verify port num on computer. For Mac, use "/dev/cu.usbserial-0001".
+port_num = "COM3"
+esp32 = Serial(port=port_num, baudrate = 115200, timeout=0.1)
 
-esp = serial.Serial(port = '/dev/cu.usbserial-0001',baudrate = 115200,timeout=.1) #change based on pot in arduino and baudrate
-name = "res_data5.csv"
+# Create a filename in the format: res_data_{year}-{month}-{day}_test{num}.
+file_base = f"res_data_{time.strftime('%Y-%m-%d', time.gmtime())}"
+file_ext = ".csv"
+test_num = 1
+while isfile(file_base + f"_test{test_num}" + file_ext):
+    test_num += 1
+filename = file_base + f"_test{test_num}" + file_ext
 
-
-while b:
-    data = esp.readline()
+while True:
     time.sleep(0.05)
+    data = esp32.readline()
     try:
-        decoded_bytes = (data[0:len(data)-2].decode("utf-8"))
+        decoded_bytes = data[:len(data)-2].decode("utf-8")
         values = decoded_bytes.split(",")
-        with open(name,"a") as f:
-            writer = csv.writer(f,delimiter= ",")
-            guy = [time.time()]
-            for i in range(len(values)):
-                guy.append(values[i])
-            writer.writerow(guy)
-
+        print(values)
+        with open(filename, "a", newline='') as f:
+            writer = csv.writer(f, delimiter= ",")
+            time_ms = time.time_ns() // (10**6)
+            millisecs = str(time_ms % (10**3)).zfill(3)
+            writer.writerow([time.strftime("%H:%M:%S", time.gmtime(time_ms // (10**3))) + ":" + millisecs] + values)
     except:
         continue
