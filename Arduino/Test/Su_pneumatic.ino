@@ -46,13 +46,14 @@ void loop() {
   // }
   
   digitalWrite(SOLENOID, LOW);
-  reading = CalOffset + CalSlope*scale1.read();  
-  delay(2000);
-  reading = CalOffset + CalSlope*scale1.read();
+  filled = false;
   Serial.println(reading);
+  reading = CalOffset + CalSlope*scale1.read();
+  delay(1000);
+
 }  
   Serial.println("exited first phase");
-  delay(2000);
+  delay(1000);
   reading = CalOffset + CalSlope*scale1.read();
 
   //prevtime = millis();
@@ -60,6 +61,7 @@ void loop() {
 while(reading < threshold2 && threshold1 < reading && !filled){
   if (!printed) {
     Serial.println("entering bang-bang");
+    printed = true;
   }
   digitalWrite(SOLENOID, HIGH);
   reading = CalOffset + CalSlope*scale1.read();
@@ -71,7 +73,7 @@ while(reading < threshold2 && threshold1 < reading && !filled){
   Serial.println(reading);
   }
   
-  if(reading > threshold2){
+  if(reading >= threshold2){
     Serial.println("pressurization completed");
     filled = true;
     digitalWrite(SOLENOID, HIGH);  //double check during hotfire
