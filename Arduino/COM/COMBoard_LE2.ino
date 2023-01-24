@@ -209,14 +209,14 @@ void loop() {
 
   case ("idle"): //Includes polling
     idle();
-    if (digitalRead(BUTTON2) == 1) { 
-      state = "press_eth";}
+    if (digitalRead(BUTTON2) == 1) {state = "press_eth";}
     break;
 
   case ("press_eth"): //Pressurizes ethanol tank
     press_eth();
-    if (digitalRead(BUTTON3) == 1) { state = "fill";}
-    if (digitalRead(BUTTON1) == 1) { state = "vent_eth";}
+    if (digitalRead(BUTTON1) == 1) {state = "idle";}
+    if (digitalRead(BUTTON3) == 1) {state = "fill";}
+    if (digitalRead(BUTTON5) == 1) {state = "vent_eth";}
     break;
 
   case ("fill"): //Fills LOX tank
@@ -227,12 +227,14 @@ void loop() {
 
   case ("press_lox"): //Pressurizes LOX tank
     press_lox();
-    if (digitalRead(BUTTON5)==1) {state="vent"};
+    if (digitalRead(BUTTON5)==1) {state="vent";}
+    if (digitalRead(BUTTON4)==1) {state="hotfire";}
     break;
 
   case ("hotfire"):
     hotfire();
-    if (digitalRead(BUTTON1)==1) {state="idle"};
+    if (digitalRead(BUTTON1)==1) {state="idle";}
+    if (digitalRead(BUTTON2)==1) {state="ignition";}
     state = "ignition"
 
   case ("ignition"):

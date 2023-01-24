@@ -44,9 +44,6 @@ This code runs on the DAQ ESP32 and has a couple of main tasks.
 #define tolerance 0.10   //Acceptable range within set pressure
 #define pressureDelay 0.5
 
-float currentPosition1 = float('inf');
-float currentPosition2 = float('inf');
-
 //define servo necessary values
 #define ADC_Max 4096;
 
@@ -104,10 +101,7 @@ int count = 3;
 String state = "idle";
 unsigned int dataArraySize =0;
 int loopStartTime=0;
-int MeasurementDelay=1000; //Delay between data measurement periods in the idle loop state in m
-int idleMeasurementDelay=1000;
-int pollingMeasurementDelay=200;
-int hotfireMeasurementDelay=20;
+int measurementDelay=50; 
 
 int lastPrintTime=0;
 int PrintDelay =1000;
@@ -116,10 +110,6 @@ int lastMeasurementTime=-1;
 short int queueLength=0;
 String commandedState;
 
-int hotfireStage1Time=750;
-int hotfireStage2Time=8500;
-int hotfireStage3Time=9300;
-int hotfireStage4Time=10800;
 int igniterTime=750;
 
 int hotfireTimer=0;
@@ -265,100 +255,63 @@ void loop() {
 
   case ("idle"): 
       idle();
-
-      if (commandedState==1) { state=1; MeasurementDelay=pollingMeasurementDelay; }
-      if (commandedState==2) { state=2; MeasurementDelay=pollingMeasurementDelay; }
-      if (commandedState==3) { state=3; MeasurementDelay=pollingMeasurementDelay; }
+      if (commandedState=="press_eth") {state="press_eth";}
       break;
 
-  case ("press_eth"): //Polling
+  case ("press_eth"):
       press_eth();
-      if (commandedState==0) { state=0; MeasurementDelay=idleMeasurementDelay; }
-      if (commandedState==2){  state=2; MeasurementDelay=pollingMeasurementDelay; }
-      if (commandedState==3) { state=3; MeasurementDelay=pollingMeasurementDelay; }
-      if (commandedState==17) {state=17;} 
-      if (commandedState==30) {state=30;}
+      if (commandedState=="idle") {state = "idle";}
+      if (commandedState=="fill") {state = "fill";}
+      if (commandedState=="vent_eth") {state = "vent_eth";}
+      break;
 
-    break;
-
-  case ("fill"): //Manual Servo Control
+  case ("fill"):
     fill();
-    if (commandedState==0) { state=0; MeasurementDelay=idleMeasurementDelay; }
-    if (commandedState==1) { state=1; MeasurementDelay=pollingMeasurementDelay; }
-    if (commandedState==3) { state=3; MeasurementDelay=pollingMeasurementDelay; }
+    if (commandedState=="press_lox") {state="press_lox";}
+    if (commandedState=="vent") {state="vent";}
     break;
 
-  case ("press_lox"): //Armed
+  case ("press_lox"):
     press_lox();
-    if (commandedState==0) { state=0; MeasurementDelay=idleMeasurementDelay; }
-    if (commandedState==1) { state=1; MeasurementDelay=idleMeasurementDelay; }
-    if (commandedState==4) { state=4; igniterTimer=loopStartTime; }
+    if (commandedState=="hotfire") {state="hotfire";}
+    if (commandedState=="vent") {state="vent";}
     break;
 
-  case ("hotfire"): //Ignition
+  case ("hotfire"):
     hotfire();
-    if (commandedState==0) { state=0; MeasurementDelay=idleMeasurementDelay; }
-    if (commandedState==1) { state=1; MeasurementDelay=idleMeasurementDelay; }
-    if (commandedState==5) { state=5; hotfireTimer=loopStartTime; MeasurementDelay=hotfireMeasurementDelay; }
+    if (commandedState=="idle") {state="idle";}
+    if (commandedState=="ignition") {state="ignition";}
     break;
 
-  case ("ignition"): //Hotfire stage 1
+  case ("ignition"): 
     ignition();
-    if ((loopStartTime-hotfireTimer) > hotfireStage1Time) state=6;
+    state = "idle"
     break;
 
-  case ("vent_eth"): //Hotfire stage 2
+  case ("vent_eth"): 
     vent_eth();
-    if ((loopStartTime-hotfireTimer) > hotfireStage2Time) state=7;
+    if (commandedState="idle") {state="idle"};
     break;
 
-  case ("vent"): //Hotfire stage 3
+  case ("vent"):
     vent();
-    if ((loopStartTime-hotfireTimer) > hotfireStage3Time) state=8;
+    if (commandedState="idle") {state="idle"};
     break;
+  }
 }
 
+void sendData() {
+  if ((loopStartTime-lastMeasurementTime) > MeasurementDelay) { 
+  addReadingsToQueue();
+  sendQueue();
+  }
 }
-
-void reconnect() {
-  digitalWrite(oxQD, LOW);
-  digitalWrite(fuelQD, LOW);
-}
-
 
 void idle() {
-  poll(); //DEFINE LATER
-  dataCheck();
+  sendData();
 }
 
-void dataCheck() {
-  if ((loopStartTime-lastMeasurementTime) > MeasurementDelay) addReadingsToQueue();
-  checkQueue();
-}
-
-void polling() {
-  dataCheck();
-}
-
-void manualControl() {
-  dataCheck();
-}
-void armed() {
-  dataCheck();
-}
-
-void ignition() {
-  if ((loopStartTime-igniterTimer) < igniterTime) { digitalWrite(RELAYPIN1, LOW); digitalWrite(RELAYPIN2, LOW); Serial.print("IGNITE"); }
-  if ((loopStartTime-igniterTimer) > igniterTime) {  digitalWrite(RELAYPIN1, HIGH); digitalWrite(RELAYPIN2, HIGH); Serial.print("NO"); }
-  dataCheck();
-
-  Serial.println(loopStartTime-igniterTimer);
-  Serial.println("Igniter time");
-  Serial.println(igniterTime);
-  Serial.println(" ");
-}
-
-bool pressurizeFuel() {
+bool press_eth() {
   // Increase pressure
   while (Readings.pt1val < pressureFuel) {
     openSolenoidFuel();
@@ -391,7 +344,11 @@ bool pressurizeFuel() {
   return true;
 }
 
-bool pressurizeOx() {
+void fill() {
+  //FILL IN
+}
+
+bool press_lox() {
   // Increase pressure
   while (Readings.pt2val < pressureOx) {
     openSolenoidOx();
@@ -422,6 +379,21 @@ bool pressurizeOx() {
     }
   }
   return true;
+}
+
+void hotfire() {
+  //FILL IN
+}
+
+void ignition() {
+  if ((loopStartTime-igniterTimer) < igniterTime) { digitalWrite(RELAYPIN1, LOW); digitalWrite(RELAYPIN2, LOW); Serial.print("IGNITE"); }
+  if ((loopStartTime-igniterTimer) > igniterTime) {  digitalWrite(RELAYPIN1, HIGH); digitalWrite(RELAYPIN2, HIGH); Serial.print("NO"); }
+  sendData();
+
+  Serial.println(loopStartTime-igniterTimer);
+  Serial.println("Igniter time");
+  Serial.println(igniterTime);
+  Serial.println(" ");
 }
 
 void openSolenoidFuel() {
@@ -461,66 +433,43 @@ void disconnectFuel() {
   digitalWrite(fuelQD, HIGH);
 }
 
-void hotfire1() {
-  dataCheck();
-}
-
-void hotfire2() {
-  dataCheck();
-}
-void hotfire3() {
-  dataCheck();
-}
-
-void hotfire4() {
-  dataCheck();
-}
-
 void addReadingsToQueue() {
   getReadings();
-  if (queueLength<40) queueLength+=1;
-  ReadingsQueue[queueLength].messageTime=loopStartTime;
-  ReadingsQueue[queueLength].pt1val=pt1val;
-  ReadingsQueue[queueLength].pt2val=pt2val;
-  ReadingsQueue[queueLength].pt3val=pt3val;
-  ReadingsQueue[queueLength].pt4val=pt4val;
-  ReadingsQueue[queueLength].pt5val=pt5val;
-  ReadingsQueue[queueLength].pt6val=pt6val;
-  ReadingsQueue[queueLength].pt7val=pt7val;
-  ReadingsQueue[queueLength].fmval=fmval;
-  ReadingsQueue[queueLength].queueSize=queueLength;
-  ReadingsQueue[queueLength].I = I;
+  if (queueLength<40) {
+    queueLength+=1;
+    ReadingsQueue[queueLength].messageTime=loopStartTime;
+    ReadingsQueue[queueLength].pt1val=pt1val;
+    ReadingsQueue[queueLength].pt2val=pt2val;
+    ReadingsQueue[queueLength].pt3val=pt3val;
+    ReadingsQueue[queueLength].pt4val=pt4val;
+    ReadingsQueue[queueLength].pt5val=pt5val;
+    ReadingsQueue[queueLength].pt6val=pt6val;
+    ReadingsQueue[queueLength].pt7val=pt7val;
+    ReadingsQueue[queueLength].fmval=fmval;
+    ReadingsQueue[queueLength].queueSize=queueLength;
+    ReadingsQueue[queueLength].I = I;
+  }
 }
 
 void getReadings(){
 
- pt1val = scale1.read(); 
- pt2val = scale2.read() ; 
- pt3val = scale3.read(); 
- pt4val = scale4.read(); 
- pt5val = scale5.read(); 
- pt6val = scale6.read(); 
- pt7val = scale7.read();
+  pt1val = scale1.read(); 
+  pt2val = scale2.read(); 
+  pt3val = scale3.read(); 
+  pt4val = scale4.read(); 
+  pt5val = scale5.read(); 
+  pt6val = scale6.read(); 
+  pt7val = scale7.read();
 
-
-
-   // flowMeterReadings();
-    printSensorReadings();
-    lastMeasurementTime=loopStartTime;
-   // Serial.print("Queue Length :");
-  //  Serial.println(queueLength);
-
-   // Serial.print("Current State: ");
-    //Serial.println(state);
+  printSensorReadings();
+  lastMeasurementTime=loopStartTime;
 }
-
-
 
 void flowMeterReadings() {
   currentMillis = millis();
   fmcount = 0;
 
-   while (millis() - currentMillis < goalTime) {
+  while (millis() - currentMillis < goalTime) {
     currentState = digitalRead(FMPIN);
     if (!(currentState == lastState)) {
 
@@ -531,8 +480,6 @@ void flowMeterReadings() {
   flowRate = fmcount;
   fmval =int(flowRate+1);  // Print the integer part of the variable
 }
-
-
 
 void printSensorReadings() {
    serialMessage = "";
@@ -557,11 +504,9 @@ void printSensorReadings() {
  serialMessage.concat(" Current State: ");
  serialMessage.concat(state);
  Serial.println(serialMessage);
-
 }
 
-
-void checkQueue() {
+void sendQueue() {
   if (queueLength>0){
     dataSend();
   }
@@ -591,10 +536,4 @@ void dataSend() {
   else {
      Serial.println("Error sending the data");
   }
-}
-
-void wifiDebug() {
-  Readings.Debug=17;
-  dataSend();
-  Serial.println(Commands.Debug);
 }
