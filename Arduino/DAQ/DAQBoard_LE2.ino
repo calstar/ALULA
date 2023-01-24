@@ -2,13 +2,11 @@
 This code runs on the DAQ ESP32 and has a couple of main tasks.
 1. Read sensor data
 2. Send sensor data to COM ESP32
-3. Recieve servo commands from COM ESP32
-4. Send PWM signals to servos
+3. Actuate hotfire sequence
 */
 
 #include <esp_now.h>
 #include <WiFi.h>
-#include <ESP32Servo.h>
 #include <Wire.h>
 #include <Arduino.h>
 #include "HX711.h"
@@ -49,9 +47,6 @@ This code runs on the DAQ ESP32 and has a couple of main tasks.
 float currentPosition1 = float('inf');
 float currentPosition2 = float('inf');
 
-//define servo min and max values
-#define SERVO_MIN_USEC (800)
-#define SERVO_MAX_USEC (2100)
 //define servo necessary values
 #define ADC_Max 4096;
 
@@ -61,6 +56,7 @@ short goalTime = 50;
 short currReading1;
 short currReading2;
 short loopTime=10;
+float sendTime;
 
 unsigned long igniteTimeControl = 0;
 unsigned long igniteTime =  250;
@@ -108,7 +104,7 @@ int count = 3;
 String state = "idle";
 unsigned int dataArraySize =0;
 int loopStartTime=0;
-int MeasurementDelay=1000; //Delay between data measurment periods in the idle loop state in m
+int MeasurementDelay=1000; //Delay between data measurement periods in the idle loop state in m
 int idleMeasurementDelay=1000;
 int pollingMeasurementDelay=200;
 int hotfireMeasurementDelay=20;
@@ -118,7 +114,7 @@ int PrintDelay =1000;
 
 int lastMeasurementTime=-1;
 short int queueLength=0;
-int commandedState;
+String commandedState;
 
 int hotfireStage1Time=750;
 int hotfireStage2Time=8500;
@@ -129,23 +125,13 @@ int igniterTime=750;
 int hotfireTimer=0;
 int igniterTimer=0;
 
-//the following are only used in the oposite direction, they are included because it may be necessary for the structure to be the same in both directions
-int S1;
-int S2;
 // Igniter;
 int I;
 
 // int commandedState;
-// int prev_S1S2 = 0;
 bool ignite = 1;
-
-// Define variables to store incoming commands, servos and igniter
-int incomingS1;
-int incomingS2;
 // int incomingS1S2;
 bool incomingI;
-
-int DAQstate = 0;
 
 // int I = 0;
 
@@ -180,10 +166,7 @@ typedef struct struct_message {
     int pt6val; 
     int pt7val;
     int fmval;
-    unsigned char S1; 
-    unsigned char S2; 
-    int commandedState = 0; 
-    int DAQstate = 0;
+    int commandedState = "idle";
     unsigned char I; 
     short int queueSize;
     int Debug;
@@ -201,52 +184,16 @@ esp_now_peer_info_t peerInfo;
 
 // Callback when data is sent
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
-  //Serial.print("\r\nLast Packet Send Status:\t");
-  //Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
-  if (status ==0){
-    success = "Delivery Success :)";
-  }
-  else{
-    success = "Delivery Fail :(";
-  }
+  sendTime = millis();
 }
 
 // Callback when data is received
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   memcpy(&Commands, incomingData, sizeof(Commands));
- //  Serial.print("Bytes received: ");
- //  Serial.print(len);
-      // digitalWrite(ONBOARD_LED,HIGH);
-
-  S1 = Commands.S1;
-  S2 = Commands.S2;
-
- // UNCOMMENT THIS LATER!!!!!!!!!!!!!!!!
   commandedState = Commands.commandedState;
- // Serial.println(commandedState);
-
-}
-
-
-void SerialRead() {
-    if (Serial.available() > 0) {
- commandedState=Serial.read()-48;
- Serial.print("AVAILABLE--------------------");
-    Serial.println(commandedState);
-    Serial.println(" ");
-
-  }
-
-
-     //   Serial.println(commandedState);
-    //    Serial.println(" ");
-
 }
 
 void setup() {
-  //attach servo pins
-
-  // attach onboard LED
   // pinMode(ONBOARD_LED,OUTPUT);
   pinMode(RELAYPIN1, OUTPUT);
   pinMode(RELAYPIN2, OUTPUT);
@@ -307,43 +254,16 @@ void setup() {
   }
   // Register for a callback function that will be called when data is received
   esp_now_register_recv_cb(OnDataRecv);
+
+  sendTime = 0;
 }
-
-
-void servoWrite() {
-    servo1.write(servo1curr);
-    servo2.write(servo2curr);
-    S1=servo1curr;
-    S2=servo2curr;
-}
-
-
 
 void loop() {
   loopStartTime=millis();
-  SerialRead();
-  // State selector
 
-  statePrint();
+  switch (state) {
 
-switch (state) {
-
-  case (17): //BASIC WIFI TEST DEBUG STATE B
-    wifiDebug();
-   
-    if (commandedState==1) {state=1;} 
-    break;
-
-  case (-1): //start single loop
-
-    servo1curr=servo1ClosedPosition;
-    servo2curr=servo2ClosedPosition;
-    servoWrite();
-  
-    state=0;
-    break;
-
-  case (0): //Default/idle
+  case ("idle"): 
       idle();
 
       if (commandedState==1) { state=1; MeasurementDelay=pollingMeasurementDelay; }
@@ -351,9 +271,8 @@ switch (state) {
       if (commandedState==3) { state=3; MeasurementDelay=pollingMeasurementDelay; }
       break;
 
-  case (1): //Polling
-      polling();
-
+  case ("press_eth"): //Polling
+      press_eth();
       if (commandedState==0) { state=0; MeasurementDelay=idleMeasurementDelay; }
       if (commandedState==2){  state=2; MeasurementDelay=pollingMeasurementDelay; }
       if (commandedState==3) { state=3; MeasurementDelay=pollingMeasurementDelay; }
@@ -362,78 +281,42 @@ switch (state) {
 
     break;
 
-  case (2): //Manual Servo Control
-    manualControl();
+  case ("fill"): //Manual Servo Control
+    fill();
     if (commandedState==0) { state=0; MeasurementDelay=idleMeasurementDelay; }
     if (commandedState==1) { state=1; MeasurementDelay=pollingMeasurementDelay; }
     if (commandedState==3) { state=3; MeasurementDelay=pollingMeasurementDelay; }
     break;
 
-  case (3): //Armed
-    armed();
+  case ("press_lox"): //Armed
+    press_lox();
     if (commandedState==0) { state=0; MeasurementDelay=idleMeasurementDelay; }
     if (commandedState==1) { state=1; MeasurementDelay=idleMeasurementDelay; }
     if (commandedState==4) { state=4; igniterTimer=loopStartTime; }
     break;
 
-  case (4): //Ignition
-
-    ignition();
+  case ("hotfire"): //Ignition
+    hotfire();
     if (commandedState==0) { state=0; MeasurementDelay=idleMeasurementDelay; }
     if (commandedState==1) { state=1; MeasurementDelay=idleMeasurementDelay; }
-
     if (commandedState==5) { state=5; hotfireTimer=loopStartTime; MeasurementDelay=hotfireMeasurementDelay; }
-
-
     break;
-  case (5): //Hotfire stage 1
 
-    hotfire1();
-
+  case ("ignition"): //Hotfire stage 1
+    ignition();
     if ((loopStartTime-hotfireTimer) > hotfireStage1Time) state=6;
-
     break;
 
-  case (6): //Hotfire stage 2
-
-    hotfire2();
+  case ("vent_eth"): //Hotfire stage 2
+    vent_eth();
     if ((loopStartTime-hotfireTimer) > hotfireStage2Time) state=7;
-
     break;
 
-  case (7): //Hotfire stage 3
-    hotfire3();
+  case ("vent"): //Hotfire stage 3
+    vent();
     if ((loopStartTime-hotfireTimer) > hotfireStage3Time) state=8;
-
     break;
-
-  case (8): //Hotfire stage 4
-    hotfire4();
-    if ((loopStartTime-hotfireTimer) > hotfireStage4Time){  state=0; MeasurementDelay=idleMeasurementDelay; }
-
-    break;
-
-  case (30): //Pressurization
-    bool fuelStatus = pressurizeFuel();
-    bool OxStatus = pressurizeOx();
-    if (commandedState == 1) {state = 1; closeSolenoidOx(); closeSolenoidFuel(); vent();}
-    if ((fuelStatus && OxStatus) && commandedState = 31) {
-      state = 31;
-    }
-
-  case (31): //QDs
-    disconnectOx();
-    disconnectFuel();
-    if (commandedState == 1) {state=1; reconnect();}
-    if (commandedState == 3) {state=3; MeasurementDelay=pollingMeasurementDelay;}
-
 }
-
-}
-
-void statePrint() {
-  
-  if ((loopStartTime-lastPrintTime) > PrintDelay) { Serial.println(state); lastPrintTime=loopStartTime; }
 
 }
 
@@ -444,10 +327,8 @@ void reconnect() {
 
 
 void idle() {
-    DAQstate = state;
-
-dataCheck();
-
+  poll(); //DEFINE LATER
+  dataCheck();
 }
 
 void dataCheck() {
@@ -456,25 +337,17 @@ void dataCheck() {
 }
 
 void polling() {
-  DAQstate = state;
   dataCheck();
 }
 
 void manualControl() {
-  DAQstate = state;
-  servo1curr=S1;
-  servo2curr=S2;
-  servoWrite();
   dataCheck();
 }
 void armed() {
-  DAQstate = state;
   dataCheck();
 }
 
 void ignition() {
-  DAQstate = state;
-
   if ((loopStartTime-igniterTimer) < igniterTime) { digitalWrite(RELAYPIN1, LOW); digitalWrite(RELAYPIN2, LOW); Serial.print("IGNITE"); }
   if ((loopStartTime-igniterTimer) > igniterTime) {  digitalWrite(RELAYPIN1, HIGH); digitalWrite(RELAYPIN2, HIGH); Serial.print("NO"); }
   dataCheck();
@@ -589,39 +462,19 @@ void disconnectFuel() {
 }
 
 void hotfire1() {
-  DAQstate = 5;
   dataCheck();
-
-  servo1curr=servo1ClosedPosition;
-  servo2curr=servo2OpenPosition;
-  servoWrite();
-
 }
+
 void hotfire2() {
   dataCheck();
-
-  servo1curr=servo1OpenPosition;
-  servo2curr=servo2OpenPosition;
-  servoWrite();
 }
 void hotfire3() {
   dataCheck();
-
-  servo1curr=servo1OpenPosition;
-  servo2curr=servo2ClosedPosition;
-  servoWrite();
 }
+
 void hotfire4() {
   dataCheck();
-
-  servo1curr=servo1ClosedPosition;
-  servo2curr=servo2ClosedPosition;
-  servoWrite();
 }
-
-
-
-
 
 void addReadingsToQueue() {
   getReadings();
@@ -637,9 +490,6 @@ void addReadingsToQueue() {
   ReadingsQueue[queueLength].fmval=fmval;
   ReadingsQueue[queueLength].queueSize=queueLength;
   ReadingsQueue[queueLength].I = I;
-  ReadingsQueue[queueLength].DAQstate = DAQstate;
-  ReadingsQueue[queueLength].S1 = servo1curr;
-  ReadingsQueue[queueLength].S2 = servo2curr;  
 }
 
 void getReadings(){
@@ -671,15 +521,11 @@ void flowMeterReadings() {
   fmcount = 0;
 
    while (millis() - currentMillis < goalTime) {
-    servo1.write(servo1curr);
-    servo2.write(servo2curr);
-
-
     currentState = digitalRead(FMPIN);
     if (!(currentState == lastState)) {
 
-     lastState = currentState;
-     fmcount += 1;
+    lastState = currentState;
+    fmcount += 1;
    }
  }
   flowRate = fmcount;
@@ -733,9 +579,6 @@ void dataSend() {
   Readings.pt7val = ReadingsQueue[queueLength].pt7val;
   Readings.fmval  = ReadingsQueue[queueLength].fmval;
   Readings.I = ReadingsQueue[queueLength].I;
-  Readings.DAQstate = ReadingsQueue[queueLength].DAQstate;
-  Readings.S1 = ReadingsQueue[queueLength].S1;
-  Readings.S2 = ReadingsQueue[queueLength].S2;
 
   // Send message via ESP-NOW
   esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &Readings, sizeof(Readings));
