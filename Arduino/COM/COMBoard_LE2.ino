@@ -1,3 +1,9 @@
+/*
+This code runs on the COM ESP32 and has a couple of main tasks.
+1. Receive sensor data from DAQ ESP32
+2. Send servo commands to DAQ ESP32
+*/
+
 #include <esp_now.h>
 #include <WiFi.h>
 #include <ESP32Servo.h>
@@ -5,49 +11,38 @@
 #include <Arduino.h>
 #include "HX711.h"
 
+// *** START - WILL BE REPLACED BY LABVIEW STATE DETERMINATION *** //
+// Set pinouts
 #define BUTTON1 19
 #define BUTTON2 17
 #define BUTTON3 16
-#define BUTTON4 21 //SET PIN NUMBER BUTTON
-#define PRESS_BUTTON
-#define QD_BUTTON
+#define BUTTON4 21 
+#define PRESS_BUTTON 1 
+#define QD_BUTTON 2
 
-#define INDICATOR1  4 // state 2 light
-#define INDICATOR2 23 // armed indicator
-#define INDICATOR3 22//Servo1 indicator
-#define INDICATOR4 14//seevo 2 
-#define INDICATOR5 25//daq indicaor
-#define INDICATOR6 5//com indicator
-
-
-
-// Comes from manual calibration. Adjust if servos no longer
-// in correct closed or open position
-#define servo1ClosedPosition 100
-#define servo1OpenPosition 10
-#define servo2ClosedPosition 130
-#define servo2OpenPosition 0
+#define INDICATOR1  4 // State 2 light
+#define INDICATOR2 23 // Armed indicator
+#define INDICATOR3 22 // Servo1 indicator
+#define INDICATOR4 14 // Servo 2 
+#define INDICATOR5 25 // DAQ indicaor
+#define INDICATOR6 5 // COM indicator
+// *** END *** //
 
 float pressTime = 0;
-
-
-
 
 String success;
 String message;
 int incomingMessageTime;
-int servo1_curr = servo1ClosedPosition;
-int servo2_curr = servo2ClosedPosition;
 float incomingS1 = 0;
 float incomingS2 = 0;
- int incomingPT1 = 4;
- int incomingPT2 = 4;
- int incomingPT3 = 4;
- int incomingPT4 = 4;
- int incomingFM = 0;
- int incomingPT5 = 4;
- int incomingPT6 = 4;
- int incomingPT7 = 4;
+int incomingPT1 = 4; //PT errors when initialized to zero
+int incomingPT2 = 4;
+int incomingPT3 = 4;
+int incomingPT4 = 4;
+int incomingFM = 0;
+int incomingPT5 = 4;
+int incomingPT6 = 4;
+int incomingPT7 = 4;
 short int incomingI = 0;
 int incomingDebug=0;
 int actualState = -5;
@@ -58,9 +53,8 @@ bool pressed2 = false;
 bool pressed3 = false;
 int commandstate = 0;
 
-
 //TIMING VARIABLES
-int state=-1;
+String state = "idle";
 int loopStartTime=0;
 int ignitionSendDelay=50;
 int pollingSendDelay=100;
@@ -68,24 +62,11 @@ int dataCollectionDelay=10;
 int SendDelay=pollingSendDelay;
 
 int commandedState;
-int serialState;
 
-int S1=servo1ClosedPosition; 
-int S2=servo2ClosedPosition;
 int lastSendTime=0;
 
 int lastPrintTime=0;
 int PrintDelay =1000;
-
-
-
-// SET FOR ACTIVE MODE //
-bool hotfireMode = true;
-//SET IF PLOTTING WITH MATLAB OR NOT. SERVO MANUAL CONTROL AND
-//MATLAB PLOTTING ARE NOT COMPATIBLE DUE TO USING THE SAME SERIAL
-//INPUT. IF TRUE, PLOTTING ENABLED. IF FALSE, MANUAL CONTROL ENABLED
-bool MatlabPlot = true;
-
 
 float button1Time = 0;
 float currTime = 0;
@@ -107,7 +88,6 @@ unsigned long t2;
 //NON BUSTED DAQ {0x7C, 0x9E, 0xBD, 0xD8, 0xFC, 0x14}
 // uint8_t broadcastAddress[] = {0x7C, 0x9E, 0xBD, 0xD8, 0xFC, 0x14}; //change to new Mac Address
 // {0xC4, 0xDD, 0x57, 0x9E, 0x96, 0x34};
-
 uint8_t broadcastAddress[] = {0x30, 0xC6, 0xF7, 0x2A, 0x28, 0x04};
 //{0x30, 0xC6, 0xF7, 0x2A, 0x28, 0x04}
 
@@ -115,19 +95,18 @@ uint8_t broadcastAddress[] = {0x30, 0xC6, 0xF7, 0x2A, 0x28, 0x04};
 //Must match the receiver structure
 typedef struct struct_message {
     int messageTime;
-     int pt1val;
-     int pt2val;
-     int pt3val;
-     int pt4val;
-     int pt5val;
-     int pt6val;
-     int pt7val;
-     int fmval;
+    int pt1val;
+    int pt2val;
+    int pt3val;
+    int pt4val;
+    int pt5val;
+    int pt6val;
+    int pt7val;
+    int fmval;
     unsigned char S1;
     unsigned char S2;
-        int commandedState = 0;
-        int DAQstate=0;
-
+    int commandedState = 0;
+    int DAQstate = 0;
     unsigned char I;
     short int queueSize;
     int Debug;
@@ -140,7 +119,6 @@ struct_message incomingReadings;
 struct_message Commands;
 
 //
-
 
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
  // Serial.print("\r\nLast Packet Send Status:\t");
@@ -185,29 +163,12 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   actualState = incomingReadings.DAQstate;
   incomingDebug= incomingReadings.Debug;
 
-  
   receiveTimeCOM = millis();
   // Serial.println("Data received");
-  RecieveDataPrint();
-
-}
-
-void SerialRead() {
-    if (Serial.available() > 0) {
- serialState=Serial.read()-48;
-// Serial.print("AVAILABLE--------------------");
-   // Serial.println(serialState);
-   // Serial.println(" ");
-
-  }
-     //   Serial.println(commandedState); 
-     //    Serial.println(" ");
-
+  ReceiveDataPrint();
 }
 
 void setup() {
-  Commands.S1 = servo1ClosedPosition;
-  Commands.S2 = servo2ClosedPosition;
   // put your setup code here, to run once:
   Serial.begin(115200);
    // Serial.println("Start of Setup");
@@ -218,12 +179,12 @@ void setup() {
   pinMode(BUTTON3,INPUT);
   pinMode(BUTTON4, INPUT);
 
+  pinMode(INDICATOR1, OUTPUT);
   pinMode(INDICATOR2, OUTPUT);
   pinMode(INDICATOR3, OUTPUT);
   pinMode(INDICATOR4, OUTPUT);
   pinMode(INDICATOR5, OUTPUT);
   pinMode(INDICATOR6, OUTPUT);
-  pinMode(INDICATOR1, OUTPUT);
 
   pinMode(PRESS_BUTTON, OUTPUT);
   pinMode(QD_BUTTON, OUTPUT);
@@ -243,7 +204,7 @@ void setup() {
 
   //initialize ESP32
    if (esp_now_init() != ESP_OK) {
-  //  Serial.println("Error initializing ESP-NOW");
+    Serial.println("Error initializing ESP-NOW");
     return;
   }
    // Once ESPNow is successfully Init, we will register for Send CB to
@@ -264,75 +225,33 @@ void setup() {
   esp_now_register_recv_cb(OnDataRecv);
 
   Serial.println(WiFi.macAddress());
-
-
 }
-
-
 
 void printLine(String string) {
   Serial.println(string);
 }
 
-
-void LEDUpdate() {
-
-  if (incomingS1 == servo1OpenPosition) digitalWrite(INDICATOR3,HIGH); else digitalWrite(INDICATOR3,LOW);
-  if (incomingS2 == servo2OpenPosition) digitalWrite(INDICATOR4,HIGH); else digitalWrite(INDICATOR4,LOW);
-  digitalWrite(INDICATOR1,LOW);
-}
-
-
-
+// States: Idle, Fill LOX, Press LOX, Press Eth, Vent LOX, Vent Eth, Hotfire, Ignition
 void loop() {
   loopStartTime=millis();
   SerialRead();
   // State selector
   //Serial.println(actualState);
 
-  LEDUpdate();
 
+  switch (state) {
 
-switch (state) {
+  case ("idle"): //Includes polling
+    idling();
 
-  case (17): //BASIC WIFI TEST DEBUG STATE A STATE
-   wifiDebug();
-   
-    if (serialState==1) {state=1;} 
-  break;
-  
-
-  case (18): //COM INTERFACE BUTTON DEBUG STATE  B STATE
-  comDebug();
-
-    if (serialState==1) {state=1;} 
-  break;
-
-  case (-1): //start single loop
-
-    state=0; 
-  break;
-
-
-  case (0): //Default/idle
-      idle();
-      state=1;  
-    break;
-
-  case (1): //Polling
-    polling();
-
-    if ((digitalRead(BUTTON2)==1)||(serialState==2)) { state=3; S1=servo1ClosedPosition; S2=servo2ClosedPosition; SendDelay=pollingSendDelay; }
-    if (serialState==18) {state=18;} 
-    if (serialState==17) {state=17;} 
+    if ((digitalRead(BUTTON2)==1)) { state=3; S1=servo1ClosedPosition; S2=servo2ClosedPosition; SendDelay=pollingSendDelay; }
     if (digitalRead(PRESS_BUTTON)==30) {state=30;}
 
     break;
 
   case (2): //Manual Servo Control
 
- manualControl();
-  if ((serialState==40)) { state=0; SendDelay=pollingSendDelay; }
+  manualControl();
 
   break;
 
@@ -340,9 +259,9 @@ switch (state) {
     armed();
 
     //button to ignition 
-    if ((digitalRead(BUTTON3)==1)||(serialState==3)) { state=4; S1=servo1ClosedPosition; S2=servo2ClosedPosition; SendDelay=ignitionSendDelay; }
+    if ((digitalRead(BUTTON3)==1)) { state=4; S1=servo1ClosedPosition; S2=servo2ClosedPosition; SendDelay=ignitionSendDelay; }
     //RETURN BUTTON
-    if ((digitalRead(BUTTON1)==1)||(serialState==1)) { state=1; S1=servo1ClosedPosition; S2=servo2ClosedPosition; SendDelay=pollingSendDelay; }
+    if ((digitalRead(BUTTON1)==1)) { state=1; S1=servo1ClosedPosition; S2=servo2ClosedPosition; SendDelay=pollingSendDelay; }
       
     break;
 
@@ -351,9 +270,9 @@ switch (state) {
 
     ignition();
     //HOTFIRE BUTTON
-      if ((digitalRead(BUTTON4)==1)||(serialState==4)) state=5; 
+      if ((digitalRead(BUTTON4)==1)) state=5; 
       //RETURN BUTTON
-      if ((digitalRead(BUTTON1)==1)||(serialState==1)) { state=1; S1=servo1ClosedPosition; S2=servo2ClosedPosition; SendDelay=pollingSendDelay; }
+      if ((digitalRead(BUTTON1)==1)) { state=1; S1=servo1ClosedPosition; S2=servo2ClosedPosition; SendDelay=pollingSendDelay; }
       
 
 
@@ -405,17 +324,9 @@ void disconnect() {
   dataSendCheck();
 }
 
-void idle() {
-  dataSendCheck();
-  digitalWrite(INDICATOR5,LOW);
-
-}
-
-void polling() {
+void idling() {
   commandedState=1;
   dataSendCheck();
-  digitalWrite(INDICATOR5,HIGH);
-
 }
 
 void manualControl() {
@@ -756,13 +667,13 @@ void oldcode() {
 
 
 
-  RecieveDataPrint();
+  ReceiveDataPrint();
 
 
 }
 }
 
-void RecieveDataPrint() {
+void ReceiveDataPrint() {
 
   message = "";
   message.concat(millis());
@@ -794,77 +705,4 @@ void RecieveDataPrint() {
   message.concat(queueSize);
 
   printLine(message);
-}
-
-
-void wifiDebug() {
-  Commands.Debug=-64;
-  dataSend();
-  commandedState=17;
-
-  Serial.println(incomingReadings.Debug);
-  
-}
-
-
-
-void comDebug() {
-Serial.print("COM Interface Debug Mode");
-int Push_button_state = digitalRead(BUTTON1);
-int Push_button_state2 = digitalRead(BUTTON2);
-int Push_button_state3 = digitalRead(BUTTON3);
-int Push_button_state4 = digitalRead(BUTTON4);
-
-// if condition checks if push button is pressed
-// if pressed LED will turn on otherwise remain off 
-
-if ( Push_button_state == HIGH )
-{ 
-  Serial.println("button1");
-}
-
-if ( Push_button_state2 == HIGH )
-{ 
-  Serial.println("button2");
-}
-
-if ( Push_button_state3 == HIGH )
-{ 
-  Serial.println("button3");
-}
-
-if ( Push_button_state4 == HIGH )
-{ 
-  Serial.println("button4");
-}
-
-
-digitalWrite(INDICATOR1, HIGH); 
-digitalWrite(INDICATOR2, HIGH); 
-delay(200);
-
-digitalWrite(INDICATOR1, LOW); 
-digitalWrite(INDICATOR2, LOW); 
-
-
-digitalWrite(INDICATOR3, HIGH); 
-digitalWrite(INDICATOR4, HIGH); 
-delay(200);
-
-digitalWrite(INDICATOR3, LOW); 
-digitalWrite(INDICATOR4, LOW); 
-
-
-digitalWrite(INDICATOR5, HIGH); 
-digitalWrite(INDICATOR6, HIGH); 
-delay(200);
-
-digitalWrite(INDICATOR5, LOW); 
-digitalWrite(INDICATOR6, LOW); 
- 
-
-
-
-
-  
 }

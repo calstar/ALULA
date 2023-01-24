@@ -1,5 +1,5 @@
 /*
-This code runs on the DAQ ESP32 and has a couple of main functions.
+This code runs on the DAQ ESP32 and has a couple of main tasks.
 1. Read sensor data
 2. Send sensor data to COM ESP32
 3. Recieve servo commands from COM ESP32
@@ -13,8 +13,8 @@ This code runs on the DAQ ESP32 and has a couple of main functions.
 #include <Arduino.h>
 #include "HX711.h"
 
-
-#define FMPIN 4 //Flowmeter pin
+// Set pinouts
+#define FMPIN 4
 #define PTDOUT1 32
 #define CLKPT1 5
 #define PTDOUT2 15
@@ -30,23 +30,16 @@ This code runs on the DAQ ESP32 and has a couple of main functions.
 #define PTDOUT7 39
 #define CLKPT7 33
 
-#define SERVOPIN1 13
-#define SERVOPIN2 12
+// Relays for solenoids //
 #define RELAYPIN1 14
 #define RELAYPIN2 27
 
-//SET PINOUTS
-#define solenoidPinFuel
-#define solenoidPinOx
-#define fuelSolVent
-#define oxSolVent
-#define oxQD
-#define fuelQD
-
-#define servo1ClosedPosition 100
-#define servo1OpenPosition 10
-#define servo2ClosedPosition 80
-#define servo2OpenPosition 160
+#define solenoidPinFuel 1
+#define solenoidPinOx 2
+#define fuelSolVent 3
+#define oxSolVent 6
+#define oxQD 7
+#define fuelQD 8
 
 #define pressureFuel 450    //In units of psi. May need to convert to different val in terms of sensor units
 #define pressureOx 450    //In units of psi. May need to convert to different val in terms of sensor units
@@ -72,9 +65,6 @@ short loopTime=10;
 unsigned long igniteTimeControl = 0;
 unsigned long igniteTime =  250;
 
-float servo1curr =0;
-float servo2curr=0;
-
 //FM counter
 float fmcount;
 float flowRate;
@@ -97,10 +87,6 @@ HX711 scale5;
 HX711 scale6;
 HX711 scale7;
 
-//Initialize the servo objects
-Servo servo1;
-Servo servo2;
-
 ///////////////
 //IMPORTANT
 //////////////
@@ -116,10 +102,10 @@ uint8_t broadcastAddress[] ={0x7C, 0x9E, 0xBD, 0xD7, 0x2B, 0xE8};
 //{0x3C, 0x61, 0x05, 0x4A, 0xD5, 0xE0};
 // {0xC4, 0xDD, 0x57, 0x9E, 0x96, 0x34}
 
-int count=3;
+int count = 3;
 
 //STATEFLOW VARIABLES
-int state=-1;
+String state = "idle";
 unsigned int dataArraySize =0;
 int loopStartTime=0;
 int MeasurementDelay=1000; //Delay between data measurment periods in the idle loop state in m
@@ -143,12 +129,10 @@ int igniterTime=750;
 int hotfireTimer=0;
 int igniterTimer=0;
 
-
-
 //the following are only used in the oposite direction, they are included because it may be necessary for the structure to be the same in both directions
 int S1;
 int S2;
-// int S1S2;
+// Igniter;
 int I;
 
 // int commandedState;
@@ -174,25 +158,34 @@ String success;
 
 // Define variables to store readings to be sent
 int messageTime=10;
- int pt1val=1;
- int pt2val=1;
- int pt3val=1;
- int pt4val=1;
- int pt5val=1;
- int pt6val=1;
- int pt7val=1;
- int fmval=2;
+int pt1val=1;
+int pt2val=1;
+int pt3val=1;
+int pt4val=1;
+int pt5val=1;
+int pt6val=1;
+int pt7val=1;
+int fmval=2;
 
 
 //Structure example to send data
 //Must match the receiver structure
 typedef struct struct_message {
     int messageTime;
-     int pt1val;  int pt2val;  int pt3val;  int pt4val;  int pt5val;  int pt6val; int pt7val;
-     int fmval;
-
-    unsigned char S1; unsigned char S2; int commandedState=1; 
-    int DAQstate=0;unsigned char I; short int queueSize;
+    int pt1val;  
+    int pt2val; 
+    int pt3val;  
+    int pt4val;  
+    int pt5val;  
+    int pt6val; 
+    int pt7val;
+    int fmval;
+    unsigned char S1; 
+    unsigned char S2; 
+    int commandedState = 0; 
+    int DAQstate = 0;
+    unsigned char I; 
+    short int queueSize;
     int Debug;
 } struct_message;
 
@@ -206,20 +199,16 @@ struct_message Commands;
 
 esp_now_peer_info_t peerInfo;
 
-
-
-
-
 // Callback when data is sent
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
-  Serial.print("\r\nLast Packet Send Status:\t");
-   Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
-   if (status ==0){
-     success = "Delivery Success :)";
-   }
-   else{
-     success = "Delivery Fail :(";
-   }
+  //Serial.print("\r\nLast Packet Send Status:\t");
+  //Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
+  if (status ==0){
+    success = "Delivery Success :)";
+  }
+  else{
+    success = "Delivery Fail :(";
+  }
 }
 
 // Callback when data is received
@@ -229,14 +218,11 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
  //  Serial.print(len);
       // digitalWrite(ONBOARD_LED,HIGH);
 
-  S1 =Commands.S1;
+  S1 = Commands.S1;
   S2 = Commands.S2;
-  // Serial.print(Commands.S1);
-  // Serial.print(" ");
-  // Serial.println(Commands.S2);
 
  // UNCOMMENT THIS LATER!!!!!!!!!!!!!!!!
- commandedState = Commands.commandedState;
+  commandedState = Commands.commandedState;
  // Serial.println(commandedState);
 
 }
@@ -259,8 +245,6 @@ void SerialRead() {
 
 void setup() {
   //attach servo pins
-  servo1.attach(SERVOPIN1,SERVO_MIN_USEC,SERVO_MAX_USEC);
-  servo2.attach(SERVOPIN2,SERVO_MIN_USEC,SERVO_MAX_USEC);
 
   // attach onboard LED
   // pinMode(ONBOARD_LED,OUTPUT);
@@ -283,7 +267,7 @@ void setup() {
   digitalWrite(oxQD, LOW);
   digitalWrite(fuelQD, LOW);
 
-//set gains for pt pins
+  //set gains for pt pins
   scale1.begin(PTDOUT1, CLKPT1); scale1.set_gain(64);
   scale2.begin(PTDOUT2, CLKPT2); scale2.set_gain(64);
   scale3.begin(PTDOUT3, CLKPT3); scale3.set_gain(64);
@@ -292,7 +276,6 @@ void setup() {
   scale6.begin(PTDOUT6, CLKPT6); scale6.set_gain(64);
   scale7.begin(PTDOUT7, CLKPT7); scale7.set_gain(64);
 
-//Flowmeter untreupt
   pinMode(FMPIN, INPUT);           //Sets the pin as an input
 
   Serial.begin(115200);
