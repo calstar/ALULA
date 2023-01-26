@@ -28,7 +28,7 @@ This code runs on the DAQ ESP32 and has a couple of main tasks.
 #define PTDOUT7 39
 #define CLKPT7 33
 
-// Relays for solenoids //
+// Relays for solenoids // 
 #define RELAYPIN1 14
 #define RELAYPIN2 27
 
