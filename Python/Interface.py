@@ -4,7 +4,7 @@ from serial import Serial
 import time
 
 # Port num of esp32 depends on OS and usb slot. Check the Arduino IDE to verify port num on computer. For Mac, use "/dev/cu.usbserial-0001".
-port_num = "COM3"
+port_num = "COM14"
 esp32 = Serial(port=port_num, baudrate = 115200, timeout=0.1)
 
 # Create a filename in the format: res_data_{year}-{month}-{day}_test{num}.
