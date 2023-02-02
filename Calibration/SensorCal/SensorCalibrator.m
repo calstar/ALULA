@@ -4,7 +4,7 @@ function SensorCalibrator
 close all; clear;
 % clear all
 % reset all ports; otherwise might be unable to connect to port
-instrreset;
+clear;
 
 % create our clean up object for interrupt
 cleanupObj = onCleanup(@cleanMeUp);
@@ -16,10 +16,10 @@ cleanupObj = onCleanup(@cleanMeUp);
 % The code will read from the previous data, or establish a new file if no
 % data present.
 % MUST CHANGE NAME OR DELETE PREVIOUS FILE IF DIFFERENT NUMBER OF SENSORS REPORT DATA
-fileName = 'PTCalibration_Oct29_newnew';
+fileName = 'PTCal_201';
 
 % NAME THE FOLDER YOU WANT THE TEST TO BE IN
-folderName = 'Oct29PTNum_Newnew';
+folderName = 'PTCal_201_test';
 
 % Name the sensors (will be used in data logging and graph titles)
 testDevice = 'PT ';
