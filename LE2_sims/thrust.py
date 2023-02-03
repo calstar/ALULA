@@ -26,6 +26,17 @@ class Numerical_stuff:#contains things like RK4 and stuff
          k3 = h*f(alpha + k2/2)
          k4 = h*f(alpha + k3)
          return alpha +  (k1 + 2*k2 + 2*k3 + k4)/6
+    def integrate(arr,time,h):
+        N = time/h
+        sum = 0
+        for i in range(N):
+            if i == 0 or i == N - 1:
+                sum = sum + h*arr[i]
+            else :
+                sum = sum + 2*h*arr[i]
+        return sum
+            
+
 
     def derivative(arr,index,time):
         #literally does what the function name says, O(h) for end points, h^2 elsewhere
@@ -71,7 +82,8 @@ class flow_functions:
     def CW_wmdot(l,mdot,eps,diameter,fluid) :
         Re = fluid.get_Reynolds(diameter,mdot)
         return flow_functions.CW(l,Re,eps,diameter)
-    #derivative of Colebrook_White wrt Reynolds number  
+    #derivative of Colebrook_White wrt Reynolds number 
+
     def dCW(l,Re,eps,diameter):
         a = 2.51/Re             #Re is Reynolds number
         b = 4*eps/(14.8*diameter)       #eps is friction factor of pipe
@@ -81,8 +93,9 @@ class flow_functions:
         return (X/(Y*Z))*(-2.51/(Re*Re))
 
 
-def get_thrust(fuel,oxidizer,total_time,pipes,fittings):
+def get_thrust(fuel,oxidizer,total_time,pipes,fittings,pipes_fuel,fittings_fuel):
     #this section just initializes all params
+    integrate = Numerical_stuff.integrate
     chamber = CEA_Obj(propName="", oxName=oxidizer.name, fuelName=fuel.name) #initializs CEA object
     temp = {}
     N = 1000
@@ -109,25 +122,35 @@ def get_thrust(fuel,oxidizer,total_time,pipes,fittings):
     tank_pressure_ox[0] = 3103000 #450 psi in Pascal, could possibly update this using Sara's collapse factor just to mkae everything more streamlined
     tank_pressure_fuel[0] = 3103000 
     chamber_pressure[0] = 103125 #1 atm in Pa, or whatever ambient temperature is
-    mdot_ox[0] = 0
-    mdot_fuel[0] = 0
-    
+    area_exit_ox = 1
+    area_exit_fuel = 1
+    mdot_ox[0] = 0.99*area_exit_ox*numpy.sqrt(2*tank_pressure_ox[0]*oxidizer.density + 20*oxidizer.mass*oxidizer.density/cylinder_area[oxidizer.name])
+    mdot_fuel[0] = 0.94*area_exit_fuel*numpy.sqrt(2*tank_pressure_fuel[0]*fuel.density + 20*fuel.mass*fuel.density/cylinder_area[fuel.name])
+    new_pressure_ox = tank_pressure_ox[0] + oxidizer.mass/oxidizer.area
+    new_pressure_fuel = tank_pressure_fuel[0] + fuel.mass/fuel.area
+    #move through pipes and fittings
    
+        
    #start the solve. Refer to Latex documentation for explanation of model
 
-    b = lambda x,t : flow_functions.CW_wmdot() + chamber_pressure[t]
     for t in T:
-        tank_pressure_ox[t + 1/N] = Numerical_stuff.RK4ns(b,mdot_ox[t],0,total_time,N)
-        tank_pressure_fuel[t + 1/N] = Numerical_stuff.RK4ns(b,mdot_fuel[t],0,total_time,N)
-        ISP = chamber.get_Isp(chamber_pressure[t],mdot_ox[t]/mdot_fuel[t])
-        thrust[t] = ISP*10*(mdot_fuel[t] + mdot_ox[t])
-        massfracD = chamber.get_SpeciesMoleFractions(chamber_pressure[t],mdot_ox[t]/mdot_fuel[t])
-        mdot_fuel[t + 1/N] = update_mdot(tank_pressure_fuel)
-        mdot_ox[t + 1/N] = update_mdot(tank_pressure_ox)
+        tank_pressure_ox.append((-5/3)*mdot_ox[t]/(oxidizer.volume*oxidizer.density - integrate(mdot_ox,t,h)) + tank_pressure_ox[t])
+        tank_pressure_fuel.append((-5/3)*mdot_fuel[t]/(fuel.volume*fuel.density - integrate(mdot_ox,t,h)) + tank_pressure_fuel[t])
+        mdot_ox[t] = 0.99*area_exit_ox*numpy.sqrt(2*tank_pressure_ox[0]*oxidizer.density + 20*oxidizer.mass*oxidizer.density/cylinder_area[oxidizer.name])
+        mdot_fuel[t] = 0.94*area_exit_fuel*numpy.sqrt(2*tank_pressure_fuel[0]*fuel.density + 20*fuel.mass*fuel.density/cylinder_area[fuel.name])
+        for i in len(pipes):
+            new_pressure_ox = -0.5*pipes[i].length*flow_functions.CW(pipes[i].length,oxidizer.get_Reynolds(pipes[i].diam,mdot_ox[0]))*mdot_ox*mdot_ox/(oxidizer.density*pipes[i].area*pipes[i].area*pipes[i].diam) + new_pressure_ox
+            new_pressure_ox = new_pressure_ox - mdot_ox*mdot_ox/(2*fittings[i].Cd*fittings[i].Cd*pipes[i].area*pipes[i].area*oxidizer.density)
+        for i in len(pipes_fuel):
+            new_pressure_fuel = -0.5*pipes_fuel[i].length*flow_functions.CW(pipes_fuel[i].length,fuel.get_Reynolds(pipes_fuel[i].diam,mdot_fuel[0]))*mdot_fuel*mdot_fuel/(fuel.density*pipes_fuel[i].area*pipes_fuel[i].area*pipes_fuel[i].diam) + new_pressure_fuel
+            new_pressure_fuel = new_pressure_fuel - mdot_fuel*mdot_fuel/(2*fittings_fuel[i].Cd*fittings_fuel[i].Cd*pipes_fuel[i].area*pipes_fuel[i].area*fuel.density)
+        
+
+        
  #Carolline's part to update chamber pressure
    
         for i in len(massfracD.keys()):
-            mole_i = massfracD[i][1] * mdot * timestep / moleWtD[i][0] 
+            mole_i = massfracD[i][1] * (mdot_fuel[t] + mdot_ox[t]) * 1 / (N*moleWtD[i][0] )
             if massfracD[i] == "CO": 
                 #Ppc = sum(mole_i*Pci)
                 #Tpc = sum(mole_i*Tci)
