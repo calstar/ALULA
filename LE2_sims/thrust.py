@@ -93,23 +93,23 @@ class flow_functions:
 
     def dP_bend(Re,diameter,eps,density,velocity,dff):   #dff is the Darcy Friction Factor
         Re_star = (2.89/(1+1000*eps/diameter))^12
-        if 2320<=Re && Re<2*10^5;
-            if eps/diameter>=0.001;
-                K = (128*dff*0.21)*sqrt(diameter/0.036322) + ((numpy.pi/2*0.036322/diameter)*dff)
-            elif eps/diameter < 0.001;
-                if Re>= Re_star;
-                    K = (64*dff*0.21*(1+1000*eps/diameter))*sqrt(diameter/0.036322)+(numpy.pi/2*0.036322/diameter*dff)
-                elif Re< Re_star;
-                    K = 58.8*sqrt(diameter/0.036322)*0.21/(Re^(1/3))+(numpy.pi/2*0.036322/diameter*dff)
-            elif eps/diameter == 0;
-                K = 58.8*sqrt(diameter/0.036322)*0.21/(Re^(1/3))+(numpy.pi/2*0.036322/diameter*dff)
-        elif Re>=2*10^5;
-            if eps/diameter>=0.001;
-                K = 0.42*sqrt(diameter/0.036322)+(numpy.pi/2*0.036322/diameter*dff)
-            elif eps/diameter < 0.001;
-                K = 0.21*(1+1000*eps/diameter)*sqrt(diameter/0.036322)+(numpy.pi/2*0.036322/diameter*dff)
-            elif eps/diameter == 0;
-                K = 0.21*sqrt(diameter/0.036322)+(numpy.pi/2*0.036322/diameter*dff)
+        if 2320<=Re and Re<2*10^5 :
+            if eps/diameter>=0.001 :
+                K = (128*dff*0.21)*numpy.sqrt(diameter/0.036322) + ((numpy.pi/2*0.036322/diameter)*dff)
+            elif eps/diameter < 0.001 :
+                if Re>= Re_star :
+                    K = (64*dff*0.21*(1+1000*eps/diameter))*numpy.sqrt(diameter/0.036322)+(numpy.pi/2*0.036322/diameter*dff)
+                elif Re< Re_star :
+                    K = 58.8*numpy.sqrt(diameter/0.036322)*0.21/(Re^(1/3))+(numpy.pi/2*0.036322/diameter*dff)
+            elif eps/diameter == 0 :
+                K = 58.8*numpy.sqrt(diameter/0.036322)*0.21/(Re^(1/3))+(numpy.pi/2*0.036322/diameter*dff)
+        elif Re>=2*10^5 :
+            if eps/diameter>=0.001 :
+                K = 0.42*numpy.sqrt(diameter/0.036322)+(numpy.pi/2*0.036322/diameter*dff)
+            elif eps/diameter < 0.001 :
+                K = 0.21*(1+1000*eps/diameter)*numpy.sqrt(diameter/0.036322)+(numpy.pi/2*0.036322/diameter*dff)
+            elif eps/diameter == 0 :
+                K = 0.21*numpy.sqrt(diameter/0.036322)+(numpy.pi/2*0.036322/diameter*dff)
         return (K*density/2*velocity^2)
 
 
