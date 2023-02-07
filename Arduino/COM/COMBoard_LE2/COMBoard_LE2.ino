@@ -10,23 +10,15 @@ This code runs on the COM ESP32 and has a couple of main tasks.
 #include <Arduino.h>
 #include "HX711.h"
 
-// *** START - WILL BE REPLACED BY LABVIEW STATE DETERMINATION *** //
 // Set pinouts
-#define BUTTON1 19
-#define BUTTON2 17
-#define BUTTON3 16
-#define BUTTON4 21 
-#define BUTTON5 27
-#define PRESS_BUTTON 1 
-#define QD_BUTTON 2
-
-#define INDICATOR1  4 // State 2 light
-#define INDICATOR2 23 // Armed indicator
-#define INDICATOR3 22 // Servo1 indicator
-#define INDICATOR4 14 // Servo 2 
-#define INDICATOR5 25 // DAQ indicaor
-#define INDICATOR6 5 // COM indicator
-// *** END *** //
+#define BUTTON_IDLE 19
+#define BUTTON_PRESSETH 17
+#define BUTTON_FILL 16
+#define BUTTON_PRESSLOX 21 
+#define BUTTON_HOTFIRE 27
+#define BUTTON_IGNITION 1 
+#define BUTTON_VENTETH 2
+#define BUTTON_VENT 12
 
 float pressTime = 0;
 
@@ -74,8 +66,6 @@ int x = 1;
 unsigned long t1;
 unsigned long t2;
 
-//
-
 //ENSURE IP ADDRESS IS CORRECT FOR DEVICE IN USE!!!
 //DAQ Breadboard {0x24, 0x62, 0xAB, 0xD2, 0x85, 0xDC}
 //DAQ Protoboard {0x0C, 0xDC, 0x7E, 0xCB, 0x05, 0xC4}
@@ -109,8 +99,6 @@ struct_message incomingReadings;
 // Create a struct_message to send commands
 struct_message Commands;
 
-//
-
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
   if (status == 0) {
     sendTime = millis();
@@ -143,31 +131,14 @@ void setup() {
    // Serial.println("Start of Setup");
 
   // Use buttons for moving between states
-  pinMode(BUTTON1,INPUT);
-  pinMode(BUTTON2, INPUT);
-  pinMode(BUTTON3,INPUT);
-  pinMode(BUTTON4, INPUT);
-  pinMode(BUTTON5, INPUT);
-
-  pinMode(INDICATOR1, OUTPUT);
-  pinMode(INDICATOR2, OUTPUT);
-  pinMode(INDICATOR3, OUTPUT);
-  pinMode(INDICATOR4, OUTPUT);
-  pinMode(INDICATOR5, OUTPUT);
-  pinMode(INDICATOR6, OUTPUT);
-
-  pinMode(PRESS_BUTTON, OUTPUT);
-  pinMode(QD_BUTTON, OUTPUT);
-
-  digitalWrite(INDICATOR2,LOW);
-  digitalWrite(INDICATOR3, LOW);
-  digitalWrite(INDICATOR4, LOW);
-  digitalWrite(INDICATOR5, LOW);
-  digitalWrite(INDICATOR6, LOW);
-  digitalWrite(INDICATOR1, LOW);
-
-  digitalWrite(PRESS_BUTTON, LOW);
-  digitalWrite(QD_BUTTON, LOW);
+  pinMode(BUTTON_IDLE,INPUT);
+  pinMode(BUTTON_PRESSETH, INPUT);
+  pinMode(BUTTON_FILL,INPUT);
+  pinMode(BUTTON_PRESSLOX, INPUT);
+  pinMode(BUTTON_HOTFIRE, INPUT);
+  pinMode(BUTTON_IGNITION, OUTPUT);
+  pinMode(BUTTON_VENTETH, OUTPUT);
+  pinMode(BUTTON_VENT, OUTPUT);
 
   //set device as WiFi station
   WiFi.mode(WIFI_STA);
