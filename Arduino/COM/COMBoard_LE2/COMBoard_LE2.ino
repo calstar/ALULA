@@ -10,61 +10,57 @@ This code runs on the COM ESP32 and has a couple of main tasks.
 #include <Arduino.h>
 #include "HX711.h"
 
-// Set pinouts
+// Set pinouts. Currently set arbitrarily
 #define BUTTON_IDLE 19
-#define BUTTON_PRESSETH 17
+#define BUTTON_ARMED 22
 #define BUTTON_FILL 16
-#define BUTTON_PRESSLOX 21 
-#define BUTTON_HOTFIRE 27
-#define BUTTON_IGNITION 1 
-#define BUTTON_VENTETH 2
-#define BUTTON_VENT 12
+#define BUTTON_PRESS 17
+#define BUTTON_QD 5
+#define BUTTON_IGNITION 1
+#define BUTTON_HOTFIRE 27 
+#define BUTTON_ABORT 12
 
 float pressTime = 0;
 
 String success;
 String message;
+String commandedState;
+
 int incomingMessageTime;
 int incomingPT1 = 4; //PT errors when initialized to zero
 int incomingPT2 = 4;
 int incomingPT3 = 4;
 int incomingPT4 = 4;
-int incomingFM = 0;
 int incomingPT5 = 4;
-int incomingPT6 = 4;
-int incomingPT7 = 4;
-short int incomingI = 0;
-int incomingDebug = 0;
-int actualState = -5;
+int incomingLC1 = 4;
+int incomingLC2 = 4;
+int incomingLC3 = 4;
+int incomingTC1 = 4;
+int incomingTC2 = 4;
+float incomingCap1 = 0;
+float incomingCap2 = 0;
 short int queueSize = 0;
+bool fillComplete = false;
+bool pressEthComplete = false;
+bool pressLOXComplete = false;
+
 esp_now_peer_info_t peerInfo;
-bool pressed1 = false;
-bool pressed2 = false;
-bool pressed3 = false;
-int commandstate = 0;
 
 //TIMING VARIABLES
-String state = "idle";
+int state;
+int serialState;
+int manualState;
 int loopStartTime;
-int dataCollectionDelay = 10;
-int sendDelay = 50;
+int sendDelay = 50;   //Measured in ms
+enum STATES {IDLE, ARMED, FILL, PRESS_ETH, PRESS_LOX, QD, IGNITION, HOTFIRE, ABORT, DEBUG=99};
 
-String commandedState;
+double lastPrintTime = 0;
 
-int lastPrintTime = 0;
-int PrintDelay = 1000;
-
-float button1Time = 0;
 float currTime = 0;
 float loopTime = 0;
 
 float sendTime = 0;
 float receiveTime = 0;
-
-//for blinking LED during Data Collection
-int x = 1;
-unsigned long t1;
-unsigned long t2;
 
 //ENSURE IP ADDRESS IS CORRECT FOR DEVICE IN USE!!!
 //DAQ Breadboard {0x24, 0x62, 0xAB, 0xD2, 0x85, 0xDC}
@@ -79,19 +75,24 @@ uint8_t broadcastAddress[] = {0x30, 0xC6, 0xF7, 0x2A, 0x28, 0x04};
 //Must match the receiver structure
 typedef struct struct_message {
     int messageTime;
-    int pt1val;
-    int pt2val;
-    int pt3val;
-    int pt4val;
-    int pt5val;
-    int pt6val;
-    int pt7val;
-    int fmval;
-    String commandedState = "idle";
-    unsigned char I;
+    int pt1;
+    int pt2;
+    int pt3;
+    int pt4;
+    int pt5;
+    int lc1;
+    int lc2;
+    int lc3;
+    int tc1;
+    int tc2;
+    float cap1;
+    float cap2;
+    int commandedState;
     short int queueSize;
-    int Debug;
-} struct_message;
+    bool fillComplete;
+    bool pressEthComplete;
+    bool pressLOXComplete;
+} struct_message; 
 
 // Create a struct_message called Readings to recieve sensor readings remotely
 struct_message incomingReadings;
@@ -114,14 +115,16 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   incomingPT3 = incomingReadings.pt3;
   incomingPT4 = incomingReadings.pt4;
   incomingPT5 = incomingReadings.pt5;
-  incomingPT6 = incomingReadings.pt6;
-  incomingPT7 = incomingReadings.pt7;
-  incomingFM = incomingReadings.fmval;
+  incomingLC1 = incomingReadings.lc1;
+  incomingLC2 = incomingReadings.lc2;
+  incomingLC3 = incomingReadings.lc3;
+  incomingTC1 = incomingReadings.tc1;
+  incomingTC2 = incomingReadings.tc2;
+  incomingCap1 = incomingReadings.cap1;
+  incomingCap2 = incomingReadings.cap2;
   queueSize = incomingReadings.queueSize;
-  incomingI = incomingReadings.I;
-  incomingDebug = incomingReadings.Debug;
 
-  receiveTimeCOM = millis();
+  receiveTime = millis();
   receiveDataPrint();
 }
 
@@ -132,13 +135,13 @@ void setup() {
 
   // Use buttons for moving between states
   pinMode(BUTTON_IDLE,INPUT);
-  pinMode(BUTTON_PRESSETH, INPUT);
+  pinMode(BUTTON_ARMED,INPUT);
   pinMode(BUTTON_FILL,INPUT);
-  pinMode(BUTTON_PRESSLOX, INPUT);
-  pinMode(BUTTON_HOTFIRE, INPUT);
-  pinMode(BUTTON_IGNITION, OUTPUT);
-  pinMode(BUTTON_VENTETH, OUTPUT);
-  pinMode(BUTTON_VENT, OUTPUT);
+  pinMode(BUTTON_PRESS,INPUT);
+  pinMode(BUTTON_QD,INPUT);
+  pinMode(BUTTON_IGNITION,INPUT);
+  pinMode(BUTTON_HOTFIRE,INPUT);
+  pinMode(BUTTON_ABORT,INPUT);
 
   //set device as WiFi station
   WiFi.mode(WIFI_STA);
@@ -164,110 +167,153 @@ void setup() {
   // Register for a callback function that will be called when data is received
   esp_now_register_recv_cb(OnDataRecv);
 
-  Serial.println(WiFi.macAddress());
+  // Used for debugging
+  // Serial.println(WiFi.macAddress());
+  state = IDLE;
+  serialState = IDLE;
 }
 
-void printLine(String string) {
-  Serial.println(string);
-}
-
-// States: Idle, Fill LOX, Press LOX, Press Eth, Vent LOX, Vent Eth, Hotfire, Ignition
 void loop() {
   loopStartTime=millis();
   SerialRead();
 
   switch (state) {
 
-  case ("idle"): //Includes polling
+  case (IDLE): //Includes polling
     idle();
-    if (digitalRead(BUTTON2) == 1) {state = "press_eth";}
+    if (digitalRead(BUTTON_ARMED)==1) {serialState=ARMED;}
+    if (digitalRead(BUTTON_ABORT)==1) {serialState=ABORT;}
+    state = serialState;
     break;
 
-  case ("press_eth"): //Pressurizes ethanol tank
-    press_eth();
-    if (digitalRead(BUTTON1) == 1) {state = "idle";}
-    if (digitalRead(BUTTON3) == 1) {state = "fill";}
-    if (digitalRead(BUTTON5) == 1) {state = "vent_eth";}
+  case (ARMED):
+    armed();
+    if (digitalRead(BUTTON_FILL)==1) {serialState=FILL;}
+    if (digitalRead(BUTTON_ABORT)==1) {serialState=ABORT;}
+    state = serialState;
     break;
 
-  case ("fill"): //Fills LOX tank
+  case (FILL): //Fills LOX tank
     fill();
-    if (digitalRead(BUTTON4)==1) {state="press_lox";} 
-    if (digitalRead(BUTTON1)==1) {state="vent";}  
+    if (digitalRead(BUTTON_PRESS)==1 && fillComplete) {serialState=PRESS_ETH;} 
+    if (digitalRead(BUTTON_IDLE)==1) {serialState=IDLE;}
+    if (digitalRead(BUTTON_ABORT)==1) {serialState=ABORT;}
+    state = serialState;  
     break;
 
-  case ("press_lox"): //Pressurizes LOX tank
+  case (PRESS_ETH): //Pressurizes ethanol tank
+    press_eth();
+    if (digitalRead(BUTTON_IDLE)==1) {serialState=IDLE;}
+    if (fillEthComplete) {serialState=PRESS_LOX;}
+    if (digitalRead(BUTTON_ABORT)==1) {serialState=ABORT;}
+    state = serialState;
+    break;
+
+  case (PRESS_LOX): //Pressurizes LOX tank
     press_lox();
-    if (digitalRead(BUTTON5)==1) {state="vent";}
-    if (digitalRead(BUTTON4)==1) {state="hotfire";}
+    if (digitalRead(BUTTON_IDLE)==1) {serialState=IDLE;}
+    if (digitalRead(BUTTON_QD)==1 && fillLOXComplete) {serialState=QD;}
+    if (digitalRead(BUTTON_ABORT)==1) {serialState=ABORT;}
+    state = serialState;
     break;
 
-  case ("hotfire"):
-    hotfire();
-    if (digitalRead(BUTTON1)==1) {state="idle";}
-    if (digitalRead(BUTTON2)==1) {state="ignition";}
-    state = "ignition"
+  case (QD):
+    quick_disconnect();
+    if (digitalRead(BUTTON_IDLE)==1) {serialState=IDLE;}
+    if (digitalRead(BUTTON_IGNITION)==1) {serialState=IGNITION;}
+    if (digitalRead(BUTTON_ABORT)==1) {serialState=ABORT;}
+    state = serialState;
+    break;
 
-  case ("ignition"):
+  case (IGNITION):
     ignition();
-    state = "idle";
+    if (digitalRead(BUTTON_IDLE)==1) {serialState=IDLE;}
+    if (digitalRead(BUTTON_HOTFIRE)==1) {serialState=HOTFIRE;}
+    if (digitalRead(BUTTON_ABORT)==1) {serialState=ABORT;}
+    state = serialState;
+    break;
 
-  case ("vent_eth"): //Vents ethanol
-    vent_eth();
-    if (digitalRead(BUTTON1)==1) {state="idle";}
+  case (HOTFIRE):
+    hotfire();
+    if (digitalRead(BUTTON_IDLE)==1) {serialState=IDLE;}
+    if (digitalRead(BUTTON_ABORT)==1) {serialState=ABORT;}
+    state = serialState;
+    break;
   
-  case ("vent"): //Vents both LOX and ethanol
-    vent();
-    if (digitalRead(BUTTON1)==1) {state=="idle";}
+  case (ABORT): 
+    abort();
+    if (digitalRead(BUTTON_IDLE)==1) {serialState=IDLE;}
+    state = serialState;
+    break;
   }
+
+  case (DEBUG):
+    debug();
+    if (digitalRead(BUTTON_IDLE)==1) {serialState=IDLE;}
+    state = serialState;
+    break;
+
 }
 
 void idle() {
-  commandedState= "idle";
+  commandedState = IDLE;
   dataSendCheck();
 }
 
-void press_eth() {
-  commandedState = "press_eth";
+void armed() {
+  commandedState = ARMED;
   dataSendCheck();
 }
 
 void fill() {
-  commandedState = "fill";
+  commandedState = FILL;
   dataSendCheck();
 }
+
+void press_eth() {
+  commandedState = PRESS_ETH;
+  dataSendCheck();
+}
+
 
 void press_lox() {
-  commandedState = "press_lox";
+  commandedState = PRESS_LOX;
   dataSendCheck();
 }
 
-void hotfire() {
-  commandedState = "hotfire";
+void quick_disconnect() {
+  commandedState = QD;
   dataSendCheck();
 }
 
 void ignition() {
-  commandedState = "ignition";
+  commandedState = IGNITION;
   dataSendCheck();
 }
 
-void vent_eth() {
-  commandedState = "vent_eth";
+void hotfire() {
+  commandedState = HOTFIRE;
   dataSendCheck();
 }
 
-void vent() {
-  commandedState = "vent";
+void abort() {
+  commandedState = ABORT;
+  dataSendCheck();
+}
+
+void debug() {
+  commandedState = DEBUG;
   dataSendCheck();
 }
 
 void dataSendCheck() {
-  if ((loopStartTime-lastSendTime) > sendDelay) dataSend(); 
+  if ((loopStartTime-sendTime) > sendDelay) {
+    dataSend(); 
+  }
 }
 
 void dataSend() {
-   // Set values to send
+  // Set values to send
   Commands.commandedState = commandedState;
 
   // Send message via ESP-NOW
@@ -288,15 +334,46 @@ void receiveDataPrint() {
   message.concat(" ");
   message.concat(incomingPT5);
   message.concat(" ");
-  message.concat(incomingPT6);
+  message.concat(incomingLC1);
   message.concat(" ");
-  message.concat(incomingPT7);
+  message.concat(incomingLC2);
   message.concat(" ");
-  message.concat(incomingFM);
+  message.concat(incomingLC3);
+  message.concat(" ");
+  message.concat(incomingCap1);
+  message.concat(" ");
+  message.concat(incomingCap2);
   message.concat(" ");
   message.concat(Commands.commandedState);
   message.concat(" ");
   message.concat(queueSize);
 
-  printLine(message);
+  Serial.println(message);
+}
+
+void SerialRead() {
+  if (Serial.available() > 0) {
+    manualState = Serial.read() - 48;
+    if (manualState == 0) {
+      serialState = IDLE;
+    } else if (manualState == 1) {
+      serialState = ARMED;
+    } else if (manualState == 2) {
+      serialState = FILL;
+    } else if (manualState == 3) {
+      serialState = PRESS_ETH;
+    } else if (manualState == 4) {
+      serialState = PRESS_LOX;
+    } else if (manualState == 5) {
+      serialState = QD;
+    } else if (manualState == 6) {
+      serialState = IGNITION;
+    } else if (manualState == 7) {
+      serialState = HOTFIRE;
+    } else if (manualState == 8) {
+      serialState = VENT;
+    } else if (manualState = 99) {
+      serialState = DEBUG;
+    }
+  }
 }
