@@ -12,25 +12,32 @@ This code runs on the DAQ ESP32 and has a couple of main tasks.
 #include "HX711.h"
 
 // Set pinouts
-#define FMPIN 4
-#define PTDOUT1 32
+#define PTOUT1 32
 #define CLKPT1 5
-#define PTDOUT2 15
+#define PTOUT2 15
 #define CLKPT2 2
-#define PTDOUT3 22
+#define PTOUT3 22
 #define CLKPT3 23
-#define PTDOUT4 19
+#define PTOUT4 19
 #define CLKPT4 21
-#define PTDOUT5 35
+#define PTOUT5 35
 #define CLKPT5 25
-#define PTDOUT6 34
-#define CLKPT6 26
-#define PTDOUT7 39
-#define CLKPT7 33
+#define LCOUT1 34
+#define CLKLC1 26
+#define LCOUT2 39
+#define CLKLC2 33
+#define LCOUT3 32
+#define CLKLC3 41
 
 // Relays for solenoids // 
 #define RELAYPIN1 14
 #define RELAYPIN2 27
+#define RELAYPIN3 28
+#define RELAYPIN4 35
+#define RELAYPIN5 55
+#define RELAYPIN6 43
+#define RELAYPIN7 95
+#define RELAYPIN8 24
 
 #define solenoidPinFuel 1
 #define solenoidPinOx 2
@@ -196,11 +203,11 @@ void setup() {
   digitalWrite(fuelQD, LOW);
 
   //set gains for pt pins
-  scale1.begin(PTDOUT1, CLKPT1); scale1.set_gain(64);
-  scale2.begin(PTDOUT2, CLKPT2); scale2.set_gain(64);
-  scale3.begin(PTDOUT3, CLKPT3); scale3.set_gain(64);
-  scale4.begin(PTDOUT4, CLKPT4); scale4.set_gain(64);
-  scale5.begin(PTDOUT5, CLKPT5); scale5.set_gain(64);
+  scale1.begin(PTOUT1, CLKPT1); scale1.set_gain(64);
+  scale2.begin(PTOUT2, CLKPT2); scale2.set_gain(64);
+  scale3.begin(PTOUT3, CLKPT3); scale3.set_gain(64);
+  scale4.begin(PTOUT4, CLKPT4); scale4.set_gain(64);
+  scale5.begin(PTOUT5, CLKPT5); scale5.set_gain(64);
   scale6.begin(PTDOUT6, CLKPT6); scale6.set_gain(64);
   scale7.begin(PTDOUT7, CLKPT7); scale7.set_gain(64);
 
