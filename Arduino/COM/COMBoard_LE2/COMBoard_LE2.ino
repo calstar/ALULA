@@ -251,7 +251,6 @@ void loop() {
     if (digitalRead(BUTTON_IDLE)==1) {serialState=IDLE;}
     state = serialState;
     break;
-
   }
 }
 
