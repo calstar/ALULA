@@ -48,12 +48,12 @@ This code runs on the DAQ ESP32 and has a couple of main tasks.
 #define ADC_Max 4096;
 
 //Initialize flow meter variables for how it computes the flow amount
-short currentMillis = 0;
-short goalTime = 50;
-short currReading1;
-short currReading2;
-short loopTime=10;
-float sendTime;
+//short currentMillis = 0;
+//short goalTime = 50;
+//short currReading1;
+//short currReading2;
+//short loopTime=10;
+//float sendTime;
 
 unsigned long igniteTimeControl = 0;
 unsigned long igniteTime =  250;
@@ -104,7 +104,7 @@ int loopStartTime=0;
 int measurementDelay=50; 
 
 int lastPrintTime=0;
-int PrintDelay =1000;
+
 
 int lastMeasurementTime=-1;
 short int queueLength=0;
@@ -253,10 +253,15 @@ void loop() {
 
   switch (state) {
 
-  case ("idle"): 
+  case ("idle"):
       idle();
       if (commandedState=="press_eth") {state="press_eth";}
       break;
+
+  case ("arm"): //NEED TO ADD TO CASE OPTIONS
+      //ALLOWS OTHER CASES TO TRIGGER
+      //INITIATE TANK PRESS LIVE READINGS
+
 
   case ("press_eth"):
       press_eth();
@@ -464,22 +469,22 @@ void getReadings(){
   printSensorReadings();
   lastMeasurementTime=loopStartTime;
 }
-
-void flowMeterReadings() {
-  currentMillis = millis();
-  fmcount = 0;
-
-  while (millis() - currentMillis < goalTime) {
-    currentState = digitalRead(FMPIN);
-    if (!(currentState == lastState)) {
-
-    lastState = currentState;
-    fmcount += 1;
-   }
- }
-  flowRate = fmcount;
-  fmval =int(flowRate+1);  // Print the integer part of the variable
-}
+//
+//void flowMeterReadings() {
+//  currentMillis = millis();
+//  fmcount = 0;
+//
+//  while (millis() - currentMillis < goalTime) {
+//    currentState = digitalRead(FMPIN);
+//    if (!(currentState == lastState)) {
+//
+//    lastState = currentState;
+//    fmcount += 1;
+//   }
+// }
+//  flowRate = fmcount;
+//  fmval =int(flowRate+1);  // Print the integer part of the variable
+//}
 
 void printSensorReadings() {
    serialMessage = "";
