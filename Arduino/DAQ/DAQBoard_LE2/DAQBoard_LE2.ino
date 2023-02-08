@@ -47,22 +47,13 @@ This code runs on the DAQ ESP32 and has a couple of main tasks.
 //define servo necessary values
 #define ADC_Max 4096;
 
-//Initialize flow meter variables for how it computes the flow amount
-//short currentMillis = 0;
-//short goalTime = 50;
-//short currReading1;
-//short currReading2;
-//short loopTime=10;
-//float sendTime;
-
-unsigned long igniteTimeControl = 0;
-unsigned long igniteTime =  250;
 
 //FM counter
 float fmcount;
 float flowRate;
 boolean currentState;
 boolean lastState = false;
+
 
 // Serial Message setup
 String serialMessage = "";
