@@ -387,7 +387,7 @@ void hotfire() {
 
 void ignition() {
   if ((loopStartTime-igniterTimer) < igniterTime) { digitalWrite(RELAYPIN1, LOW); digitalWrite(RELAYPIN2, LOW); Serial.print("IGNITE"); }
-  if ((loopStartTime-igniterTimer) > igniterTime) {  digitalWrite(RELAYPIN1, HIGH); digitalWrite(RELAYPIN2, HIGH); Serial.print("NO"); }
+  if ((loopStartTime-igniterTimer) > igniterTime) { digitalWrite(RELAYPIN1, HIGH); digitalWrite(RELAYPIN2, HIGH); Serial.print("NO"); }
   sendData();
 
   Serial.println(loopStartTime-igniterTimer);
