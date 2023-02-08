@@ -16,8 +16,8 @@ This code runs on the DAQ ESP32 and has a couple of main functions.
 
 //define pins to use for the various sensors and connections. define takes up less space on the chip
 #define ONBOARD_LED  13
-#define PTDOUT1 32
-#define CLKPT1 5
+#define PTDOUT1 36
+#define CLKPT1 27
 #define PTDOUT2 15
 #define CLKPT2 2
 #define PTDOUT3 22
@@ -26,7 +26,7 @@ This code runs on the DAQ ESP32 and has a couple of main functions.
 #define CLKPT4 21
 #define PTDOUT5 35
 #define CLKPT5 25
-#define PTDOUT6 34
+#define PTDOUT6 5
 #define CLKPT6 26
 #define PTDOUT7 39
 #define CLKPT7 33
@@ -59,7 +59,6 @@ HX711 scale5;
 HX711 scale6;
 HX711 scale7;
 
-
 //Initialize the servo objects
 Servo servo1;
 Servo servo2;
@@ -72,7 +71,7 @@ void setup() {
 
 //set gains for pt pins
   scale1.begin(PTDOUT1, CLKPT1);
-  scale1.set_gain(64);
+  scale1.set_gain(32, false);
      //Sets the pin as an input
 
 //set gains for pt pins
