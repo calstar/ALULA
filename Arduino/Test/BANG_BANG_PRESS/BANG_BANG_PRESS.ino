@@ -5,8 +5,8 @@
 //int counter;
 HX711 scale1;
 //int counter2;
-float threshold1 = 425;
-float threshold2 = 500;
+float threshold1 = 275;
+float threshold2 = 300;
 float period = 0.5;
 float CalOffset = 10.663;
 float CalSlope = 0.0001181;
