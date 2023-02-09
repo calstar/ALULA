@@ -24,7 +24,7 @@ float pressTime = 0;
 
 String success;
 String message;
-String commandedState;
+int commandedState;
 
 int incomingMessageTime;
 int incomingPT1 = 4; //PT errors when initialized to zero
@@ -204,7 +204,7 @@ void loop() {
   case (PRESS_ETH): //Pressurizes ethanol tank
     press_eth();
     if (digitalRead(BUTTON_IDLE)==1) {serialState=IDLE;}
-    if (fillEthComplete) {serialState=PRESS_LOX;}
+    if (pressEthComplete) {serialState=PRESS_LOX;}
     if (digitalRead(BUTTON_ABORT)==1) {serialState=ABORT;}
     state = serialState;
     break;
@@ -212,7 +212,7 @@ void loop() {
   case (PRESS_LOX): //Pressurizes LOX tank
     press_lox();
     if (digitalRead(BUTTON_IDLE)==1) {serialState=IDLE;}
-    if (digitalRead(BUTTON_QD)==1 && fillLOXComplete) {serialState=QD;}
+    if (digitalRead(BUTTON_QD)==1 && pressLOXComplete) {serialState=QD;}
     if (digitalRead(BUTTON_ABORT)==1) {serialState=ABORT;}
     state = serialState;
     break;
@@ -241,18 +241,17 @@ void loop() {
     break;
   
   case (ABORT): 
-    abort();
+    abort_sequence();
     if (digitalRead(BUTTON_IDLE)==1) {serialState=IDLE;}
     state = serialState;
     break;
-  }
 
   case (DEBUG):
     debug();
     if (digitalRead(BUTTON_IDLE)==1) {serialState=IDLE;}
     state = serialState;
     break;
-
+  }
 }
 
 void idle() {
@@ -296,7 +295,7 @@ void hotfire() {
   dataSendCheck();
 }
 
-void abort() {
+void abort_sequence() {
   commandedState = ABORT;
   dataSendCheck();
 }
@@ -371,7 +370,7 @@ void SerialRead() {
     } else if (manualState == 7) {
       serialState = HOTFIRE;
     } else if (manualState == 8) {
-      serialState = VENT;
+      serialState = ABORT;
     } else if (manualState = 99) {
       serialState = DEBUG;
     }
