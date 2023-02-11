@@ -12,18 +12,29 @@ This code runs on the DAQ ESP32 and has a couple of main tasks.
 #include "HX711.h"
 
 // USER DEFINED PARAMETERS FOR TEST/HOTFIRE //
+#define BangBangPressFuel 425
 #define pressureFuel 450    //In units of psi. Defines set pressure for fuel
+#define BangBangPressOx 425
 #define pressureOx 450    //In units of psi. Defines set pressure for ox
-#define tolerance 0.10   //Acceptable range within set pressure
+#define tolerance 0.05   //Acceptable range within set pressure
+float period = 0.5;
 #define pressureDelay 0.5   //Sets percentage of time bang-bang is open
 int measurementDelay = 50; //Sets frequency of data collection. 1/(measurementDelay*10^-3) is frequency in Hz
 // END OF USER DEFINED PARAMETERS //
 
 // Set sensor pinouts //
+float reading = 0;
+// USED FOR LOX TANK
 #define PTOUT1 32
 #define CLKPT1 5
+float PTOffset1 = 10.663;
+float PTSlope1 = 0.0001181;
+// USED FOR FUEL TANK
 #define PTOUT2 15
 #define CLKPT2 2
+float PTOffset2 = 10.663;
+float PTSlope2 = 0.0001181;
+
 #define PTOUT3 22
 #define CLKPT3 23
 #define PTOUT4 19
@@ -44,15 +55,15 @@ int measurementDelay = 50; //Sets frequency of data collection. 1/(measurementDe
 #define capSens2 13
 // End of sensor pinouts //
 
-// Relays pinouts. Use for solenoidPinFuel, solenoidPinOx, fuelSolVent, oxSolVent, oxQD, and fuelQD // 
-#define RELAYPIN1 14
-#define RELAYPIN2 27
-#define RELAYPIN3 28
-#define RELAYPIN4 35
-#define RELAYPIN5 55
-#define RELAYPIN6 43
-#define RELAYPIN7 95
-#define RELAYPIN8 24
+// Relays pinouts. Use for solenoidPinOx, oxSolVent, oxQD, and fuelQD // 
+#define RELAYPIN_LOXFILL 14
+#define RELAYPIN_VENT 27
+#define RELAYPIN_QD 28
+#define RELAYPIN_PRESSLOX 35
+#define RELAYPIN_PRESSETH 55
+#define RELAYPIN_IGNITER 43
+#define RELAYPIN_PYROLOX 95
+#define RELAYPIN_PYROETH 24
 // End of relay pinouts //
 
 String serialMessage;
@@ -100,6 +111,7 @@ int igniterTimer=0;
 float startTime;
 float endTime;
 float timeDiff;
+float sendTime;
 
 // Variable to store if sending data was successful
 String success;
@@ -316,12 +328,16 @@ void armed() {
 }
 
 bool fill() {
-  //FILL IN
+  while (!capSens()) {
+    digitalWrite(RELAYPIN_LOXFILL, LOW);
+    sendData();
+  }
+  digitalWrite(RELAYPIN_LOX_FULL, HIGH);
 }
 
 bool press_eth() {
   // Increase pressure
-  while (Readings.pt1val < pressureFuel) {
+  while (Readings.pt1 < pressureFuel) {
     openSolenoidFuel();
     if (commandedState = 1) {
       closeSolenoidFuel();
@@ -333,8 +349,8 @@ bool press_eth() {
   closeSolenoidFuel();
   // Address potential overshoot & hold pressure (within tolerance)
   sleep(pressureDelay);
-  if (Readings.pt1val > (1+tolerance)*pressureFuel) {
-    while (Readings.pt1val > pressure) {
+  if (Readings.pt1 > (1+tolerance)*pressureFuel) {
+    while (Readings.pt1 > pressure) {
       openSolenoidFuel();
       if (commandedState = 1) {
         closeSolenoidFuel();
@@ -345,7 +361,7 @@ bool press_eth() {
     }
     closeSolenoidFuel();
     sleep(pressureDelay);
-    if (Readings.pt1val < (1-tolerance)*pressureFuel) {
+    if (Readings.pt1 < (1-tolerance)*pressureFuel) {
       pressurizeFuel();
     }
   }
@@ -354,20 +370,20 @@ bool press_eth() {
 
 bool press_lox() {
   // Increase pressure
-  while (Readings.pt2val < pressureOx) {
+  while (CalOffset1 + CalSlope1 * readingPT1 < BangBangPressOx) {
     openSolenoidOx();
-    if (commandedState = 1) {
+    if (commandedState == ABORT) {
       closeSolenoidOx();
-      ventOx();
-      state = 1;
+      vent();
+      state = ABORT;
       return false;
     }
   }
   closeSolenoidOx();
   // Address potential overshoot & hold pressure (within tolerance)
   sleep(pressureDelay);
-  if (Readings.pt1val > (1+tolerance)*pressureOx) {
-    while (Readings.pt1val > pressure) {
+  if (Readings.pt1 > (1+tolerance)*pressureOx) {
+    while (Readings.pt1 > pressure) {
       openSolenoidOx();
       if (commandedState = 1) {
         closeSolenoidOx();
@@ -378,7 +394,7 @@ bool press_lox() {
     }
     closeSolenoidOx();
     sleep(pressureDelay);
-    if (Readings.pt1val < (1-tolerance)*pressureOx) {
+    if (Readings.pt1 < (1-tolerance)*pressureOx) {
       pressurizeOx();
     }
   }
@@ -419,41 +435,36 @@ void debug() {
 
 /// HELPER FUNCTIONS ///
 
+// Returns boolean for whether LOX tank is fill by reading cap sensor
+bool capSens() {
+  if (digitalRead(capSens1) && digitalRead(capSens2)) {
+    return true;
+  }
+  return false;
+}
+
 void openSolenoidFuel() {
-  digitalWrite(solenoidPinFuel, LOW);
+  digitalWrite(RELAYPIN_PRESSETH, LOW);
 }
 
 void closeSolenoidFuel() {
-  digitalWrite(solenoidPinOx, HIGH);
+  digitalWrite(RELAYPIN_PRESSETH, HIGH);
 }
 
 void openSolenoidOx() {
-  digitalWrite(solenoidPinOx, LOW);
+  digitalWrite(RELAYPIN_PRESSLOX, LOW);
 }
 
 void closeSolenoidOx() {
-  digitalWrite(solenoidPinOx, HIGH);
+  digitalWrite(RELAYPIN_PRESSLOX, HIGH);
 }
 
 void vent() {
-  ventOx();
-  ventFuel();
+  digitalWrite(RELAYPIN_VENT, LOW);
 }
 
-void ventFuel() {
-  digitalWrite(fuelSolVent, LOW);
-}
-
-void ventOx() {
-  digitalWrite(oxSolVent, LOW);
-}
-
-void disconnectOx() {
-  digitalWrite(oxQD, HIGH);
-}
-
-void disconnectFuel() {
-  digitalWrite(fuelQD, HIGH);
+void disconnectQD() {
+  digitalWrite(RELAYPIN_QD, HIGH);
 }
 
 /// END OF HELPER FUNCTIONS ///
