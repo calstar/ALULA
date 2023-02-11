@@ -13,7 +13,6 @@ This code runs on the COM ESP32 and has a couple of main tasks.
 // Set pinouts. Currently set arbitrarily
 #define BUTTON_IDLE 19
 #define BUTTON_ARMED 22
-#define BUTTON_FILL 16
 #define BUTTON_PRESS 17
 #define BUTTON_QD 5
 #define BUTTON_IGNITION 1
@@ -39,10 +38,8 @@ int incomingTC1 = 4;
 int incomingTC2 = 4;
 float incomingCap1 = 0;
 float incomingCap2 = 0;
+bool pressComplete = false;
 short int queueSize = 0;
-bool fillComplete = false;
-bool pressEthComplete = false;
-bool pressLOXComplete = false;
 
 esp_now_peer_info_t peerInfo;
 
@@ -50,9 +47,10 @@ esp_now_peer_info_t peerInfo;
 int state;
 int serialState;
 int manualState;
+int DAQState;
 int loopStartTime;
 int sendDelay = 50;   //Measured in ms
-enum STATES {IDLE, ARMED, FILL, PRESS_ETH, PRESS_LOX, QD, IGNITION, HOTFIRE, ABORT, DEBUG=99};
+enum STATES {IDLE, ARMED, PRESS, QD, IGNITION, HOTFIRE, ABORT, DEBUG=99};
 
 double lastPrintTime = 0;
 
@@ -88,10 +86,9 @@ typedef struct struct_message {
     float cap1;
     float cap2;
     int commandedState;
+    int DAQState;
     short int queueSize;
-    bool fillComplete;
-    bool pressEthComplete;
-    bool pressLOXComplete;
+    bool pressComplete;
 } struct_message; 
 
 // Create a struct_message called Readings to recieve sensor readings remotely
@@ -122,6 +119,8 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   incomingTC2 = incomingReadings.tc2;
   incomingCap1 = incomingReadings.cap1;
   incomingCap2 = incomingReadings.cap2;
+  pressComplete = incomingReadings.pressComplete;
+  DAQState = incomingReadings.DAQState;
   queueSize = incomingReadings.queueSize;
 
   receiveTime = millis();
@@ -136,7 +135,6 @@ void setup() {
   // Use buttons for moving between states
   pinMode(BUTTON_IDLE,INPUT);
   pinMode(BUTTON_ARMED,INPUT);
-  pinMode(BUTTON_FILL,INPUT);
   pinMode(BUTTON_PRESS,INPUT);
   pinMode(BUTTON_QD,INPUT);
   pinMode(BUTTON_IGNITION,INPUT);
@@ -188,38 +186,20 @@ void loop() {
 
   case (ARMED):
     armed();
-    if (digitalRead(BUTTON_FILL)==1) {serialState=FILL;}
+    if (digitalRead(BUTTON_IDLE)==1) {serialState=IDLE;}
+    if (digitalRead(BUTTON_PRESS)==1) {serialState=PRESS;}
     if (digitalRead(BUTTON_ABORT)==1) {serialState=ABORT;}
     state = serialState;
     break;
 
-  case (FILL): //Fills LOX tank
-    fill();
-    if (digitalRead(BUTTON_PRESS)==1 && fillComplete) {serialState=PRESS_ETH;} 
-    if (digitalRead(BUTTON_IDLE)==1) {serialState=IDLE;}
+  case (PRESS): 
+    press();
+    if (pressComplete && digitalRead(BUTTON_QD)==1) {serialState=QD;}
+    if (pressComplete && digitalRead(BUTTON_IGNITION)==1) {serialState=IGNITION;}
     if (digitalRead(BUTTON_ABORT)==1) {serialState=ABORT;}
-    state = serialState;  
-    break;
-
-  case (PRESS_ETH): //Pressurizes ethanol tank
-    press_eth();
-    if (digitalRead(BUTTON_IDLE)==1) {serialState=IDLE;}
-    if (pressEthComplete) {serialState=PRESS_LOX;}
-    if (digitalRead(BUTTON_ABORT)==1) {serialState=ABORT;}
-    state = serialState;
-    break;
-
-  case (PRESS_LOX): //Pressurizes LOX tank
-    press_lox();
-    if (digitalRead(BUTTON_IDLE)==1) {serialState=IDLE;}
-    if (digitalRead(BUTTON_QD)==1 && pressLOXComplete) {serialState=QD;}
-    if (digitalRead(BUTTON_ABORT)==1) {serialState=ABORT;}
-    state = serialState;
-    break;
 
   case (QD):
     quick_disconnect();
-    if (digitalRead(BUTTON_IDLE)==1) {serialState=IDLE;}
     if (digitalRead(BUTTON_IGNITION)==1) {serialState=IGNITION;}
     if (digitalRead(BUTTON_ABORT)==1) {serialState=ABORT;}
     state = serialState;
@@ -227,7 +207,6 @@ void loop() {
 
   case (IGNITION):
     ignition();
-    if (digitalRead(BUTTON_IDLE)==1) {serialState=IDLE;}
     if (digitalRead(BUTTON_HOTFIRE)==1) {serialState=HOTFIRE;}
     if (digitalRead(BUTTON_ABORT)==1) {serialState=ABORT;}
     state = serialState;
@@ -264,19 +243,8 @@ void armed() {
   dataSendCheck();
 }
 
-void fill() {
-  commandedState = FILL;
-  dataSendCheck();
-}
-
-void press_eth() {
-  commandedState = PRESS_ETH;
-  dataSendCheck();
-}
-
-
-void press_lox() {
-  commandedState = PRESS_LOX;
+void press() {
+  commandedState = PRESS;
   dataSendCheck();
 }
 

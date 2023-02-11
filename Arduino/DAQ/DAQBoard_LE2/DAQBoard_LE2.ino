@@ -16,6 +16,7 @@ This code runs on the DAQ ESP32 and has a couple of main tasks.
 #define pressureFuel 450    //In units of psi. Defines set pressure for fuel
 #define BangBangPressOx 425
 #define pressureOx 450    //In units of psi. Defines set pressure for ox
+#define abortPressure 525
 #define tolerance 0.05   //Acceptable range within set pressure
 #define CAPTHRESH1 1
 #define CAPTHRESH2 1
@@ -287,28 +288,15 @@ void loop() {
 
   case (ARMED): //NEED TO ADD TO CASE OPTIONS //ALLOWS OTHER CASES TO TRIGGER //INITIATE TANK PRESS LIVE READINGS
     armed();
-    if (commandedState==FILL) {state=FILL;}
+    if (commandedState==IDLE) {state=IDLE;}
+    if (commandedState==PRESS) {state=PRESS;}
     if (commandedState==ABORT) {state=ABORT;}
     break;
 
-  case (FILL):
-    fillComplete = fill();
-    if (commandedState==PRESS_ETH && fillComplete) {state=PRESS_ETH;}
-    if (commandedState==IDLE) {state = IDLE;}
-    if (commandedState==ABORT) {state = ABORT;}
-    break;
-
-  case (PRESS_ETH):
-    pressEthComplete = press_eth();
-    if (pressEthComplete) {state=PRESS_LOX;}
-    if (commandedState==IDLE) {state=IDLE;}
-    if (commandedState==ABORT) {state=ABORT;}
-    break;
-
-  case (PRESS_LOX):
-    pressLOXComplete = press_lox();
-    if (commandedState==QD && pressLOXComplete) {state=QD;}
-    if (commandedState==IDLE) {state=IDLE;}
+  case (PRESS):
+    pressComplete = press();
+    if (pressComplete && commandedState==QD) {state=QD;}
+    if (pressComplete && commandedState==IGNITION) {state=IGNITION;}
     if (commandedState==ABORT) {state=ABORT;}
     break;
 
@@ -363,6 +351,59 @@ bool fill() {
   digitalWrite(RELAYPIN_LOX_FULL, HIGH);
 }
 
+bool press() {
+  getReadings();
+  bool fuelFilled = false;
+  bool oxFilled = false;
+  while (readingPT1 < BangBangPressOx && readingPT2 < BangBangPressFuel) {
+    openSolenoidOx();
+    openSolenoidEth();
+    if (commandedState == ABORT) {
+      closeSolenoidOx();
+      closeSolenoidEth();
+      state = ABORT;
+      return false;
+    }
+    if (!sendData()) {
+      getReadings();
+    }    
+  }
+
+  if (readingPT1 < BangBangPressOx && readingPT2 > BangBangPressFuel) {
+    closeSolenoidEth();
+    while (readingPT1 < BangBangPressOx && readingPT2 < pressureFuel) {
+      openSolenoidOx();
+      if (commandedState == ABORT) {
+        closeSolenoidOx();
+        state = ABORT;
+        return false;
+      }
+    }
+  }
+  if (readingPT1 > BangBangPressOx && readingPT2 < BangBangPressFuel) {
+    closeSolenoidOx();
+    while (readingPT2 < BangBangPressFuel && readingPT1 < pressureOx) {
+      openSolenoidFuel();
+      if (commandedState == ABORT) {
+        closeSolenoidFuel();
+        state = ABORT;
+        return false;
+      }
+    }    
+  }
+
+  while (readingPT1 < pressureOx || readingPT2 < pressureFuel) {
+    if (readingPT1 >= abortPressure || readingPT2 >= abortPressure) {
+      closeSolenoidFuel();
+      closeSolenoidOx();
+      state = ABORT;
+      return false;
+    }
+
+
+  }
+}
+
 bool press_eth() {
   getReadings();
   while (readingPT2 < BangBangPressEth) {
@@ -390,42 +431,6 @@ bool press_eth() {
     }
     delay(period*1000); //Delay in ms
     closeSolenoidEth();
-    delay((1-period) * 1000);
-    if (!sendData()) {
-      getReadings();
-    }
-  }
-  return true;
-}
-
-bool press_lox() {
-  // Increase pressure
-  getReadings();
-  while (readingPT1 < BangBangPressOx) {
-    openSolenoidOx();
-    if (commandedState == ABORT) {
-      closeSolenoidOx();
-      vent();
-      state = ABORT;
-      return false;
-    }
-    if (!sendData()) {
-      getReadings();
-    }
-  }
-  closeSolenoidOx();
-  // Address potential overshoot & hold pressure (within tolerance)
-  sleep(pressureDelay);
-  while (readingPT1 < pressureOx && readingPT1 > BangBangPressOx) {
-    openSolenoidOx();
-    if (commandedState = ABORT) {
-      closeSolenoidOx();
-      vent();
-      state = ABORT;
-      return false;
-    }
-    delay(period*1000); //Delay in ms
-    closeSolenoidOx();
     delay((1-period) * 1000);
     if (!sendData()) {
       getReadings();
