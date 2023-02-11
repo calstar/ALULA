@@ -117,13 +117,15 @@ uint8_t broadcastAddress[] ={0x7C, 0x9E, 0xBD, 0xD7, 0x2B, 0xE8};
 // {0xC4, 0xDD, 0x57, 0x9E, 0x96, 0x34}
 
 //STATEFLOW VARIABLES
-enum STATES {IDLE, ARMED, FILL, PRESS_ETH, PRESS_LOX, QD, IGNITION, HOTFIRE, ABORT, DEBUG=99};
+enum STATES {IDLE, ARMED, PRESS, QD, IGNITION, HOTFIRE, ABORT, DEBUG=99};
 int state;
 int loopStartTime=0;
 int lastPrintTime=0;
 
 short int queueLength=0;
 int commandedState;
+int currDAQState;
+bool pressComplete;
 
 int igniterTime=750;
 int hotfireTimer=0;
@@ -173,10 +175,9 @@ typedef struct struct_message {
     float cap1;
     float cap2;
     int commandedState;
+    int DAQState;
     short int queueSize;
-    bool fillComplete;
-    bool pressEthComplete;
-    bool pressLOXComplete;
+    bool pressComplete;
 } struct_message;
 
 // Create a struct_message called Readings to hold sensor readings
@@ -240,14 +241,14 @@ void setup() {
   pinMode(CAPSENS1DATA, INPUT);
   pinMode(CAPSENS1CLK, OUTPUT);
   pinMode(CAPSENS2DATA, INPUT);
-  pinMOde(CAPSENS2CLK, OUTPUT);
+  pinMode(CAPSENS2CLK, OUTPUT);
 
   // Set device as a Wi-Fi Station
   WiFi.mode(WIFI_STA);
   //Print MAC Accress on startup for easier connections
   Serial.println(WiFi.macAddress());
 
-  // Init ESP-NOW
+  // Init ESP-NOWf
   if (esp_now_init() != ESP_OK) {
     Serial.println("Error initializing ESP-NOW");
     return;
@@ -272,6 +273,7 @@ void setup() {
 
   sendTime = millis();
   state = IDLE;
+  currDAQState = IDLE;
 }
 
 // Implementation of State Machine
@@ -282,52 +284,51 @@ void loop() {
 
   case (IDLE):
     idle();
-    if (commandedState==ARMED) {state=ARMED;}
-    if (commandedState==ABORT) {state=ABORT;}
+    if (commandedState==ARMED) {state=ARMED; currDAQState=ARMED;}
+    if (commandedState==ABORT) {state=ABORT; currDAQState=ABORT;}
     break;
 
   case (ARMED): //NEED TO ADD TO CASE OPTIONS //ALLOWS OTHER CASES TO TRIGGER //INITIATE TANK PRESS LIVE READINGS
     armed();
-    if (commandedState==IDLE) {state=IDLE;}
-    if (commandedState==PRESS) {state=PRESS;}
-    if (commandedState==ABORT) {state=ABORT;}
+    if (commandedState==IDLE) {state=IDLE; currDAQState=IDLE;}
+    if (commandedState==PRESS) {state=PRESS; currDAQState=PRESS;}
+    if (commandedState==ABORT) {state=ABORT; currDAQState=ABORT;}
     break;
 
   case (PRESS):
     pressComplete = press();
-    if (pressComplete && commandedState==QD) {state=QD;}
-    if (pressComplete && commandedState==IGNITION) {state=IGNITION;}
-    if (commandedState==ABORT) {state=ABORT;}
+    if (pressComplete && commandedState==QD) {state=QD; currDAQState=QD;}
+    if (pressComplete && commandedState==IGNITION) {state=IGNITION; currDAQState=IGNITION;}
+    if (commandedState==ABORT) {state=ABORT; currDAQState=ABORT;}
     break;
 
   case (QD):
     quick_disconnect();
-    if (commandedState==IGNITION) {state=IGNITION;}
-    if (commandedState==IDLE) {state=IDLE;}
-    if (commandedState==ABORT) {state=ABORT;}
+    if (commandedState==IGNITION) {state=IGNITION; currDAQState=IGNITION;}
+    if (commandedState==IDLE) {state=IDLE; currDAQState=IDLE;}
+    if (commandedState==ABORT) {state=ABORT; currDAQState=ABORT;}
     break;
 
   case (IGNITION): 
     ignition();
-    if (commandedState==HOTFIRE) {state=HOTFIRE;}
-    if (commandedState==IDLE) {state=IDLE;}
-    if (commandedState==ABORT) {state=ABORT;}
+    if (commandedState==HOTFIRE) {state=HOTFIRE; currDAQState=HOTFIRE;}
+    if (commandedState==IDLE) {state=IDLE; currDAQState=IDLE;}
+    if (commandedState==ABORT) {state=ABORT; currDAQState=ABORT;}
     break;
 
   case (HOTFIRE): 
     hotfire();
-    if (commandedState==IDLE) {state=IDLE;}
-    if (commandedState==ABORT) {state=ABORT;}
+    if (commandedState==IDLE) {state=IDLE; currDAQState=IDLE;}
+    if (commandedState==ABORT) {state=ABORT; currDAQState=ABORT;}
     break;
 
   case (ABORT):
     abort_sequence();
-    if (commandedState==IDLE) {state=IDLE;}
     break;
 
   case (DEBUG):
     debug();
-    if (commandedState==IDLE) {state=IDLE;}
+    if (commandedState==IDLE) {state=IDLE; currDAQState=IDLE;}
     break;
   }
 }
@@ -343,24 +344,16 @@ void armed() {
   sendData();
 }
 
-bool fill() {
-  while (!capSens()) {
-    digitalWrite(RELAYPIN_LOXFILL, LOW);
-    sendData();
-  }
-  digitalWrite(RELAYPIN_LOX_FULL, HIGH);
-}
-
 bool press() {
   getReadings();
   bool fuelFilled = false;
   bool oxFilled = false;
   while (readingPT1 < BangBangPressOx && readingPT2 < BangBangPressFuel) {
     openSolenoidOx();
-    openSolenoidEth();
+    openSolenoidFuel();
     if (commandedState == ABORT) {
       closeSolenoidOx();
-      closeSolenoidEth();
+      closeSolenoidFuel();
       state = ABORT;
       return false;
     }
@@ -370,7 +363,7 @@ bool press() {
   }
 
   if (readingPT1 < BangBangPressOx && readingPT2 > BangBangPressFuel) {
-    closeSolenoidEth();
+    closeSolenoidFuel();
     while (readingPT1 < BangBangPressOx && readingPT2 < pressureFuel) {
       openSolenoidOx();
       if (commandedState == ABORT) {
@@ -399,38 +392,29 @@ bool press() {
       state = ABORT;
       return false;
     }
-
-
-  }
-}
-
-bool press_eth() {
-  getReadings();
-  while (readingPT2 < BangBangPressEth) {
-    openSolenoidEth();
+    if (readingPT1 >= pressureOx) {
+      closeSolenoidOx();
+      oxFilled = true;
+    }
+    if (readingPT2 >= pressureFuel) {
+      closeSolenoidFuel();
+      fuelFilled = true;
+    }
     if (commandedState == ABORT) {
-      closeSolenoidEth();
-      vent();
+      closeSolenoidOx();
+      closeSolenoidFuel();
       state = ABORT;
-      return false;
+      return false;      
     }
-    if (!sendData()) {
-      getReadings();
+    if (!oxFilled) {
+      openSolenoidOx();
     }
-  }
-  closeSolenoidEth();
-  // Address potential overshoot & hold pressure (within tolerance)
-  sleep(pressureDelay);
-  while (readingPT2 < pressureEth && readingPT2 > BangBangPressEth) {
-    openSolenoidEth();
-    if (commandedState = ABORT) {
-      closeSolenoidEth();
-      vent();
-      state = ABORT;
-      return false;
+    if (!fuelFilled) {
+      openSolenoidFuel();
     }
-    delay(period*1000); //Delay in ms
-    closeSolenoidEth();
+    delay(period * 1000);
+    closeSolenoidOx();
+    closeSolenoidFuel();
     delay((1-period) * 1000);
     if (!sendData()) {
       getReadings();
@@ -444,14 +428,8 @@ void quick_disconnect() {
 }
 
 void ignition() {
-  if ((loopStartTime-igniterTimer) < igniterTime) { digitalWrite(RELAYPIN1, LOW); digitalWrite(RELAYPIN2, LOW); Serial.print("IGNITE"); }
-  if ((loopStartTime-igniterTimer) > igniterTime) { digitalWrite(RELAYPIN1, HIGH); digitalWrite(RELAYPIN2, HIGH); Serial.print("NO"); }
-  sendData();
-
-  Serial.println(loopStartTime-igniterTimer);
-  Serial.println("Igniter time");
-  Serial.println(igniterTime);
-  Serial.println(" ");
+  digitalWrite(RELAYPIN_IGNITER, LOW);
+  sendData();  
 }
 
 void hotfire() {
@@ -545,6 +523,8 @@ void addReadingsToQueue() {
     ReadingsQueue[queueLength].cap1=readingCap1;
     ReadingsQueue[queueLength].cap2=readingCap2;
     ReadingsQueue[queueLength].queueSize=queueLength;
+    ReadingsQueue[queueLength].DAQState=currDAQState;
+    ReadingsQueue[queueLength].pressComplete=pressComplete;
   }
 }
 
@@ -560,8 +540,8 @@ void getReadings(){
   readingLC3 = LCOffset3 + LCSlope3 * scale8.read();
   readingTC1 = analogRead(TC1);
   readingTC2 = analogRead(TC2);
-  readingCap1 = analogRead(capSens1);
-  readingCap2 = analogRead(capSens2);
+  readingCap1 = analogRead(CAPSENS1DATA);
+  readingCap2 = analogRead(CAPSENS2DATA);
 
   printSensorReadings();
 }
@@ -620,6 +600,8 @@ void dataSend() {
   Readings.tc2 = ReadingsQueue[queueLength].tc2;
   Readings.cap1 = ReadingsQueue[queueLength].cap1;
   Readings.cap2 = ReadingsQueue[queueLength].cap2;
+  Readings.DAQState = ReadingsQueue[queueLength].DAQState;
+  Readings.pressComplete = ReadingsQueue[queueLength].pressComplete;
 
   // Send message via ESP-NOW
   esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &Readings, sizeof(Readings));

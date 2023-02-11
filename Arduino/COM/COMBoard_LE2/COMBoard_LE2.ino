@@ -221,8 +221,6 @@ void loop() {
   
   case (ABORT): 
     abort_sequence();
-    if (digitalRead(BUTTON_IDLE)==1) {serialState=IDLE;}
-    state = serialState;
     break;
 
   case (DEBUG):
@@ -326,18 +324,14 @@ void SerialRead() {
     } else if (manualState == 1) {
       serialState = ARMED;
     } else if (manualState == 2) {
-      serialState = FILL;
+      serialState = PRESS;
     } else if (manualState == 3) {
-      serialState = PRESS_ETH;
-    } else if (manualState == 4) {
-      serialState = PRESS_LOX;
-    } else if (manualState == 5) {
       serialState = QD;
-    } else if (manualState == 6) {
+    } else if (manualState == 4) {
       serialState = IGNITION;
-    } else if (manualState == 7) {
+    } else if (manualState == 5) {
       serialState = HOTFIRE;
-    } else if (manualState == 8) {
+    } else if (manualState == 6) {
       serialState = ABORT;
     } else if (manualState = 99) {
       serialState = DEBUG;
