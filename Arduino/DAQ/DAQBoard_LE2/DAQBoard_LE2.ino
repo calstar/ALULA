@@ -17,9 +17,11 @@ This code runs on the DAQ ESP32 and has a couple of main tasks.
 #define BangBangPressOx 425
 #define pressureOx 450    //In units of psi. Defines set pressure for ox
 #define tolerance 0.05   //Acceptable range within set pressure
+#define CAPTHRESH1 1
+#define CAPTHRESH2 1
 float period = 0.5;
 #define pressureDelay 0.5   //Sets percentage of time bang-bang is open
-int measurementDelay = 50; //Sets frequency of data collection. 1/(measurementDelay*10^-3) is frequency in Hz
+float sendDelay = 50; //Sets frequency of data collection. 1/(sendDelay*10^-3) is frequency in Hz
 // END OF USER DEFINED PARAMETERS //
 
 // Set sensor pinouts //
@@ -37,22 +39,41 @@ float PTSlope2 = 0.0001181;
 
 #define PTOUT3 22
 #define CLKPT3 23
+float PTOffset3 = 10.663;
+float PTSlope3 = 0.0001181;
+
 #define PTOUT4 19
 #define CLKPT4 21
+float PTOffset4 = 10.663;
+float PTSlope4 = 0.0001181;
+
 #define PTOUT5 35
 #define CLKPT5 25
+float PTOffset5 = 10.663;
+float PTSlope5 = 0.0001181;
+
 #define LCOUT1 34
 #define CLKLC1 26
+float LCOffset1 = 10.663;
+float LCSlope1 = 0.0001181;
+
 #define LCOUT2 39
 #define CLKLC2 33
+float LCOffset2 = 10.663;
+float LCSlope2 = 0.0001181;
+
 #define LCOUT3 38
 #define CLKLC3 41
+float LCOffset3 = 10.663;
+float LCSlope3 = 0.0001181;
 
 #define TC1 10
 #define TC2 15
 
-#define capSens1 40
-#define capSens2 13
+#define CAPSENS1DATA 40
+#define CAPSENS1CLK 52
+#define CAPSENS2DATA 13
+#define CAPSENS2CLK 21
 // End of sensor pinouts //
 
 // Relays pinouts. Use for solenoidPinOx, oxSolVent, oxQD, and fuelQD // 
@@ -100,7 +121,6 @@ int state;
 int loopStartTime=0;
 int lastPrintTime=0;
 
-int lastMeasurementTime=-1;
 short int queueLength=0;
 int commandedState;
 
@@ -184,24 +204,24 @@ void setup() {
   // pinMode(ONBOARD_LED,OUTPUT);
   Serial.begin(115200);
 
-  pinMode(RELAYPIN1, OUTPUT);
-  pinMode(RELAYPIN2, OUTPUT);
-  pinMode(RELAYPIN3, OUTPUT);
-  pinMode(RELAYPIN4, OUTPUT);
-  pinMode(RELAYPIN5, OUTPUT);
-  pinMode(RELAYPIN6, OUTPUT);
-  pinMode(RELAYPIN7, OUTPUT);
-  pinMode(RELAYPIN8, OUTPUT);
+  pinMode(RELAYPIN_LOXFILL, OUTPUT);
+  pinMode(RELAYPIN_VENT, OUTPUT);
+  pinMode(RELAYPIN_QD, OUTPUT);
+  pinMode(RELAYPIN_PRESSETH, OUTPUT);
+  pinMode(RELAYPIN_PRESSLOX, OUTPUT);
+  pinMode(RELAYPIN_IGNITER, OUTPUT);
+  pinMode(RELAYPIN_PYROETH, OUTPUT);
+  pinMode(RELAYPIN_PYROLOX, OUTPUT);
 
   //EVERYTHING SHOULD BE WRITTEN HIGH EXCEPT QDs, WHICH SHOULD BE LOW
-  digitalWrite(RELAYPIN1, HIGH);
-  digitalWrite(RELAYPIN2, HIGH);
-  digitalWrite(RELAYPIN3, HIGH);
-  digitalWrite(RELAYPIN4, HIGH);
-  digitalWrite(RELAYPIN5, HIGH);
-  digitalWrite(RELAYPIN6, HIGH);
-  digitalWrite(RELAYPIN7, HIGH);
-  digitalWrite(RELAYPIN8, HIGH);
+  digitalWrite(RELAYPIN_LOXFILL, HIGH);
+  digitalWrite(RELAYPIN_VENT, HIGH);
+  digitalWrite(RELAYPIN_QD, LOW);
+  digitalWrite(RELAYPIN_PRESSETH, HIGH);
+  digitalWrite(RELAYPIN_PRESSLOX, HIGH);
+  digitalWrite(RELAYPIN_IGNITER, HIGH);
+  digitalWrite(RELAYPIN_PYROETH, HIGH);
+  digitalWrite(RELAYPIN_PYROLOX, HIGH);
 
   //set gains for pt pins
   scale1.begin(PTOUT1, CLKPT1); scale1.set_gain(64);
@@ -212,6 +232,14 @@ void setup() {
   scale6.begin(LCOUT1, CLKLC1); scale6.set_gain(64);
   scale7.begin(LCOUT2, CLKLC2); scale7.set_gain(64);
   scale8.begin(LCOUT3, CLKLC3); scale8.set_gain(64);
+
+  pinMode(TC1, INPUT);
+  pinMode(TC2, INPUT);
+
+  pinMode(CAPSENS1DATA, INPUT);
+  pinMode(CAPSENS1CLK, OUTPUT);
+  pinMode(CAPSENS2DATA, INPUT);
+  pinMOde(CAPSENS2CLK, OUTPUT);
 
   // Set device as a Wi-Fi Station
   WiFi.mode(WIFI_STA);
@@ -336,33 +364,35 @@ bool fill() {
 }
 
 bool press_eth() {
-  // Increase pressure
-  while (Readings.pt1 < pressureFuel) {
-    openSolenoidFuel();
-    if (commandedState = 1) {
-      closeSolenoidFuel();
-      ventFuel();
-      state = 1;
+  getReadings();
+  while (readingPT2 < BangBangPressEth) {
+    openSolenoidEth();
+    if (commandedState == ABORT) {
+      closeSolenoidEth();
+      vent();
+      state = ABORT;
       return false;
     }
+    if (!sendData()) {
+      getReadings();
+    }
   }
-  closeSolenoidFuel();
+  closeSolenoidEth();
   // Address potential overshoot & hold pressure (within tolerance)
   sleep(pressureDelay);
-  if (Readings.pt1 > (1+tolerance)*pressureFuel) {
-    while (Readings.pt1 > pressure) {
-      openSolenoidFuel();
-      if (commandedState = 1) {
-        closeSolenoidFuel();
-        ventFuel();
-        state = 1;
-        return false;
-      }
+  while (readingPT2 < pressureEth && readingPT2 > BangBangPressEth) {
+    openSolenoidEth();
+    if (commandedState = ABORT) {
+      closeSolenoidEth();
+      vent();
+      state = ABORT;
+      return false;
     }
-    closeSolenoidFuel();
-    sleep(pressureDelay);
-    if (Readings.pt1 < (1-tolerance)*pressureFuel) {
-      pressurizeFuel();
+    delay(period*1000); //Delay in ms
+    closeSolenoidEth();
+    delay((1-period) * 1000);
+    if (!sendData()) {
+      getReadings();
     }
   }
   return true;
@@ -370,7 +400,8 @@ bool press_eth() {
 
 bool press_lox() {
   // Increase pressure
-  while (CalOffset1 + CalSlope1 * readingPT1 < BangBangPressOx) {
+  getReadings();
+  while (readingPT1 < BangBangPressOx) {
     openSolenoidOx();
     if (commandedState == ABORT) {
       closeSolenoidOx();
@@ -378,31 +409,33 @@ bool press_lox() {
       state = ABORT;
       return false;
     }
+    if (!sendData()) {
+      getReadings();
+    }
   }
   closeSolenoidOx();
   // Address potential overshoot & hold pressure (within tolerance)
   sleep(pressureDelay);
-  if (Readings.pt1 > (1+tolerance)*pressureOx) {
-    while (Readings.pt1 > pressure) {
-      openSolenoidOx();
-      if (commandedState = 1) {
-        closeSolenoidOx();
-        ventOx();
-        state = 1;
-        return false;
-      }
+  while (readingPT1 < pressureOx && readingPT1 > BangBangPressOx) {
+    openSolenoidOx();
+    if (commandedState = ABORT) {
+      closeSolenoidOx();
+      vent();
+      state = ABORT;
+      return false;
     }
+    delay(period*1000); //Delay in ms
     closeSolenoidOx();
-    sleep(pressureDelay);
-    if (Readings.pt1 < (1-tolerance)*pressureOx) {
-      pressurizeOx();
+    delay((1-period) * 1000);
+    if (!sendData()) {
+      getReadings();
     }
   }
   return true;
 }
 
 void quick_disconnect() {
-  // FILL IN
+  digitalWrite(RELAYPIN_QD, HIGH);
 }
 
 void ignition() {
@@ -421,7 +454,15 @@ void hotfire() {
 }
 
 void abort_sequence() {
-  //FILL IN
+  getReadings();
+  // Waits for LOX pressure to decrease before venting Eth through pyro
+  while (readingPT1 > 50) {
+    digitalWrite(RELAYPIN_VENT, LOW);
+    getReadings();
+  }
+  digitalWrite(RELAYPIN_PYROETH, HIGH);
+
+  
 }
 
 void debug() {
@@ -437,7 +478,7 @@ void debug() {
 
 // Returns boolean for whether LOX tank is fill by reading cap sensor
 bool capSens() {
-  if (digitalRead(capSens1) && digitalRead(capSens2)) {
+  if (analogRead(CAPSENS1DATA) >= CAPTHRESH1 && analogRead(CAPSENS2DATA) >= CAPTHRESH2) {
     return true;
   }
   return false;
@@ -472,11 +513,13 @@ void disconnectQD() {
 
 /// DATA LOGGING AND COMMUNICATION ///
 
-void sendData() {
-  if ((loopStartTime-lastMeasurementTime)>measurementDelay) { 
+bool sendData() {
+  if ((millis()-sendTime)>sendDelay) { 
     addReadingsToQueue();
     sendQueue();
+    return true;
   }
+  return false;
 }
 
 void addReadingsToQueue() {
@@ -502,25 +545,24 @@ void addReadingsToQueue() {
 
 void getReadings(){
 
-  readingPT1 = scale1.read(); 
-  readingPT2 = scale2.read(); 
-  readingPT3 = scale3.read(); 
-  readingPT4 = scale4.read(); 
-  readingPT5 = scale5.read(); 
-  readingLC1 = scale6.read(); 
-  readingLC2 = scale7.read();
-  readingLC3 = scale8.read();
+  readingPT1 = PTOffset1 + PTSlope1 * scale1.read(); 
+  readingPT2 = PTOffset2 + PTSlope2 * scale2.read(); 
+  readingPT3 = PTOffset3 + PTSlope3 * scale3.read(); 
+  readingPT4 = PTOffset4 + PTSlope4 * scale4.read(); 
+  readingPT5 = PTOffset5 + PTSlope5 * scale5.read(); 
+  readingLC1 = LCOffset1 + LCSlope1 * scale6.read(); 
+  readingLC2 = LCOffset2 + LCSlope2 * scale7.read();
+  readingLC3 = LCOffset3 + LCSlope3 * scale8.read();
   readingTC1 = analogRead(TC1);
   readingTC2 = analogRead(TC2);
   readingCap1 = analogRead(capSens1);
   readingCap2 = analogRead(capSens2);
 
   printSensorReadings();
-  lastMeasurementTime=loopStartTime;
 }
 
 void printSensorReadings() {
-   serialMessage = "";
+ serialMessage = "";
  //
  serialMessage.concat(millis());
  serialMessage.concat(" ");
