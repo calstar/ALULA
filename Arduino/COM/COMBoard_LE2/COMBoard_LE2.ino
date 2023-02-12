@@ -11,13 +11,13 @@ This code runs on the COM ESP32 and has a couple of main tasks.
 #include "HX711.h"
 
 // Set pinouts. Currently set arbitrarily
-#define BUTTON_IDLE 19
-#define BUTTON_ARMED 22
-#define BUTTON_PRESS 17
-#define BUTTON_QD 5
-#define BUTTON_IGNITION 1
-#define BUTTON_HOTFIRE 27 
-#define BUTTON_ABORT 12
+#define SWITCH_IDLE 19
+#define SWITCH_ARMED 22
+#define SWITCH_PRESS 17
+#define SWITCH_QD 5
+#define SWITCH_IGNITION 1
+#define SWITCH_HOTFIRE 27 
+#define SWITCH_ABORT 12
 
 float pressTime = 0;
 
@@ -89,6 +89,8 @@ typedef struct struct_message {
     int DAQState;
     short int queueSize;
     bool pressComplete;
+    bool ethComplete;
+    bool oxComplete;
 } struct_message; 
 
 // Create a struct_message called Readings to recieve sensor readings remotely
@@ -106,7 +108,7 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   memcpy(&incomingReadings, incomingData, sizeof(incomingReadings));
 
-  incomingMessageTime= incomingReadings.messageTime;
+  incomingMessageTime = incomingReadings.messageTime;
   incomingPT1 = incomingReadings.pt1;
   incomingPT2 = incomingReadings.pt2;
   incomingPT3 = incomingReadings.pt3;
@@ -132,14 +134,14 @@ void setup() {
   Serial.begin(115200);
    // Serial.println("Start of Setup");
 
-  // Use buttons for moving between states
-  pinMode(BUTTON_IDLE,INPUT);
-  pinMode(BUTTON_ARMED,INPUT);
-  pinMode(BUTTON_PRESS,INPUT);
-  pinMode(BUTTON_QD,INPUT);
-  pinMode(BUTTON_IGNITION,INPUT);
-  pinMode(BUTTON_HOTFIRE,INPUT);
-  pinMode(BUTTON_ABORT,INPUT);
+  // Use switches for moving between states
+  pinMode(SWITCH_IDLE,INPUT);
+  pinMode(SWITCH_ARMED,INPUT);
+  pinMode(SWITCH_PRESS,INPUT);
+  pinMode(SWITCH_QD,INPUT);
+  pinMode(SWITCH_IGNITION,INPUT);
+  pinMode(SWITCH_HOTFIRE,INPUT);
+  pinMode(SWITCH_ABORT,INPUT);
 
   //set device as WiFi station
   WiFi.mode(WIFI_STA);
@@ -179,43 +181,43 @@ void loop() {
 
   case (IDLE): //Includes polling
     idle();
-    if (digitalRead(BUTTON_ARMED)==1) {serialState=ARMED;}
-    if (digitalRead(BUTTON_ABORT)==1) {serialState=ABORT;}
+    if (digitalRead(SWITCH_ARMED)==1) {serialState=ARMED;}
+    if (digitalRead(SWITCH_ABORT)==1) {serialState=ABORT;}
     state = serialState;
     break;
 
   case (ARMED):
     armed();
-    if (digitalRead(BUTTON_IDLE)==1) {serialState=IDLE;}
-    if (digitalRead(BUTTON_PRESS)==1) {serialState=PRESS;}
-    if (digitalRead(BUTTON_ABORT)==1) {serialState=ABORT;}
+    if (digitalRead(SWITCH_IDLE)==1) {serialState=IDLE;}
+    if (digitalRead(SWITCH_PRESS)==1) {serialState=PRESS;}
+    if (digitalRead(SWITCH_ABORT)==1) {serialState=ABORT;}
     state = serialState;
     break;
 
   case (PRESS): 
     press();
-    if (pressComplete && digitalRead(BUTTON_QD)==1) {serialState=QD;}
-    if (pressComplete && digitalRead(BUTTON_IGNITION)==1) {serialState=IGNITION;}
-    if (digitalRead(BUTTON_ABORT)==1) {serialState=ABORT;}
+    if (pressComplete && digitalRead(SWITCH_QD)==1) {serialState=QD;}
+    if (pressComplete && digitalRead(SWITCH_IGNITION)==1) {serialState=IGNITION;}
+    if (digitalRead(SWITCH_ABORT)==1) {serialState=ABORT;}
 
   case (QD):
     quick_disconnect();
-    if (digitalRead(BUTTON_IGNITION)==1) {serialState=IGNITION;}
-    if (digitalRead(BUTTON_ABORT)==1) {serialState=ABORT;}
+    if (digitalRead(SWITCH_IGNITION)==1) {serialState=IGNITION;}
+    if (digitalRead(SWITCH_ABORT)==1) {serialState=ABORT;}
     state = serialState;
     break;
 
   case (IGNITION):
     ignition();
-    if (digitalRead(BUTTON_HOTFIRE)==1) {serialState=HOTFIRE;}
-    if (digitalRead(BUTTON_ABORT)==1) {serialState=ABORT;}
+    if (digitalRead(SWITCH_HOTFIRE)==1) {serialState=HOTFIRE;}
+    if (digitalRead(SWITCH_ABORT)==1) {serialState=ABORT;}
     state = serialState;
     break;
 
   case (HOTFIRE):
     hotfire();
-    if (digitalRead(BUTTON_IDLE)==1) {serialState=IDLE;}
-    if (digitalRead(BUTTON_ABORT)==1) {serialState=ABORT;}
+    if (digitalRead(SWITCH_IDLE)==1) {serialState=IDLE;}
+    if (digitalRead(SWITCH_ABORT)==1) {serialState=ABORT;}
     state = serialState;
     break;
   
@@ -225,7 +227,7 @@ void loop() {
 
   case (DEBUG):
     debug();
-    if (digitalRead(BUTTON_IDLE)==1) {serialState=IDLE;}
+    if (digitalRead(SWITCH_IDLE)==1) {serialState=IDLE;}
     state = serialState;
     break;
   }

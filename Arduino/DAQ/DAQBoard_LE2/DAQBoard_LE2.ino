@@ -12,21 +12,16 @@ This code runs on the DAQ ESP32 and has a couple of main tasks.
 #include "HX711.h"
 
 // USER DEFINED PARAMETERS FOR TEST/HOTFIRE //
-#define BangBangPressFuel 425
+#define BangBangPressFuel 425 //Indicates transition from normal fill to bang-bang
 #define pressureFuel 450    //In units of psi. Defines set pressure for fuel
-#define BangBangPressOx 425
+#define BangBangPressOx 425 //Indicates transition from normal fill to bang-bang
 #define pressureOx 450    //In units of psi. Defines set pressure for ox
-#define abortPressure 525
-#define tolerance 0.05   //Acceptable range within set pressure
-#define CAPTHRESH1 1
-#define CAPTHRESH2 1
-float period = 0.5;
-#define pressureDelay 0.5   //Sets percentage of time bang-bang is open
+#define abortPressure 525 //Cutoff pressure to automatically trigger abort
+#define period 0.5;   //Sets period for bang-bang control
 float sendDelay = 50; //Sets frequency of data collection. 1/(sendDelay*10^-3) is frequency in Hz
 // END OF USER DEFINED PARAMETERS //
 
 // Set sensor pinouts //
-float reading = 0;
 // USED FOR LOX TANK
 #define PTOUT1 32
 #define CLKPT1 5
@@ -78,7 +73,6 @@ float LCSlope3 = 0.0001181;
 // End of sensor pinouts //
 
 // Relays pinouts. Use for solenoidPinOx, oxSolVent, oxQD, and fuelQD // 
-#define RELAYPIN_LOXFILL 14
 #define RELAYPIN_VENT 27
 #define RELAYPIN_QD 28
 #define RELAYPIN_PRESSLOX 35
@@ -101,13 +95,13 @@ HX711 scale7;
 HX711 scale8;
 // End of HX711 initialization
 
-///////////////
-//IMPORTANT
 //////////////
+//IMPORTANT//
+/////////////
 // REPLACE WITH THE MAC Address of your receiver
 
 //OLD COM BOARD {0xC4, 0xDD, 0x57, 0x9E, 0x91, 0x6C}
-// COM BOARD {0x7C, 0x9E, 0xBD, 0xD7, 0x2B, 0xE8}
+//COM BOARD {0x7C, 0x9E, 0xBD, 0xD7, 0x2B, 0xE8}
 //HEADERLESS BOARD {0x7C, 0x87, 0xCE, 0xF0 0x69, 0xAC}
 //NEWEST COM BOARD IN EVA {0x24, 0x62, 0xAB, 0xD2, 0x85, 0xDC}
 // uint8_t broadcastAddress[] = {0x24, 0x62, 0xAB, 0xD2, 0x85, 0xDC};
@@ -119,28 +113,17 @@ uint8_t broadcastAddress[] ={0x7C, 0x9E, 0xBD, 0xD7, 0x2B, 0xE8};
 //STATEFLOW VARIABLES
 enum STATES {IDLE, ARMED, PRESS, QD, IGNITION, HOTFIRE, ABORT, DEBUG=99};
 int state;
-int loopStartTime=0;
-int lastPrintTime=0;
 
 short int queueLength=0;
 int commandedState;
 int currDAQState;
-bool pressComplete;
+bool pressComplete = false;
+bool ethComplete = false;
+bool oxComplete = false;
 
-int igniterTime=750;
-int hotfireTimer=0;
-int igniterTimer=0;
-
-float startTime;
-float endTime;
-float timeDiff;
 float sendTime;
 
-// Variable to store if sending data was successful
-String success;
-
 // Define variables to store readings to be sent
-int messageTime=10;
 int readingPT1=1;
 int readingPT2=1;
 int readingPT3=1;
@@ -154,9 +137,6 @@ int readingTC2=1;
 float readingCap1=0;
 float readingCap2=0;
 short int queueSize=0;
-bool fillComplete=false;
-bool pressEthComplete=false;
-bool pressLOXComplete=false;
 
 //Structure example to send data
 //Must match the receiver structure
@@ -178,6 +158,8 @@ typedef struct struct_message {
     int DAQState;
     short int queueSize;
     bool pressComplete;
+    bool ethComplete;
+    bool oxComplete;
 } struct_message;
 
 // Create a struct_message called Readings to hold sensor readings
@@ -206,7 +188,6 @@ void setup() {
   // pinMode(ONBOARD_LED,OUTPUT);
   Serial.begin(115200);
 
-  pinMode(RELAYPIN_LOXFILL, OUTPUT);
   pinMode(RELAYPIN_VENT, OUTPUT);
   pinMode(RELAYPIN_QD, OUTPUT);
   pinMode(RELAYPIN_PRESSETH, OUTPUT);
@@ -216,7 +197,6 @@ void setup() {
   pinMode(RELAYPIN_PYROLOX, OUTPUT);
 
   //EVERYTHING SHOULD BE WRITTEN HIGH EXCEPT QDs, WHICH SHOULD BE LOW
-  digitalWrite(RELAYPIN_LOXFILL, HIGH);
   digitalWrite(RELAYPIN_VENT, HIGH);
   digitalWrite(RELAYPIN_QD, LOW);
   digitalWrite(RELAYPIN_PRESSETH, HIGH);
@@ -278,7 +258,6 @@ void setup() {
 
 // Implementation of State Machine
 void loop() {
-  loopStartTime=millis();
 
   switch (state) {
 
@@ -345,9 +324,8 @@ void armed() {
 }
 
 bool press() {
+  sendDelay = 25;
   getReadings();
-  bool fuelFilled = false;
-  bool oxFilled = false;
   while (readingPT1 < BangBangPressOx && readingPT2 < BangBangPressFuel) {
     openSolenoidOx();
     openSolenoidFuel();
@@ -394,11 +372,11 @@ bool press() {
     }
     if (readingPT1 >= pressureOx) {
       closeSolenoidOx();
-      oxFilled = true;
+      oxComplete = true;
     }
     if (readingPT2 >= pressureFuel) {
       closeSolenoidFuel();
-      fuelFilled = true;
+      ethComplete = true;
     }
     if (commandedState == ABORT) {
       closeSolenoidOx();
@@ -406,10 +384,10 @@ bool press() {
       state = ABORT;
       return false;      
     }
-    if (!oxFilled) {
+    if (!oxComplete) {
       openSolenoidOx();
     }
-    if (!fuelFilled) {
+    if (!ethComplete) {
       openSolenoidFuel();
     }
     delay(period * 1000);
@@ -433,19 +411,18 @@ void ignition() {
 }
 
 void hotfire() {
-  //FILL IN
+  digitalWrite(RELAYPIN_PYROLOX, LOW);
+  digitalWrite(RELAYPIN_PYROETH, LOW);
 }
 
 void abort_sequence() {
   getReadings();
   // Waits for LOX pressure to decrease before venting Eth through pyro
   while (readingPT1 > 50) {
-    digitalWrite(RELAYPIN_VENT, LOW);
+    vent();
     getReadings();
   }
-  digitalWrite(RELAYPIN_PYROETH, HIGH);
-
-  
+  digitalWrite(RELAYPIN_PYROETH, LOW);
 }
 
 void debug() {
@@ -458,14 +435,6 @@ void debug() {
 
 
 /// HELPER FUNCTIONS ///
-
-// Returns boolean for whether LOX tank is fill by reading cap sensor
-bool capSens() {
-  if (analogRead(CAPSENS1DATA) >= CAPTHRESH1 && analogRead(CAPSENS2DATA) >= CAPTHRESH2) {
-    return true;
-  }
-  return false;
-}
 
 void openSolenoidFuel() {
   digitalWrite(RELAYPIN_PRESSETH, LOW);
@@ -487,10 +456,6 @@ void vent() {
   digitalWrite(RELAYPIN_VENT, LOW);
 }
 
-void disconnectQD() {
-  digitalWrite(RELAYPIN_QD, HIGH);
-}
-
 /// END OF HELPER FUNCTIONS ///
 
 
@@ -509,7 +474,7 @@ void addReadingsToQueue() {
   getReadings();
   if (queueLength<40) {
     queueLength+=1;
-    ReadingsQueue[queueLength].messageTime=loopStartTime;
+    ReadingsQueue[queueLength].messageTime=millis();
     ReadingsQueue[queueLength].pt1=readingPT1;
     ReadingsQueue[queueLength].pt2=readingPT2;
     ReadingsQueue[queueLength].pt3=readingPT3;
@@ -525,6 +490,8 @@ void addReadingsToQueue() {
     ReadingsQueue[queueLength].queueSize=queueLength;
     ReadingsQueue[queueLength].DAQState=currDAQState;
     ReadingsQueue[queueLength].pressComplete=pressComplete;
+    ReadingsQueue[queueLength].oxComplete=oxComplete;
+    ReadingsQueue[queueLength].ethComplete=ethComplete;
   }
 }
 
@@ -602,6 +569,8 @@ void dataSend() {
   Readings.cap2 = ReadingsQueue[queueLength].cap2;
   Readings.DAQState = ReadingsQueue[queueLength].DAQState;
   Readings.pressComplete = ReadingsQueue[queueLength].pressComplete;
+  Readings.oxComplete = ReadingsQueue[queueLength].oxComplete;
+  Readings.ethComplete = ReadingsQueue[queueLength].ethComplete;
 
   // Send message via ESP-NOW
   esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &Readings, sizeof(Readings));
