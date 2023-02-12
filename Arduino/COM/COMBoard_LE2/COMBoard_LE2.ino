@@ -9,15 +9,26 @@ This code runs on the COM ESP32 and has a couple of main tasks.
 #include <Wire.h>
 #include <Arduino.h>
 #include "HX711.h"
+#include <ezButton.h>
 
 // Set pinouts. Currently set arbitrarily
-#define SWITCH_IDLE 19
-#define SWITCH_ARMED 22
-#define SWITCH_PRESS 17
-#define SWITCH_QD 5
-#define SWITCH_IGNITION 1
-#define SWITCH_HOTFIRE 27 
-#define SWITCH_ABORT 12
+ezButton SWITCH_IDLE(19);
+ezButton SWITCH_ARMED(22);
+ezButton SWITCH_PRESS(17);
+ezButton SWITCH_QD(5);
+ezButton SWITCH_IGNITION(1);
+ezButton SWITCH_HOTFIRE(27); 
+ezButton SWITCH_ABORT(12);
+
+#define LED_IDLE 13
+#define LED_ARMED 13
+#define LED_PRESSETH 13
+#define LED_PRESSLOX 13
+#define LED_PRESS 13
+#define LED_QD 13
+#define LED_IGNITION 13
+#define LED_HOTFIRE 13
+#define LED_ABORT 13
 
 float pressTime = 0;
 
@@ -39,6 +50,8 @@ int incomingTC2 = 4;
 float incomingCap1 = 0;
 float incomingCap2 = 0;
 bool pressComplete = false;
+bool ethComplete = false;
+bool oxComplete = false;
 short int queueSize = 0;
 
 esp_now_peer_info_t peerInfo;
@@ -122,6 +135,8 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   incomingCap1 = incomingReadings.cap1;
   incomingCap2 = incomingReadings.cap2;
   pressComplete = incomingReadings.pressComplete;
+  ethComplete = incomingReadings.ethComplete;
+  oxComplete = incomingReadings.oxComplete;
   DAQState = incomingReadings.DAQState;
   queueSize = incomingReadings.queueSize;
 
@@ -135,13 +150,33 @@ void setup() {
    // Serial.println("Start of Setup");
 
   // Use switches for moving between states
-  pinMode(SWITCH_IDLE,INPUT);
-  pinMode(SWITCH_ARMED,INPUT);
-  pinMode(SWITCH_PRESS,INPUT);
-  pinMode(SWITCH_QD,INPUT);
-  pinMode(SWITCH_IGNITION,INPUT);
-  pinMode(SWITCH_HOTFIRE,INPUT);
-  pinMode(SWITCH_ABORT,INPUT);
+  SWITCH_IDLE.setDebounceTime(50);
+  SWITCH_ARMED.setDebounceTime(50);
+  SWITCH_PRESS.setDebounceTime(50);
+  SWITCH_QD.setDebounceTime(50);
+  SWITCH_IGNITION.setDebounceTime(50);
+  SWITCH_HOTFIRE.setDebounceTime(50);
+  SWITCH_ABORT.setDebounceTime(50);
+
+  pinMode(LED_IDLE, OUTPUT);
+  pinMode(LED_ARMED, OUTPUT);
+  pinMode(LED_PRESSETH, OUTPUT);
+  pinMode(LED_PRESSLOX, OUTPUT);
+  pinMode(LED_PRESS, OUTPUT);
+  pinMode(LED_QD, OUTPUT);
+  pinMode(LED_IGNITION, OUTPUT);
+  pinMode(LED_HOTFIRE, OUTPUT);
+  pinMode(LED_ABORT, OUTPUT);
+
+  digitalWrite(LED_IDLE, LOW);
+  digitalWrite(LED_ARMED, LOW);
+  digitalWrite(LED_PRESSETH, LOW);
+  digitalWrite(LED_PRESSLOX, LOW);
+  digitalWrite(LED_PRESS, LOW);
+  digitalWrite(LED_QD, LOW);
+  digitalWrite(LED_IGNITION, LOW);
+  digitalWrite(LED_HOTFIRE, LOW);
+  digitalWrite(LED_ABORT, LOW);
 
   //set device as WiFi station
   WiFi.mode(WIFI_STA);
@@ -176,58 +211,74 @@ void setup() {
 void loop() {
   loopStartTime=millis();
   SerialRead();
+  SWITCH_IDLE.loop();
+  SWITCH_ARMED.loop();
+  SWITCH_PRESS.loop();
+  SWITCH_QD.loop();
+  SWITCH_IGNITION.loop();
+  SWITCH_HOTFIRE.loop();
+  SWITCH_ABORT.loop();
 
   switch (state) {
 
   case (IDLE): //Includes polling
     idle();
-    if (digitalRead(SWITCH_ARMED)==1) {serialState=ARMED;}
-    if (digitalRead(SWITCH_ABORT)==1) {serialState=ABORT;}
+    if (DAQState == IDLE) {digitalWrite(LED_IDLE, HIGH);}
+    if (SWITCH_ARMED.isPressed()) {serialState=ARMED;}
+    if (SWITCH_ABORT.isPressed()) {serialState=ABORT;}
     state = serialState;
     break;
 
   case (ARMED):
     armed();
-    if (digitalRead(SWITCH_IDLE)==1) {serialState=IDLE;}
-    if (digitalRead(SWITCH_PRESS)==1) {serialState=PRESS;}
-    if (digitalRead(SWITCH_ABORT)==1) {serialState=ABORT;}
+    if (DAQState == ARMED) {digitalWrite(LED_ARMED, HIGH);}
+    if (SWITCH_IDLE.isPressed()) {serialState=IDLE;}
+    if (SWITCH_PRESS.isPressed()) {serialState=PRESS;}
+    if (SWITCH_ABORT.isPressed()) {serialState=ABORT;}
     state = serialState;
     break;
 
   case (PRESS): 
     press();
-    if (pressComplete && digitalRead(SWITCH_QD)==1) {serialState=QD;}
-    if (pressComplete && digitalRead(SWITCH_IGNITION)==1) {serialState=IGNITION;}
-    if (digitalRead(SWITCH_ABORT)==1) {serialState=ABORT;}
+    if (DAQState == PRESS) {digitalWrite(LED_PRESS, HIGH);}
+    if (ethComplete) {digitalWrite(LED_PRESSETH, HIGH);}
+    if (oxComplete) {digitalWrite(LED_PRESSLOX, HIGH);}
+    if (pressComplete && SWITCH_QD.isPressed()) {serialState=QD;}
+    if (pressComplete && SWITCH_IGNITION.isPressed()) {serialState=IGNITION;}
+    if (SWITCH_ABORT.isPressed()) {serialState=ABORT;}
 
   case (QD):
     quick_disconnect();
-    if (digitalRead(SWITCH_IGNITION)==1) {serialState=IGNITION;}
-    if (digitalRead(SWITCH_ABORT)==1) {serialState=ABORT;}
+    if (DAQState == QD) {digitalWrite(LED_QD, HIGH);}
+    if (SWITCH_IGNITION.isPressed()) {serialState=IGNITION;}
+    if (SWITCH_ABORT.isPressed()) {serialState=ABORT;}
     state = serialState;
     break;
 
   case (IGNITION):
     ignition();
-    if (digitalRead(SWITCH_HOTFIRE)==1) {serialState=HOTFIRE;}
-    if (digitalRead(SWITCH_ABORT)==1) {serialState=ABORT;}
+    if (DAQState == IGNITION) {digitalWrite(LED_IGNITION, HIGH);}
+    if (SWITCH_HOTFIRE.isPressed()) {serialState=HOTFIRE;}
+    if (SWITCH_ABORT.isPressed()) {serialState=ABORT;}
     state = serialState;
     break;
 
   case (HOTFIRE):
     hotfire();
-    if (digitalRead(SWITCH_IDLE)==1) {serialState=IDLE;}
-    if (digitalRead(SWITCH_ABORT)==1) {serialState=ABORT;}
+    if (DAQState == HOTFIRE) {digitalWrite(LED_HOTFIRE, HIGH);}
+    if (SWITCH_IDLE.isPressed()) {serialState=IDLE;}
+    if (SWITCH_ABORT.isPressed()) {serialState=ABORT;}
     state = serialState;
     break;
   
-  case (ABORT): 
+  case (ABORT):
+    if (DAQState == ABORT) {digitalWrite(LED_ABORT, HIGH);} 
     abort_sequence();
     break;
 
   case (DEBUG):
     debug();
-    if (digitalRead(SWITCH_IDLE)==1) {serialState=IDLE;}
+    if (SWITCH_IDLE.isPressed()) {serialState=IDLE;}
     state = serialState;
     break;
   }

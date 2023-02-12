@@ -17,7 +17,7 @@ This code runs on the DAQ ESP32 and has a couple of main tasks.
 #define BangBangPressOx 425 //Indicates transition from normal fill to bang-bang
 #define pressureOx 450    //In units of psi. Defines set pressure for ox
 #define abortPressure 525 //Cutoff pressure to automatically trigger abort
-#define period 0.5;   //Sets period for bang-bang control
+#define period 0.5   //Sets period for bang-bang control
 float sendDelay = 50; //Sets frequency of data collection. 1/(sendDelay*10^-3) is frequency in Hz
 // END OF USER DEFINED PARAMETERS //
 
@@ -325,7 +325,9 @@ void armed() {
 
 bool press() {
   sendDelay = 25;
-  getReadings();
+  if (!sendData()) {
+    getReadings();
+  }
   while (readingPT1 < BangBangPressOx && readingPT2 < BangBangPressFuel) {
     openSolenoidOx();
     openSolenoidFuel();
@@ -349,6 +351,9 @@ bool press() {
         state = ABORT;
         return false;
       }
+      if (!sendData()) {
+        getReadings();
+      }
     }
   }
   if (readingPT1 > BangBangPressOx && readingPT2 < BangBangPressFuel) {
@@ -359,6 +364,9 @@ bool press() {
         closeSolenoidFuel();
         state = ABORT;
         return false;
+      }
+      if (!sendData()) {
+        getReadings();
       }
     }    
   }
@@ -390,10 +398,10 @@ bool press() {
     if (!ethComplete) {
       openSolenoidFuel();
     }
-    delay(period * 1000);
+    delay(period * 500);
     closeSolenoidOx();
     closeSolenoidFuel();
-    delay((1-period) * 1000);
+    delay((1-period) * 500);
     if (!sendData()) {
       getReadings();
     }
