@@ -1,5 +1,5 @@
 // We assigned a name LED pin to pin number 22
-const int LEDPIN = 23;
+const int LEDPIN = 34;
 const int LEDPIN2 = 22;
 const int LEDPIN3 = 14;
 const int LEDPIN4 = 25;

@@ -1,15 +1,15 @@
 #define SOLENOID 27
-#define PTPIN 32
-#define CLK 5
+#define PTPIN 22
+#define CLK 23
 #include "HX711.h"
 //int counter;
 HX711 scale1;
 //int counter2;
-float threshold1 = 100;
-float threshold2 = 125;
+float threshold1 = 275;
+float threshold2 = 300;
 float period = 0.5;
-float CalOffset = 8.115;
-float CalSlope = 0.0001389;
+float CalOffset = 10.663;
+float CalSlope = 0.0001181;
 float reading;
 bool filled;
 bool printed1;
@@ -28,18 +28,10 @@ void setup() {
   scale1.begin(PTPIN, CLK);
   scale1.set_gain(64);
   reading = 0;
-  //debugging start
-  Serial.println(scale1.read());
-  //debugging end
   Serial.println("Start fill");
   filled = false;
   printed1 = false;
   printed2 = false;
-  //debugging start
-  Serial.println(printed1);
-  Serial.println(printed2);
-  //debugging end
-  
 
 }
 //code for constant bang-bang
@@ -49,8 +41,10 @@ void loop() {
   //debugging end
    digitalWrite(SOLENOID, HIGH);
    reading = CalOffset + CalSlope*scale1.read();
+
    Serial.println(reading);
    delay(period*500);
+
   while(reading <= threshold1 && !filled){
 
   // if(millis() - prevtime > 1000){
@@ -72,7 +66,6 @@ void loop() {
   delay(period*500);
   reading = CalOffset + CalSlope*scale1.read();
   Serial.println(reading);
-
   //prevtime = millis();
   
 while(reading < threshold2 && threshold1 < reading && !filled){
@@ -90,6 +83,7 @@ while(reading < threshold2 && threshold1 < reading && !filled){
   Serial.println(reading);
   }
   
+
   if(reading >= threshold2 && !filled){
     Serial.println("pressurization completed");
     filled = true;

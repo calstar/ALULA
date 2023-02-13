@@ -1,0 +1,26 @@
+le2
+
+Thrust and mass flow rates
+------------------------------------------
+   Chamber thrust (vac):    1.90388     kN
+ Specific impulse (vac):  269.11435      s
+   Chamber thrust (opt):    1.66103     kN
+ Specific impulse (opt):  234.78718      s
+   Total mass flow rate:    0.72141   kg/s
+Oxidizer mass flow rate:    0.45422   kg/s
+    Fuel mass flow rate:    0.26719   kg/s
+
+Geometry of thrust chamber with conical nozzle
+------------------------------------------
+    Dc =   68.90  mm       b =   30.00 deg
+    R2 =   70.21  mm      R1 =   19.53  mm
+    L* = 1200.00  mm
+    Lc =  196.44  mm    Lcyl =  135.27  mm
+    Dt =   26.04  mm
+    Rn =    4.97  mm      Te =   17.00 deg
+    Le =   47.18  mm
+    De =   54.43  mm
+
+  Mass =   -7.25  kg
+
+  Divergence efficiency:    0.97815       
