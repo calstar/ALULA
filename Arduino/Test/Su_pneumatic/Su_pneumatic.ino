@@ -1,6 +1,6 @@
 #define SOLENOID 27
 #define PTPIN 32
-#define CLK 2
+#define CLK 5
 #include "HX711.h"
 //int counter;
 HX711 scale1;
@@ -21,21 +21,32 @@ bool printed2;
 //int pointer;
 void setup() {
   // put your setup code here, to run once:
+
   Serial.begin(115200);
   digitalWrite(SOLENOID,HIGH);
   pinMode(SOLENOID, OUTPUT);
   scale1.begin(PTPIN, CLK);
   scale1.set_gain(64);
   reading = 0;
+  //debugging start
+  Serial.println(scale1.read());
+  //debugging end
   Serial.println("Start fill");
   filled = false;
   printed1 = false;
   printed2 = false;
+  //debugging start
+  Serial.println(printed1);
+  Serial.println(printed2);
+  //debugging end
   
 
 }
 //code for constant bang-bang
 void loop() {
+  //debugging start
+  Serial.println("in loop");
+  //debugging end
    digitalWrite(SOLENOID, HIGH);
    reading = CalOffset + CalSlope*scale1.read();
    Serial.println(reading);
