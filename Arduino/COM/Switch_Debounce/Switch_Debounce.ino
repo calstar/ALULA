@@ -10,9 +10,9 @@
 
 #define DEBOUNCE_TIME 50 // the debounce time in millisecond, increase this time if it still chatters
 
-ezButton button1(21); // create ezButton object that attach to pin GIOP21;
-ezButton button2(22); // create ezButton object that attach to pin GIOP22;
-ezButton button3(23); // create ezButton object that attach to pin GIOP23;
+ezButton button1(22); // create ezButton object that attach to pin GIOP21;
+ezButton button2(23); // create ezButton object that attach to pin GIOP22;
+ezButton button3(21); // create ezButton object that attach to pin GIOP23;
 
 void setup() {
   Serial.begin(9600);
