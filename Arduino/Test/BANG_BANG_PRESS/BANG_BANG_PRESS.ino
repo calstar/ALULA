@@ -21,22 +21,24 @@ bool printed2;
 //int pointer;
 void setup() {
   // put your setup code here, to run once:
+
   Serial.begin(115200);
   digitalWrite(SOLENOID,HIGH);
   pinMode(SOLENOID, OUTPUT);
   scale1.begin(PTPIN, CLK);
   scale1.set_gain(64);
   reading = 0;
-  
   Serial.println("Start fill");
   filled = false;
   printed1 = false;
   printed2 = false;
 
-
 }
 //code for constant bang-bang
 void loop() {
+  //debugging start
+  Serial.println("in loop");
+  //debugging end
    digitalWrite(SOLENOID, HIGH);
    reading = CalOffset + CalSlope*scale1.read();
 

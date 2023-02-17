@@ -1,0 +1,4 @@
+(fp_lib_table
+  (lib (name "ellie")(type "KiCad")(uri "${KIPRJMOD}/../hardware-sch-blocks /ELLIE/footprints/Ellie_Project_Footprints.pretty")(options "")(descr ""))
+  (lib (name "star")(type "KiCad")(uri "/Users/dulanya/Desktop/LE2/hardware-sch-blocks /star-common-lib.pretty")(options "")(descr ""))
+)
