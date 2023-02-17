@@ -2062,7 +2062,7 @@
     (in_bom yes) (on_board yes)
     (uuid 545f2607-7cc6-4aed-a94a-054c4622bbf4)
     (property "Reference" "R2" (id 0) (at 40.64 143.51 90))
-    (property "Value" "5K" (id 1) (at 40.64 140.97 90))
+    (property "Value" "100" (id 1) (at 40.64 140.97 90))
     (property "Footprint" "Resistor_SMD:R_0805_2012Metric_Pad1.20x1.40mm_HandSolder" (id 2) (at 40.64 138.43 0)
       (effects (font (size 1.27 1.27)) hide)
     )
@@ -2858,7 +2858,7 @@
       (reference "R1") (unit 1) (value "1k") (footprint "Resistor_SMD:R_0805_2012Metric_Pad1.20x1.40mm_HandSolder")
     )
     (path "/545f2607-7cc6-4aed-a94a-054c4622bbf4"
-      (reference "R2") (unit 1) (value "5K") (footprint "Resistor_SMD:R_0805_2012Metric_Pad1.20x1.40mm_HandSolder")
+      (reference "R2") (unit 1) (value "100") (footprint "Resistor_SMD:R_0805_2012Metric_Pad1.20x1.40mm_HandSolder")
     )
     (path "/90984034-5364-4f53-869e-6a817c5e98fe"
       (reference "R3") (unit 1) (value "100") (footprint "Resistor_SMD:R_0805_2012Metric_Pad1.20x1.40mm_HandSolder")
