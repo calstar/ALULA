@@ -47,6 +47,8 @@
 
 
 ### Using Git
+CLONE USING: 
+```git clone --recurse-submodules https://github.com/calstar/LE2.git 
 Please refer to https://rocketry.gitbook.io/public/tutorials/avionics/git-and-workflow for more information.
 
 
