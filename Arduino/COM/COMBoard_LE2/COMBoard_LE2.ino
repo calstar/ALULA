@@ -223,7 +223,6 @@ void loop() {
 
   case (IDLE): //Includes polling
     idle();
-    if (DAQState == IDLE) {digitalWrite(LED_IDLE, HIGH);}
     if (SWITCH_ARMED.isPressed()) {serialState=ARMED;}
     if (SWITCH_ABORT.isPressed()) {serialState=ABORT;}
     state = serialState;
