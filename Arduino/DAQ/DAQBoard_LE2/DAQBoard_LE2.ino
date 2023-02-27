@@ -10,6 +10,8 @@ This code runs on the DAQ ESP32 and has a couple of main tasks.
 #include <Wire.h>
 #include <Arduino.h>
 #include "HX711.h"
+#define IDLE_DELAY 250
+#define GEN_DELAY 25
 
 // USER DEFINED PARAMETERS FOR TEST/HOTFIRE //
 #define BangBangPressFuel 425 //Indicates transition from normal fill to bang-bang
@@ -18,68 +20,63 @@ This code runs on the DAQ ESP32 and has a couple of main tasks.
 #define pressureOx 450    //In units of psi. Defines set pressure for ox
 #define abortPressure 525 //Cutoff pressure to automatically trigger abort
 #define period 0.5   //Sets period for bang-bang control
-float sendDelay = 50; //Sets frequency of data collection. 1/(sendDelay*10^-3) is frequency in Hz
+float sendDelay = 250; //Sets frequency of data collection. 1/(sendDelay*10^-3) is frequency in Hz
 // END OF USER DEFINED PARAMETERS //
+//refer to https://docs.google.com/spreadsheets/d/17NrJWC0AR4Gjejme-EYuIJ5uvEJ98FuyQfYVWI3Qlio/edit#gid=1185803967 for all pinouts
+// Set sensor pinouts 
+// USED FOR LOX TANK(gain 32) AND ETH TANK(gain 64)
+#define PTOUT1 36
+#define CLKPT1 27
+float PT_Tanks_Offset_LOX = 10.663;
+float PT_Tanks_Slope1_LOX = 0.0001181;
+float PT_Tanks_Offset_ETH = 10.663;
+float PT_Tanks_Slope1_ETH = 0.0001181;
 
-// Set sensor pinouts //
-// USED FOR LOX TANK
-#define PTOUT1 32
-#define CLKPT1 5
-float PTOffset1 = 10.663;
-float PTSlope1 = 0.0001181;
-// USED FOR FUEL TANK
-#define PTOUT2 15
-#define CLKPT2 2
-float PTOffset2 = 10.663;
-float PTSlope2 = 0.0001181;
 
-#define PTOUT3 22
-#define CLKPT3 23
-float PTOffset3 = 10.663;
-float PTSlope3 = 0.0001181;
+// USED FOR THE DOWNSTREAM PTs ON LOX(gain 32) AND ETH(gain 64) sides
+#define PTOUT2 39
+#define CLKPT2 27
+float PT_Down_Offset_LOX = 10.663;
+float PT_Down_Slope_LOX = 0.0001181;
+float PT_Down_Offset_ETH = 10.663;
+float PT_Down_Slope_ETH = 0.0001181;
 
-#define PTOUT4 19
-#define CLKPT4 21
-float PTOffset4 = 10.663;
-float PTSlope4 = 0.0001181;
+// USED FOR CHAMBER PRESSURE(gain 32) AND LOADCELL1(gain 64)
+#define PTOUT3 34
+#define CLKPT3 27
+float PT_Chamber_Offset = 10.663;
+float PT_Chamber_Slope = 0.0001181;
+float LoadCell1_Offset = 10.663;
+float LoadCell1_Slope = 0.0001181;
 
-#define PTOUT5 35
-#define CLKPT5 25
-float PTOffset5 = 10.663;
-float PTSlope5 = 0.0001181;
 
-#define LCOUT1 34
-#define CLKLC1 26
-float LCOffset1 = 10.663;
-float LCSlope1 = 0.0001181;
+// USED FOR LOADCELL2(gain 32) and LOADCELL3(gain 64)
+#define PTOUT4 35
+#define CLKPT4 27
+float LoadCell2_Offset = 10.663;
+float LoadCell2_Slope = 0.0001181;
+float LoadCell3_Offset = 10.663;
+float LoadCell3_Slope = 0.0001181;
 
-#define LCOUT2 39
-#define CLKLC2 33
-float LCOffset2 = 10.663;
-float LCSlope2 = 0.0001181;
+#define TC1 33
+#define TC2 25
+#define TCCLK 4
 
-#define LCOUT3 38
-#define CLKLC3 41
-float LCOffset3 = 10.663;
-float LCSlope3 = 0.0001181;
-
-#define TC1 10
-#define TC2 15
-
-#define CAPSENS1DATA 40
-#define CAPSENS1CLK 52
-#define CAPSENS2DATA 13
-#define CAPSENS2CLK 21
+// #define CAPSENS1DATA 40
+// #define CAPSENS1CLK 52
+// #define CAPSENS2DATA 13
+// #define CAPSENS2CLK 21
 // End of sensor pinouts //
 
 // Relays pinouts. Use for solenoidPinOx, oxSolVent, oxQD, and fuelQD // 
-#define RELAYPIN_VENT 27
-#define RELAYPIN_QD 28
-#define RELAYPIN_PRESSLOX 35
-#define RELAYPIN_PRESSETH 55
-#define RELAYPIN_IGNITER 43
-#define RELAYPIN_PYROLOX 95
-#define RELAYPIN_PYROETH 24
+#define RELAYPIN_VENT 21
+#define RELAYPIN_QD_ETH 23
+#define RELAYPIN_QD_LOX 22
+#define RELAYPIN_PRESSLOX 19
+#define RELAYPIN_PRESSETH 18
+#define RELAYPIN_IGNITER 5
+#define RELAYPIN_PYROLOX 17
+#define RELAYPIN_PYROETH 16
 // End of relay pinouts //
 
 String serialMessage;
@@ -89,10 +86,6 @@ HX711 scale1;
 HX711 scale2;
 HX711 scale3;
 HX711 scale4;
-HX711 scale5;
-HX711 scale6;
-HX711 scale7;
-HX711 scale8;
 // End of HX711 initialization
 
 //////////////
@@ -117,12 +110,12 @@ int state;
 short int queueLength=0;
 int commandedState;
 int currDAQState;
-bool pressComplete = false;
 bool ethComplete = false;
 bool oxComplete = false;
+bool pressComplete = false ;
 
 float sendTime;
-
+bool gainbool = true; //gainbool == true => gain = 64; else gain = 32
 // Define variables to store readings to be sent
 int readingPT1=1;
 int readingPT2=1;
@@ -160,6 +153,9 @@ typedef struct struct_message {
     bool pressComplete;
     bool ethComplete;
     bool oxComplete;
+    // bool oxvent;
+    // bool ethVent;
+    // bool VentComplete;
 } struct_message;
 
 // Create a struct_message called Readings to hold sensor readings
@@ -189,7 +185,8 @@ void setup() {
   Serial.begin(115200);
 
   pinMode(RELAYPIN_VENT, OUTPUT);
-  pinMode(RELAYPIN_QD, OUTPUT);
+  pinMode(RELAYPIN_QD_OX, OUTPUT);
+  pinMode(RELAYPIN_QD_ETH, OUTPUT);
   pinMode(RELAYPIN_PRESSETH, OUTPUT);
   pinMode(RELAYPIN_PRESSLOX, OUTPUT);
   pinMode(RELAYPIN_IGNITER, OUTPUT);
@@ -198,7 +195,8 @@ void setup() {
 
   //EVERYTHING SHOULD BE WRITTEN HIGH EXCEPT QDs, WHICH SHOULD BE LOW
   digitalWrite(RELAYPIN_VENT, HIGH);
-  digitalWrite(RELAYPIN_QD, LOW);
+  digitalWrite(RELAYPIN_QD_LOX, LOW);
+  digitalWrite(RELAYPIN_QD_ETH, LOW);
   digitalWrite(RELAYPIN_PRESSETH, HIGH);
   digitalWrite(RELAYPIN_PRESSLOX, HIGH);
   digitalWrite(RELAYPIN_IGNITER, HIGH);
@@ -210,18 +208,15 @@ void setup() {
   scale2.begin(PTOUT2, CLKPT2); scale2.set_gain(64);
   scale3.begin(PTOUT3, CLKPT3); scale3.set_gain(64);
   scale4.begin(PTOUT4, CLKPT4); scale4.set_gain(64);
-  scale5.begin(PTOUT5, CLKPT5); scale5.set_gain(64);
-  scale6.begin(LCOUT1, CLKLC1); scale6.set_gain(64);
-  scale7.begin(LCOUT2, CLKLC2); scale7.set_gain(64);
-  scale8.begin(LCOUT3, CLKLC3); scale8.set_gain(64);
+  
 
   pinMode(TC1, INPUT);
   pinMode(TC2, INPUT);
 
-  pinMode(CAPSENS1DATA, INPUT);
-  pinMode(CAPSENS1CLK, OUTPUT);
-  pinMode(CAPSENS2DATA, INPUT);
-  pinMode(CAPSENS2CLK, OUTPUT);
+  // pinMode(CAPSENS1DATA, INPUT);
+  // pinMode(CAPSENS1CLK, OUTPUT);
+  // pinMode(CAPSENS2DATA, INPUT);
+  // pinMode(CAPSENS2CLK, OUTPUT);
 
   // Set device as a Wi-Fi Station
   WiFi.mode(WIFI_STA);
@@ -262,12 +257,14 @@ void loop() {
   switch (state) {
 
   case (IDLE):
+    sendDelay = IDLE_DELAY;
     idle();
     if (commandedState==ARMED) {state=ARMED; currDAQState=ARMED;}
     if (commandedState==ABORT) {state=ABORT; currDAQState=ABORT;}
     break;
 
   case (ARMED): //NEED TO ADD TO CASE OPTIONS //ALLOWS OTHER CASES TO TRIGGER //INITIATE TANK PRESS LIVE READINGS
+    sendDelay = GEN_DELAY;
     armed();
     if (commandedState==IDLE) {state=IDLE; currDAQState=IDLE;}
     if (commandedState==PRESS) {state=PRESS; currDAQState=PRESS;}
@@ -275,6 +272,7 @@ void loop() {
     break;
 
   case (PRESS):
+    sendDelay = GEN_DELAY;
     pressComplete = press();
     if (pressComplete && commandedState==QD) {state=QD; currDAQState=QD;}
     if (pressComplete && commandedState==IGNITION) {state=IGNITION; currDAQState=IGNITION;}
@@ -282,6 +280,7 @@ void loop() {
     break;
 
   case (QD):
+    sendDelay = GEN_DELAY;
     quick_disconnect();
     if (commandedState==IGNITION) {state=IGNITION; currDAQState=IGNITION;}
     if (commandedState==IDLE) {state=IDLE; currDAQState=IDLE;}
@@ -289,6 +288,7 @@ void loop() {
     break;
 
   case (IGNITION): 
+    sendDelay = GEN_DELAY;
     ignition();
     if (commandedState==HOTFIRE) {state=HOTFIRE; currDAQState=HOTFIRE;}
     if (commandedState==IDLE) {state=IDLE; currDAQState=IDLE;}
@@ -296,16 +296,19 @@ void loop() {
     break;
 
   case (HOTFIRE): 
+    sendDelay = GEN_DELAY;
     hotfire();
     if (commandedState==IDLE) {state=IDLE; currDAQState=IDLE;}
     if (commandedState==ABORT) {state=ABORT; currDAQState=ABORT;}
     break;
 
   case (ABORT):
+    sendDelay = GEN_DELAY;
     abort_sequence();
     break;
 
   case (DEBUG):
+    sendDelay = GEN_DELAY;
     debug();
     if (commandedState==IDLE) {state=IDLE; currDAQState=IDLE;}
     break;
@@ -325,6 +328,9 @@ void armed() {
 
 bool press() {
   sendDelay = 25;
+  oxComplete = (readingPT1 >= pressureOx);
+  ethComplete = (readingPT2 >= pressureFuel);
+
   if (!sendData()) {
     getReadings();
   }
@@ -410,7 +416,10 @@ bool press() {
 }
 
 void quick_disconnect() {
-  digitalWrite(RELAYPIN_QD, HIGH);
+
+  digitalWrite(RELAYPIN_QD_LOX, HIGH);
+  digitalWrite(RELAYPIN_QD_ETH, HIGH);
+
 }
 
 void ignition() {
@@ -427,10 +436,21 @@ void abort_sequence() {
   getReadings();
   // Waits for LOX pressure to decrease before venting Eth through pyro
   while (readingPT1 > 50) {
-    vent();
+    digitalWrite(RELAYPIN_VENT, LOW);
     getReadings();
   }
+  digitalWrite(RELAYPIN_VENT, HIGH);
   digitalWrite(RELAYPIN_PYROETH, LOW);
+  while (readingPT2 > 5){
+    getReadings();
+  }
+  digitalWrite(RELAYPIN_PYROETH,HIGH);
+  while (true) {
+  digitalWrite(RELAYPIN_VENT, LOW);
+  getReadings();
+  }
+
+
 }
 
 void debug() {
@@ -504,19 +524,39 @@ void addReadingsToQueue() {
 }
 
 void getReadings(){
-
-  readingPT1 = PTOffset1 + PTSlope1 * scale1.read(); 
-  readingPT2 = PTOffset2 + PTSlope2 * scale2.read(); 
-  readingPT3 = PTOffset3 + PTSlope3 * scale3.read(); 
-  readingPT4 = PTOffset4 + PTSlope4 * scale4.read(); 
-  readingPT5 = PTOffset5 + PTSlope5 * scale5.read(); 
-  readingLC1 = LCOffset1 + LCSlope1 * scale6.read(); 
-  readingLC2 = LCOffset2 + LCSlope2 * scale7.read();
-  readingLC3 = LCOffset3 + LCSlope3 * scale8.read();
+  if(gainbool){
+    scale1.setgain(64);
+    scale2.setgain(64);
+    scale3.setgain(64);
+    scale4.setgain(64);
+    readingPT1 = PT_Tanks_Offset_LOX + PT_Tanks_Slope_LOX * scale1.read(); 
+    readingPT2 = ReadingsQueue[queueLength].pt2 ;
+    readingPT3 = PT_Down_Offset_LOX + PT_Down_Slope_LOX * scale2.read(); 
+    readingPT4 = ReadingsQueue[queueLength].pt4;
+    readingPT5 = PT_Chamber_Offset + PT_Chamber_Slope * scale3.read();
+    readingLC1 = ReadingsQueue[queueLength].lc1;
+    readingLC2 = LoadCell2_Offset + LoadCell2_Offset*scale4.read();
+    readingLC3 = ReadingsQueue[queueLength].lc3;
+  } else {
+    scale1.setgain(32,false);
+    scale2.setgain(32,false);
+    scale3.setgain(32,false);
+    scale4.setgain(32,false);
+    readingPT1 = ReadingsQueue[queueLength].pt1;
+    readingPT2 = PT_Tanks_Offset_ETH + PT_Tanks_Slope_ETH * scale1.read(); 
+    readingPT3 = ReadingsQueue[queueLength].pt3; 
+    readingPT4 = PT_Down_Offset_ETH + PT_Down_Slope_ETH * scale2.read(); 
+    readingPT5 = ReadingsQueue[queueLength].pt5;
+    readingLC1 = LoadCell1_Offset + LoadCell2_Offset*scale3.read();
+    readingLC2 = ReadingsQueue[queueLength].lc2;
+    readingLC3 = LoadCell1_Offset + LoadCell2_Offset*scale4.read();
+  }
+  gainbool = !gainbool;
+  
   readingTC1 = analogRead(TC1);
   readingTC2 = analogRead(TC2);
-  readingCap1 = analogRead(CAPSENS1DATA);
-  readingCap2 = analogRead(CAPSENS2DATA);
+  // readingCap1 = analogRead(CAPSENS1DATA);
+  // readingCap2 = analogRead(CAPSENS2DATA);
 
   printSensorReadings();
 }
@@ -546,9 +586,9 @@ void printSensorReadings() {
  serialMessage.concat(" ");
  serialMessage.concat(readingTC2);
  serialMessage.concat(" ");
- serialMessage.concat(readingCap1);
- serialMessage.concat(" ");
- serialMessage.concat(readingCap2);
+//  serialMessage.concat(readingCap1);
+//  serialMessage.concat(" ");
+//  serialMessage.concat(readingCap2);
  serialMessage.concat(" Queue Length: ");
  serialMessage.concat(queueLength);
  Serial.println(serialMessage);
