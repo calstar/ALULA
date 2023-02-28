@@ -112,37 +112,6 @@ struct_message incomingReadings;
 // Create a struct_message to send commands
 struct_message Commands;
 
-void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
-  if (status == 0) {
-    sendTime = millis();
-  }
-}
-
-void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
-  memcpy(&incomingReadings, incomingData, sizeof(incomingReadings));
-
-  incomingMessageTime = incomingReadings.messageTime;
-  incomingPT1 = incomingReadings.pt1;
-  incomingPT2 = incomingReadings.pt2;
-  incomingPT3 = incomingReadings.pt3;
-  incomingPT4 = incomingReadings.pt4;
-  incomingPT5 = incomingReadings.pt5;
-  incomingLC1 = incomingReadings.lc1;
-  incomingLC2 = incomingReadings.lc2;
-  incomingLC3 = incomingReadings.lc3;
-  incomingTC1 = incomingReadings.tc1;
-  incomingTC2 = incomingReadings.tc2;
-  incomingCap1 = incomingReadings.cap1;
-  incomingCap2 = incomingReadings.cap2;
-  pressComplete = incomingReadings.pressComplete;
-  ethComplete = incomingReadings.ethComplete;
-  oxComplete = incomingReadings.oxComplete;
-  DAQState = incomingReadings.DAQState;
-  queueSize = incomingReadings.queueSize;
-
-  receiveTime = millis();
-  receiveDataPrint();
-}
 
 void setup() {
   // put your setup code here, to run once:

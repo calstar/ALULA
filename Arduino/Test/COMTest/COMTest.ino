@@ -12,22 +12,22 @@ This code runs on the COM ESP32 and has a couple of main tasks.
 #include <ezButton.h>
 
 // Set pinouts. Currently set arbitrarily
-ezButton SWITCH_IDLE(14);
-ezButton SWITCH_ARMED(34);
-ezButton SWITCH_PRESS(26);
-ezButton SWITCH_QD(21);
-ezButton SWITCH_IGNITION(23);
+ezButton SWITCH_IDLE(35);
+ezButton SWITCH_ARMED(32);
+ezButton SWITCH_PRESS(27);
+ezButton SWITCH_QD(23);
+ezButton SWITCH_IGNITION(21);
 ezButton SWITCH_HOTFIRE(18); 
-ezButton SWITCH_ABORT(17);
+ezButton SWITCH_ABORT(13);
 
 //#define LED_IDLE 13
-#define LED_ARMED 13
-#define LED_PRESSETH 35
-#define LED_PRESSLOX 33
-#define LED_PRESS 25
-#define LED_QD 27
-#define LED_IGNITION 19
-#define LED_HOTFIRE 22
+#define LED_ARMED 34
+#define LED_PRESSETH 33
+#define LED_PRESSLOX 25
+#define LED_PRESS 26
+#define LED_QD 14
+#define LED_IGNITION 22
+#define LED_HOTFIRE 19
 #define LED_ABORT 5
 
 float pressTime = 0;
@@ -212,6 +212,7 @@ void setup() {
 }
 
 void loop() {
+  delay(2000);
   Serial.println(serialState);
 
   loopStartTime=millis();
@@ -236,6 +237,7 @@ void loop() {
   case (ARMED):
     armed();
     if (DAQState == ARMED) {digitalWrite(LED_ARMED, HIGH);}
+    digitalWrite(LED_ARMED, HIGH);
     if (SWITCH_ABORT.isPressed()) {serialState=ABORT;}
     if (SWITCH_PRESS.isPressed()) {serialState=PRESS;}
     if(!SWITCH_ARMED.isPressed()) {serialState=IDLE;}
@@ -245,6 +247,7 @@ void loop() {
 
   case (PRESS): 
     press();
+    digitalWrite(LED_PRESS, HIGH);
     if (SWITCH_ABORT.isPressed()) {serialState=ABORT;}
     if (DAQState == PRESS) {digitalWrite(LED_PRESS, HIGH);}
     if (ethComplete) {digitalWrite(LED_PRESSETH, HIGH);}
@@ -255,6 +258,7 @@ void loop() {
 
   case (QD):
     quick_disconnect();
+    digitalWrite(LED_QD, HIGH);
     if (SWITCH_ABORT.isPressed()) {serialState=ABORT;}
     if (DAQState == QD) {digitalWrite(LED_QD, HIGH);}
     if (SWITCH_IGNITION.isPressed()) {serialState=IGNITION;}
@@ -264,6 +268,7 @@ void loop() {
 
   case (IGNITION):
     ignition();
+    digitalWrite(LED_IGNITION, HIGH);
     if (SWITCH_ABORT.isPressed()) {serialState=ABORT;}
     if (DAQState == IGNITION) {digitalWrite(LED_IGNITION, HIGH);}
     if (SWITCH_HOTFIRE.isPressed()) {serialState=HOTFIRE;}
@@ -273,7 +278,7 @@ void loop() {
 
   case (HOTFIRE):
     hotfire();
-
+    digitalWrite(LED_HOTFIRE, HIGH);
     if (SWITCH_ABORT.isPressed()) {serialState=ABORT;}
     if (DAQState == HOTFIRE) {digitalWrite(LED_HOTFIRE, HIGH);}
     if(!SWITCH_QD.isPressed() && !SWITCH_PRESS.isPressed() && !SWITCH_ARMED.isPressed() && !SWITCH_IGNITION.isPressed() && !SWITCH_HOTFIRE.isPressed()) {serialState=IDLE;}
@@ -283,6 +288,7 @@ void loop() {
   
   case (ABORT):
     if (DAQState == ABORT) {digitalWrite(LED_ABORT, HIGH);} 
+    digitalWrite(LED_ABORT, HIGH);
     abort_sequence();
     break;
 
