@@ -223,50 +223,51 @@ void loop() {
 
   case (IDLE): //Includes polling
     idle();
-    if (SWITCH_ARMED.isPressed()) {serialState=ARMED;}
     if (SWITCH_ABORT.isPressed()) {serialState=ABORT;}
+    if (SWITCH_ARMED.isPressed()) {serialState=ARMED;}
     state = serialState;
     break;
 
   case (ARMED):
     armed();
     if (DAQState == ARMED) {digitalWrite(LED_ARMED, HIGH);}
-    if (SWITCH_IDLE.isPressed()) {serialState=IDLE;}
-    if (SWITCH_PRESS.isPressed()) {serialState=PRESS;}
     if (SWITCH_ABORT.isPressed()) {serialState=ABORT;}
+    if (SWITCH_PRESS.isPressed()) {serialState=PRESS;}
+   
     state = serialState;
     break;
 
   case (PRESS): 
     press();
+    if (SWITCH_ABORT.isPressed()) {serialState=ABORT;}
     if (DAQState == PRESS) {digitalWrite(LED_PRESS, HIGH);}
     if (ethComplete) {digitalWrite(LED_PRESSETH, HIGH);}
     if (oxComplete) {digitalWrite(LED_PRESSLOX, HIGH);}
     if (pressComplete && SWITCH_QD.isPressed()) {serialState=QD;}
-    if (pressComplete && SWITCH_IGNITION.isPressed()) {serialState=IGNITION;}
-    if (SWITCH_ABORT.isPressed()) {serialState=ABORT;}
+    
 
   case (QD):
     quick_disconnect();
+    if (SWITCH_ABORT.isPressed()) {serialState=ABORT;}
     if (DAQState == QD) {digitalWrite(LED_QD, HIGH);}
     if (SWITCH_IGNITION.isPressed()) {serialState=IGNITION;}
-    if (SWITCH_ABORT.isPressed()) {serialState=ABORT;}
     state = serialState;
     break;
 
   case (IGNITION):
     ignition();
+    if (SWITCH_ABORT.isPressed()) {serialState=ABORT;}
     if (DAQState == IGNITION) {digitalWrite(LED_IGNITION, HIGH);}
     if (SWITCH_HOTFIRE.isPressed()) {serialState=HOTFIRE;}
-    if (SWITCH_ABORT.isPressed()) {serialState=ABORT;}
     state = serialState;
     break;
 
   case (HOTFIRE):
     hotfire();
-    if (DAQState == HOTFIRE) {digitalWrite(LED_HOTFIRE, HIGH);}
-    if (SWITCH_IDLE.isPressed()) {serialState=IDLE;}
+
     if (SWITCH_ABORT.isPressed()) {serialState=ABORT;}
+    if (DAQState == HOTFIRE) {digitalWrite(LED_HOTFIRE, HIGH);}
+    
     state = serialState;
     break;
   
@@ -357,10 +358,10 @@ void receiveDataPrint() {
   message.concat(" ");
   message.concat(incomingLC3);
   message.concat(" ");
-  message.concat(incomingCap1);
-  message.concat(" ");
-  message.concat(incomingCap2);
-  message.concat(" ");
+  // message.concat(incomingCap1);
+  // message.concat(" ");
+  // message.concat(incomingCap2);
+  // message.concat(" ");
   message.concat(Commands.commandedState);
   message.concat(" ");
   message.concat(queueSize);
