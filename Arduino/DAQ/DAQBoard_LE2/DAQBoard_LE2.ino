@@ -259,46 +259,50 @@ void loop() {
   case (IDLE):
     sendDelay = IDLE_DELAY;
     idle();
-    if (commandedState==ARMED) {state=ARMED; currDAQState=ARMED;}
     if (commandedState==ABORT) {state=ABORT; currDAQState=ABORT;}
+    if (commandedState==ARMED) {state=ARMED; currDAQState=ARMED;}
+    
     break;
 
   case (ARMED): //NEED TO ADD TO CASE OPTIONS //ALLOWS OTHER CASES TO TRIGGER //INITIATE TANK PRESS LIVE READINGS
     sendDelay = GEN_DELAY;
     armed();
-    if (commandedState==IDLE) {state=IDLE; currDAQState=IDLE;}
-    if (commandedState==PRESS) {state=PRESS; currDAQState=PRESS;}
+    // if (commandedState==IDLE) {state=IDLE; currDAQState=IDLE;}
     if (commandedState==ABORT) {state=ABORT; currDAQState=ABORT;}
+    if (commandedState==PRESS) {state=PRESS; currDAQState=PRESS;}
+    
     break;
 
   case (PRESS):
     sendDelay = GEN_DELAY;
     pressComplete = press();
+    if (commandedState==ABORT) {state=ABORT; currDAQState=ABORT;}
     if (pressComplete && commandedState==QD) {state=QD; currDAQState=QD;}
     if (pressComplete && commandedState==IGNITION) {state=IGNITION; currDAQState=IGNITION;}
-    if (commandedState==ABORT) {state=ABORT; currDAQState=ABORT;}
+    
     break;
 
   case (QD):
     sendDelay = GEN_DELAY;
     quick_disconnect();
-    if (commandedState==IGNITION) {state=IGNITION; currDAQState=IGNITION;}
-    if (commandedState==IDLE) {state=IDLE; currDAQState=IDLE;}
     if (commandedState==ABORT) {state=ABORT; currDAQState=ABORT;}
+    if (commandedState==IGNITION) {state=IGNITION; currDAQState=IGNITION;}
+    
+    
     break;
 
   case (IGNITION): 
     sendDelay = GEN_DELAY;
     ignition();
-    if (commandedState==HOTFIRE) {state=HOTFIRE; currDAQState=HOTFIRE;}
-    if (commandedState==IDLE) {state=IDLE; currDAQState=IDLE;}
     if (commandedState==ABORT) {state=ABORT; currDAQState=ABORT;}
+    if (commandedState==HOTFIRE) {state=HOTFIRE; currDAQState=HOTFIRE;}
+    
+    
     break;
 
   case (HOTFIRE): 
     sendDelay = GEN_DELAY;
     hotfire();
-    if (commandedState==IDLE) {state=IDLE; currDAQState=IDLE;}
     if (commandedState==ABORT) {state=ABORT; currDAQState=ABORT;}
     break;
 
