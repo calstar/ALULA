@@ -4,8 +4,6 @@ This code runs on the COM ESP32 and has a couple of main tasks.
 2. Send servo commands to DAQ ESP32
 */
 
-#include <esp_now.h>
-#include <WiFi.h>
 #include <Wire.h>
 #include <Arduino.h>
 #include "HX711.h"
@@ -54,7 +52,6 @@ bool ethComplete = false;
 bool oxComplete = false;
 short int queueSize = 0;
 
-esp_now_peer_info_t peerInfo;
 
 //TIMING VARIABLES
 int state;
@@ -112,37 +109,6 @@ struct_message incomingReadings;
 // Create a struct_message to send commands
 struct_message Commands;
 
-void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
-  if (status == 0) {
-    sendTime = millis();
-  }
-}
-
-void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
-  memcpy(&incomingReadings, incomingData, sizeof(incomingReadings));
-
-  incomingMessageTime = incomingReadings.messageTime;
-  incomingPT1 = incomingReadings.pt1;
-  incomingPT2 = incomingReadings.pt2;
-  incomingPT3 = incomingReadings.pt3;
-  incomingPT4 = incomingReadings.pt4;
-  incomingPT5 = incomingReadings.pt5;
-  incomingLC1 = incomingReadings.lc1;
-  incomingLC2 = incomingReadings.lc2;
-  incomingLC3 = incomingReadings.lc3;
-  incomingTC1 = incomingReadings.tc1;
-  incomingTC2 = incomingReadings.tc2;
-  incomingCap1 = incomingReadings.cap1;
-  incomingCap2 = incomingReadings.cap2;
-  pressComplete = incomingReadings.pressComplete;
-  ethComplete = incomingReadings.ethComplete;
-  oxComplete = incomingReadings.oxComplete;
-  DAQState = incomingReadings.DAQState;
-  queueSize = incomingReadings.queueSize;
-
-  receiveTime = millis();
-  receiveDataPrint();
-}
 
 void setup() {
   // put your setup code here, to run once:
@@ -179,32 +145,6 @@ void setup() {
   digitalWrite(LED_HOTFIRE, LOW);
   digitalWrite(LED_ABORT, LOW);
 
-  //set device as WiFi station
-  WiFi.mode(WIFI_STA);
-
-  //initialize ESP32
-   if (esp_now_init() != ESP_OK) {
-    Serial.println("Error initializing ESP-NOW");
-    return;
-  }
-  
-  esp_now_register_send_cb(OnDataSent);
-
-  // Register peer
-  memcpy(peerInfo.peer_addr, broadcastAddress, 6);
-  peerInfo.channel = 0;
-  peerInfo.encrypt = false;
-
-  // Add peer
-  if (esp_now_add_peer(&peerInfo) != ESP_OK){
- //   Serial.println("Failed to add peer");
-    return;
-  }
-
-  
-  // Register for a callback function that will be called when data is received
-  esp_now_register_recv_cb(OnDataRecv);
-
   // Used for debugging
   // Serial.println(WiFi.macAddress());
   state = IDLE;
@@ -228,55 +168,55 @@ void loop() {
 
   case (IDLE): //Includes polling
     idle();
-    if (SWITCH_ABORT.isPressed()) {serialState=ABORT;}
-    if (SWITCH_ARMED.isPressed()) {serialState=ARMED;}
+    if (SWITCH_ABORT.getState()) {serialState=ABORT;}
+    if (SWITCH_ARMED.getState()) {serialState=ARMED;}
     state = serialState;
     break;
 
   case (ARMED):
     armed();
     if (DAQState == ARMED) {digitalWrite(LED_ARMED, HIGH);}
-    if (SWITCH_ABORT.isPressed()) {serialState=ABORT;}
-    if (SWITCH_PRESS.isPressed()) {serialState=PRESS;}
-    if(!SWITCH_ARMED.isPressed()) {serialState=IDLE;}
+    if (SWITCH_ABORT.getState()) {serialState=ABORT;}
+    if (SWITCH_PRESS.getState()) {serialState=PRESS;}
+    if(!SWITCH_ARMED.getState()) {serialState=IDLE;}
    
     state = serialState;
     break;
 
   case (PRESS): 
     press();
-    if (SWITCH_ABORT.isPressed()) {serialState=ABORT;}
+    if (SWITCH_ABORT.getState()) {serialState=ABORT;}
     if (DAQState == PRESS) {digitalWrite(LED_PRESS, HIGH);}
     if (ethComplete) {digitalWrite(LED_PRESSETH, HIGH);}
     if (oxComplete) {digitalWrite(LED_PRESSLOX, HIGH);}
-    if (pressComplete && SWITCH_QD.isPressed()) {serialState=QD;}
-    if(!SWITCH_PRESS.isPressed() && !SWITCH_ARMED.isPressed()) {serialState=IDLE;}
+    if (pressComplete && SWITCH_QD.getState()) {serialState=QD;}
+    if(!SWITCH_PRESS.getState() && !SWITCH_ARMED.getState()) {serialState=IDLE;}
     
 
   case (QD):
     quick_disconnect();
-    if (SWITCH_ABORT.isPressed()) {serialState=ABORT;}
+    if (SWITCH_ABORT.getState()) {serialState=ABORT;}
     if (DAQState == QD) {digitalWrite(LED_QD, HIGH);}
-    if (SWITCH_IGNITION.isPressed()) {serialState=IGNITION;}
+    if (SWITCH_IGNITION.getState()) {serialState=IGNITION;}
     state = serialState;
-    if(!SWITCH_QD.isPressed() && !SWITCH_PRESS.isPressed() && !SWITCH_ARMED.isPressed()) {serialState=IDLE;}
+    if(!SWITCH_QD.getState() && !SWITCH_PRESS.getState() && !SWITCH_ARMED.getState()) {serialState=IDLE;}
     break;
 
   case (IGNITION):
     ignition();
-    if (SWITCH_ABORT.isPressed()) {serialState=ABORT;}
+    if (SWITCH_ABORT.getState()) {serialState=ABORT;}
     if (DAQState == IGNITION) {digitalWrite(LED_IGNITION, HIGH);}
-    if (SWITCH_HOTFIRE.isPressed()) {serialState=HOTFIRE;}
+    if (SWITCH_HOTFIRE.getState()) {serialState=HOTFIRE;}
     state = serialState;
-    if(!SWITCH_QD.isPressed() && !SWITCH_PRESS.isPressed() && !SWITCH_ARMED.isPressed() && !SWITCH_IGNITION.isPressed()) {serialState=IDLE;}
+    if(!SWITCH_QD.getState() && !SWITCH_PRESS.getState() && !SWITCH_ARMED.getState() && !SWITCH_IGNITION.getState()) {serialState=IDLE;}
     break;
 
   case (HOTFIRE):
     hotfire();
 
-    if (SWITCH_ABORT.isPressed()) {serialState=ABORT;}
+    if (SWITCH_ABORT.getState()) {serialState=ABORT;}
     if (DAQState == HOTFIRE) {digitalWrite(LED_HOTFIRE, HIGH);}
-    if(!SWITCH_QD.isPressed() && !SWITCH_PRESS.isPressed() && !SWITCH_ARMED.isPressed() && !SWITCH_IGNITION.isPressed() && !SWITCH_HOTFIRE.isPressed()) {serialState=IDLE;}
+    if(!SWITCH_QD.getState() && !SWITCH_PRESS.getState() && !SWITCH_ARMED.getState() && !SWITCH_IGNITION.getState() && !SWITCH_HOTFIRE.getState()) {serialState=IDLE;}
     
     state = serialState;
     break;
@@ -288,7 +228,7 @@ void loop() {
 
   case (DEBUG):
     debug();
-    if (SWITCH_IDLE.isPressed()) {serialState=IDLE;}
+    if (SWITCH_IDLE.getState()) {serialState=IDLE;}
     state = serialState;
     break;
   }
@@ -326,19 +266,6 @@ void debug() {
   commandedState = DEBUG;
 }
 
-void dataSendCheck() {
-  if ((loopStartTime-sendTime) > sendDelay) {
-    dataSend(); 
-  }
-}
-
-void dataSend() {
-  // Set values to send
-  Commands.commandedState = commandedState;
-
-  // Send message via ESP-NOW
-  esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &Commands, sizeof(Commands));
-}
 
 void receiveDataPrint() {
   message = "";
