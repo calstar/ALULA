@@ -233,6 +233,7 @@ void loop() {
     if (DAQState == ARMED) {digitalWrite(LED_ARMED, HIGH);}
     if (SWITCH_ABORT.isPressed()) {serialState=ABORT;}
     if (SWITCH_PRESS.isPressed()) {serialState=PRESS;}
+    if(!SWITCH_ARMED.isPressed()) {serialState=IDLE;}
    
     state = serialState;
     break;
@@ -244,6 +245,7 @@ void loop() {
     if (ethComplete) {digitalWrite(LED_PRESSETH, HIGH);}
     if (oxComplete) {digitalWrite(LED_PRESSLOX, HIGH);}
     if (pressComplete && SWITCH_QD.isPressed()) {serialState=QD;}
+    if(!SWITCH_PRESS.isPressed() && !SWITCH_ARMED.isPressed()) {serialState=IDLE;}
     
 
   case (QD):
@@ -252,6 +254,7 @@ void loop() {
     if (DAQState == QD) {digitalWrite(LED_QD, HIGH);}
     if (SWITCH_IGNITION.isPressed()) {serialState=IGNITION;}
     state = serialState;
+    if(!SWITCH_QD.isPressed() && !SWITCH_PRESS.isPressed() && !SWITCH_ARMED.isPressed()) {serialState=IDLE;}
     break;
 
   case (IGNITION):
@@ -260,6 +263,7 @@ void loop() {
     if (DAQState == IGNITION) {digitalWrite(LED_IGNITION, HIGH);}
     if (SWITCH_HOTFIRE.isPressed()) {serialState=HOTFIRE;}
     state = serialState;
+    if(!SWITCH_QD.isPressed() && !SWITCH_PRESS.isPressed() && !SWITCH_ARMED.isPressed() && !SWITCH_IGNITION.isPressed()) {serialState=IDLE;}
     break;
 
   case (HOTFIRE):
@@ -267,6 +271,7 @@ void loop() {
 
     if (SWITCH_ABORT.isPressed()) {serialState=ABORT;}
     if (DAQState == HOTFIRE) {digitalWrite(LED_HOTFIRE, HIGH);}
+    if(!SWITCH_QD.isPressed() && !SWITCH_PRESS.isPressed() && !SWITCH_ARMED.isPressed() && !SWITCH_IGNITION.isPressed() && !SWITCH_HOTFIRE.isPressed()) {serialState=IDLE;}
     
     state = serialState;
     break;
