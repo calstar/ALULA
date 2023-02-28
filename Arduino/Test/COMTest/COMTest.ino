@@ -289,42 +289,34 @@ void loop() {
 
 void idle() {
   commandedState = IDLE;
-  dataSendCheck();
 }
 
 void armed() {
   commandedState = ARMED;
-  dataSendCheck();
 }
 
 void press() {
   commandedState = PRESS;
-  dataSendCheck();
 }
 
 void quick_disconnect() {
   commandedState = QD;
-  dataSendCheck();
 }
 
 void ignition() {
   commandedState = IGNITION;
-  dataSendCheck();
 }
 
 void hotfire() {
   commandedState = HOTFIRE;
-  dataSendCheck();
 }
 
 void abort_sequence() {
   commandedState = ABORT;
-  dataSendCheck();
 }
 
 void debug() {
   commandedState = DEBUG;
-  dataSendCheck();
 }
 
 void dataSendCheck() {
