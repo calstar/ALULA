@@ -145,8 +145,6 @@ typedef struct struct_message {
     int lc3;
     int tc1;
     int tc2;
-    float cap1;
-    float cap2;
     int commandedState;
     int DAQState;
     short int queueSize;
@@ -517,8 +515,6 @@ void addReadingsToQueue() {
     ReadingsQueue[queueLength].lc3=readingLC3;
     ReadingsQueue[queueLength].tc1=readingTC1;
     ReadingsQueue[queueLength].tc2=readingTC2;
-    ReadingsQueue[queueLength].cap1=readingCap1;
-    ReadingsQueue[queueLength].cap2=readingCap2;
     ReadingsQueue[queueLength].queueSize=queueLength;
     ReadingsQueue[queueLength].DAQState=currDAQState;
     ReadingsQueue[queueLength].pressComplete=pressComplete;
@@ -617,8 +613,6 @@ void dataSend() {
   Readings.lc3  = ReadingsQueue[queueLength].lc3;
   Readings.tc1 = ReadingsQueue[queueLength].tc1;
   Readings.tc2 = ReadingsQueue[queueLength].tc2;
-  Readings.cap1 = ReadingsQueue[queueLength].cap1;
-  Readings.cap2 = ReadingsQueue[queueLength].cap2;
   Readings.DAQState = ReadingsQueue[queueLength].DAQState;
   Readings.pressComplete = ReadingsQueue[queueLength].pressComplete;
   Readings.oxComplete = ReadingsQueue[queueLength].oxComplete;
