@@ -28,9 +28,9 @@ float sendDelay = 250; //Sets frequency of data collection. 1/(sendDelay*10^-3) 
 #define PTOUT1 36
 #define CLKPT1 27
 float PT_Tanks_Offset_LOX = 10.663;
-float PT_Tanks_Slope1_LOX = 0.0001181;
+float PT_Tanks_Slope_LOX = 0.0001181;
 float PT_Tanks_Offset_ETH = 10.663;
-float PT_Tanks_Slope1_ETH = 0.0001181;
+float PT_Tanks_Slope_ETH = 0.0001181;
 
 
 // USED FOR THE DOWNSTREAM PTs ON LOX(gain 32) AND ETH(gain 64) sides
