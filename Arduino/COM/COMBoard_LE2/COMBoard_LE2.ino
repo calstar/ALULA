@@ -10,25 +10,22 @@ This code runs on the COM ESP32 and has a couple of main tasks.
 #include <Arduino.h>
 #include "HX711.h"
 #include <ezButton.h>
+#include "avdweb_Switch.h"
 
-// Set pinouts. Currently set arbitrarily
-ezButton SWITCH_IDLE(23);
-ezButton SWITCH_ARMED(22);
-ezButton SWITCH_PRESS(21);
-ezButton SWITCH_QD(19);
-ezButton SWITCH_IGNITION(18);
-ezButton SWITCH_HOTFIRE(5); 
-ezButton SWITCH_ABORT(7);
-
-#define LED_IDLE 34
-#define LED_ARMED 35
-#define LED_PRESSETH 32
-#define LED_PRESSLOX 33
-#define LED_PRESS 25
-#define LED_QD 26
-#define LED_IGNITION 27
-#define LED_HOTFIRE 14
-#define LED_ABORT 13
+ Switch SWITCH_ARMED = Switch(14);  //correct
+Switch SWITCH_PRESS = Switch(12);  //correct
+Switch SWITCH_QD = Switch(26);   //  correct                                  
+Switch SWITCH_IGNITION = Switch(21);  
+Switch SWITCH_HOTFIRE = Switch(23);   
+Switch SWITCH_ABORT = Switch(18);
+#define LED_ARMED 13   //correct
+#define LED_PRESSETH 25 //correct
+#define LED_PRESSLOX 33 //corect
+#define LED_PRESS 32 //correct
+#define LED_QD 27 //correct
+#define LED_IGNITION 19 //
+#define LED_HOTFIRE 22  //correct
+#define LED_ABORT 5 
 
 float pressTime = 0;
 
@@ -79,7 +76,7 @@ float receiveTime = 0;
 //NON BUSTED DAQ {0x7C, 0x9E, 0xBD, 0xD8, 0xFC, 0x14}
 // uint8_t broadcastAddress[] = {0x7C, 0x9E, 0xBD, 0xD8, 0xFC, 0x14}; //change to new Mac Address
 // {0xC4, 0xDD, 0x57, 0x9E, 0x96, 0x34};
-uint8_t broadcastAddress[] = {0x30, 0xC6, 0xF7, 0x2A, 0x28, 0x04};
+uint8_t broadcastAddress[] = {0x08, 0x3A, 0xF2, 0xB7, 0x0E, 0x44};
 //{0x30, 0xC6, 0xF7, 0x2A, 0x28, 0x04}
 
 //Structure example to send data
@@ -96,8 +93,6 @@ typedef struct struct_message {
     int lc3;
     int tc1;
     int tc2;
-    float cap1;
-    float cap2;
     int commandedState;
     int DAQState;
     short int queueSize;
@@ -118,17 +113,8 @@ void setup() {
   Serial.begin(115200);
    // Serial.println("Start of Setup");
 
-  // Use switches for moving between states
-  SWITCH_IDLE.setDebounceTime(50);
-  SWITCH_ARMED.setDebounceTime(50);
-  SWITCH_PRESS.setDebounceTime(50);
-  SWITCH_QD.setDebounceTime(50);
-  SWITCH_IGNITION.setDebounceTime(50);
-  SWITCH_HOTFIRE.setDebounceTime(50);
-  SWITCH_ABORT.setDebounceTime(50);
 
   // setup LEDs and set to LOW
-  pinMode(LED_IDLE, OUTPUT);
   pinMode(LED_ARMED, OUTPUT);
   pinMode(LED_PRESSETH, OUTPUT);
   pinMode(LED_PRESSLOX, OUTPUT);
@@ -138,7 +124,6 @@ void setup() {
   pinMode(LED_HOTFIRE, OUTPUT);
   pinMode(LED_ABORT, OUTPUT);
 
-  digitalWrite(LED_IDLE, LOW);
   digitalWrite(LED_ARMED, LOW);
   digitalWrite(LED_PRESSETH, LOW);
   digitalWrite(LED_PRESSLOX, LOW);
@@ -147,6 +132,8 @@ void setup() {
   digitalWrite(LED_IGNITION, LOW);
   digitalWrite(LED_HOTFIRE, LOW);
   digitalWrite(LED_ABORT, LOW);
+
+  while(SWITCH_ABORT.on()){digitalWrite(LED_ABORT, HIGH);}
 
   //set device as WiFi station
   WiFi.mode(WIFI_STA);
@@ -181,123 +168,132 @@ void setup() {
 }
 
 void loop() {
+  esp_now_register_recv_cb(OnDataRecv);
   loopStartTime=millis();
   SerialRead();
-  SWITCH_IDLE.loop();
-  SWITCH_ARMED.loop();
-  SWITCH_PRESS.loop();
-  SWITCH_QD.loop();
-  SWITCH_IGNITION.loop();
-  SWITCH_HOTFIRE.loop();
-  SWITCH_ABORT.loop();
+  SWITCH_ARMED.poll();
+  SWITCH_PRESS.poll();
+  SWITCH_QD.poll();
+  SWITCH_IGNITION.poll();
+  SWITCH_HOTFIRE.poll();
+  SWITCH_ABORT.poll();
+  Serial.println(state);
+  Serial.println(DAQState);
 
   switch (state) {
 
   case (IDLE): //Includes polling
     idle();
-    if (SWITCH_ABORT.isPressed()) {serialState=ABORT;}
-    if (SWITCH_ARMED.isPressed()) {serialState=ARMED;}
+    if (SWITCH_ABORT.on()) {serialState=ABORT;}
+    if (SWITCH_ARMED.on()) {serialState=ARMED;}
     state = serialState;
     break;
 
   case (ARMED):
     armed();
     if (DAQState == ARMED) {digitalWrite(LED_ARMED, HIGH);}
-    if (SWITCH_ABORT.isPressed()) {serialState=ABORT;}
-    if (SWITCH_PRESS.isPressed()) {serialState=PRESS;}
-    if(!SWITCH_ARMED.isPressed()) {serialState=IDLE;}
+    if (SWITCH_ABORT.on()) {serialState=ABORT;}
+    if (SWITCH_PRESS.on()) {serialState=PRESS;}
+    if(!SWITCH_ARMED.on()) {serialState=IDLE;}
    
     state = serialState;
     break;
 
   case (PRESS): 
     press();
-    if (SWITCH_ABORT.isPressed()) {serialState=ABORT;}
+    if (SWITCH_ABORT.on()) {serialState=ABORT;}
     if (DAQState == PRESS) {digitalWrite(LED_PRESS, HIGH);}
     if (ethComplete) {digitalWrite(LED_PRESSETH, HIGH);}
     if (oxComplete) {digitalWrite(LED_PRESSLOX, HIGH);}
-    if (pressComplete && SWITCH_QD.isPressed()) {serialState=QD;}
-    if(!SWITCH_PRESS.isPressed() && !SWITCH_ARMED.isPressed()) {serialState=IDLE;}
+    if ( SWITCH_QD.on()) {serialState=QD;}  //add pressComplete && later
+    state = serialState;
+    if(!SWITCH_PRESS.on() && !SWITCH_ARMED.on()) {serialState=IDLE;}
     
 
   case (QD):
     quick_disconnect();
-    if (SWITCH_ABORT.isPressed()) {serialState=ABORT;}
+    if (SWITCH_ABORT.on()) {serialState=ABORT;}
     if (DAQState == QD) {digitalWrite(LED_QD, HIGH);}
-    if (SWITCH_IGNITION.isPressed()) {serialState=IGNITION;}
+    if (SWITCH_IGNITION.on()) {serialState=IGNITION;}
     state = serialState;
-    if(!SWITCH_QD.isPressed() && !SWITCH_PRESS.isPressed() && !SWITCH_ARMED.isPressed()) {serialState=IDLE;}
+    if(!SWITCH_QD.on() && !SWITCH_PRESS.on() && !SWITCH_ARMED.on()) {serialState=IDLE;}
     break;
 
   case (IGNITION):
     ignition();
-    if (SWITCH_ABORT.isPressed()) {serialState=ABORT;}
+    if (SWITCH_ABORT.on()) {serialState=ABORT;}
     if (DAQState == IGNITION) {digitalWrite(LED_IGNITION, HIGH);}
-    if (SWITCH_HOTFIRE.isPressed()) {serialState=HOTFIRE;}
+    if (SWITCH_HOTFIRE.on()) {serialState=HOTFIRE;}
     state = serialState;
-    if(!SWITCH_QD.isPressed() && !SWITCH_PRESS.isPressed() && !SWITCH_ARMED.isPressed() && !SWITCH_IGNITION.isPressed()) {serialState=IDLE;}
+    if(!SWITCH_QD.on() && !SWITCH_PRESS.on() && !SWITCH_ARMED.on() && !SWITCH_IGNITION.on()) {serialState=IDLE;}
     break;
 
   case (HOTFIRE):
     hotfire();
 
-    if (SWITCH_ABORT.isPressed()) {serialState=ABORT;}
+    if (SWITCH_ABORT.on()) {serialState=ABORT;}
     if (DAQState == HOTFIRE) {digitalWrite(LED_HOTFIRE, HIGH);}
-    if(!SWITCH_QD.isPressed() && !SWITCH_PRESS.isPressed() && !SWITCH_ARMED.isPressed() && !SWITCH_IGNITION.isPressed() && !SWITCH_HOTFIRE.isPressed()) {serialState=IDLE;}
+    if(!SWITCH_QD.on() && !SWITCH_PRESS.on() && !SWITCH_ARMED.on() && !SWITCH_IGNITION.on() && !SWITCH_HOTFIRE.on()) {serialState=IDLE;}
     
     state = serialState;
     break;
   
   case (ABORT):
     if (DAQState == ABORT) {digitalWrite(LED_ABORT, HIGH);} 
+   digitalWrite(LED_ABORT, HIGH);
+    digitalWrite(LED_IGNITION,LOW);
+    digitalWrite(LED_QD, LOW);
+    digitalWrite(LED_ARMED, LOW);
+    digitalWrite(LED_PRESS, LOW);
+    digitalWrite(LED_PRESSETH, LOW);
+    digitalWrite(LED_PRESSLOX, LOW);
+    digitalWrite(LED_HOTFIRE, LOW);
+    state = ABORT;
     abort_sequence();
     break;
 
   case (DEBUG):
     debug();
-    if (SWITCH_IDLE.isPressed()) {serialState=IDLE;}
+    serialState=IDLE;
     state = serialState;
     break;
   }
 }
 
 void idle() {
-  commandedState = IDLE;
   dataSendCheck();
 }
 
 void armed() {
-  commandedState = ARMED;
+ 
   dataSendCheck();
 }
 
 void press() {
-  commandedState = PRESS;
+
   dataSendCheck();
 }
 
 void quick_disconnect() {
-  commandedState = QD;
+
   dataSendCheck();
 }
 
 void ignition() {
-  commandedState = IGNITION;
+  
   dataSendCheck();
 }
 
 void hotfire() {
-  commandedState = HOTFIRE;
+ 
   dataSendCheck();
 }
 
 void abort_sequence() {
-  commandedState = ABORT;
   dataSendCheck();
 }
 
 void debug() {
-  commandedState = DEBUG;
   dataSendCheck();
 }
 
@@ -309,10 +305,26 @@ void dataSendCheck() {
 
 void dataSend() {
   // Set values to send
-  Commands.commandedState = commandedState;
+  Commands.commandedState = state;
 
   // Send message via ESP-NOW
   esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &Commands, sizeof(Commands));
+}
+void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
+  memcpy(&incomingReadings, incomingData, sizeof(incomingReadings));
+  Serial.print("Bytes received: ");
+  Serial.println(len);
+  DAQState = incomingReadings.DAQState;
+}
+void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
+  // Serial.print("\r\nLast Packet Send Status:\t");
+  // Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
+  // if (status ==0){
+  //   success = "Delivery Success :)";
+  // }
+  // else{
+  //   success = "Delivery Fail :(";
+  // }
 }
 
 void receiveDataPrint() {
