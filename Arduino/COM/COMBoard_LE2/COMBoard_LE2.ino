@@ -34,16 +34,16 @@ String message;
 int commandedState;
 
 int incomingMessageTime;
-int incomingPT1 = 4; //PT errors when initialized to zero
-int incomingPT2 = 4;
-int incomingPT3 = 4;
-int incomingPT4 = 4;
-int incomingPT5 = 4;
-int incomingLC1 = 4;
-int incomingLC2 = 4;
-int incomingLC3 = 4;
-int incomingTC1 = 4;
-int incomingTC2 = 4;
+float incomingPT1 = 4; //PT errors when initialized to zero
+float incomingPT2 = 4;
+float incomingPT3 = 4;
+float incomingPT4 = 4;
+float incomingPT5 = 4;
+float incomingLC1 = 4;
+float incomingLC2 = 4;
+float incomingLC3 = 4;
+float incomingTC1 = 4;
+float incomingTC2 = 4;
 float incomingCap1 = 0;
 float incomingCap2 = 0;
 bool pressComplete = false;
@@ -82,17 +82,17 @@ uint8_t broadcastAddress[] = {0x08, 0x3A, 0xF2, 0xB7, 0x0E, 0x44};
 //Structure example to send data
 //Must match the receiver structure
 typedef struct struct_message {
-    int messageTime;
-    int pt1;
-    int pt2;
-    int pt3;
-    int pt4;
-    int pt5;
-    int lc1;
-    int lc2;
-    int lc3;
-    int tc1;
-    int tc2;
+    float messageTime;
+    float pt1;
+    float pt2;
+    float pt3;
+    float pt4;
+    float pt5;
+    float lc1;
+    float lc2;
+    float lc3;
+    float tc1;
+    float tc2;
     int commandedState;
     int DAQState;
     short int queueSize;
@@ -205,7 +205,7 @@ void loop() {
     if (DAQState == PRESS) {digitalWrite(LED_PRESS, HIGH);}
     if (ethComplete) {digitalWrite(LED_PRESSETH, HIGH);}
     if (oxComplete) {digitalWrite(LED_PRESSLOX, HIGH);}
-    if ( SWITCH_QD.on()) {serialState=QD;}  //add pressComplete && later
+    if (SWITCH_QD.on()) {serialState=QD;}  //add pressComplete && later
     state = serialState;
     if(!SWITCH_PRESS.on() && !SWITCH_ARMED.on()) {serialState=IDLE;}
     
@@ -315,6 +315,24 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   Serial.print("Bytes received: ");
   Serial.println(len);
   DAQState = incomingReadings.DAQState;
+  incomingPT1 = incomingReadings.pt1;
+  incomingPT2 = incomingReadings.pt2;
+  incomingPT3 = incomingReadings.pt3;
+  incomingPT4 = incomingReadings.pt4;
+  incomingPT5 = incomingReadings.pt5;
+  incomingLC1 = incomingReadings.lc1;
+  incomingLC2 = incomingReadings.lc2;
+  incomingLC3 = incomingReadings.lc3;
+  incomingTC1 = incomingReadings.tc1;
+  incomingTC2 = incomingReadings.tc2;
+  pressComplete = incomingReadings.pressComplete;
+  oxComplete = incomingReadings.oxComplete;
+  ethComplete = incomingReadings.ethComplete;
+  queueSize = incomingReadings.queueSize;
+
+  
+
+  
 }
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
   // Serial.print("\r\nLast Packet Send Status:\t");
@@ -346,6 +364,10 @@ void receiveDataPrint() {
   message.concat(incomingLC2);
   message.concat(" ");
   message.concat(incomingLC3);
+  message.concat(" ");
+  message.concat(incomingTC1);
+  message.concat(" ");
+  message.concat(incomingTC2);
   message.concat(" ");
   // message.concat(incomingCap1);
   // message.concat(" ");
