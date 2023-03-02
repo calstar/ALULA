@@ -71,7 +71,7 @@ float LoadCell3_Slope = 0.0001181;
 // Relays pinouts. Use for solenoidPinOx, oxSolVent, oxQD, and fuelQD // 
 #define RELAYPIN_VENT 21
 #define RELAYPIN_QD_ETH 23
-#define RELAYPIN_QD_LOX 22
+#define RELAYPIN_QD_OX 22
 #define RELAYPIN_PRESSLOX 19
 #define RELAYPIN_PRESSETH 18
 #define RELAYPIN_IGNITER 5
@@ -193,7 +193,7 @@ void setup() {
 
   //EVERYTHING SHOULD BE WRITTEN HIGH EXCEPT QDs, WHICH SHOULD BE LOW
   digitalWrite(RELAYPIN_VENT, HIGH);
-  digitalWrite(RELAYPIN_QD_LOX, LOW);
+  digitalWrite(RELAYPIN_QD_OX, LOW);
   digitalWrite(RELAYPIN_QD_ETH, LOW);
   digitalWrite(RELAYPIN_PRESSETH, HIGH);
   digitalWrite(RELAYPIN_PRESSLOX, HIGH);
@@ -419,7 +419,7 @@ bool press() {
 
 void quick_disconnect() {
 
-  digitalWrite(RELAYPIN_QD_LOX, HIGH);
+  digitalWrite(RELAYPIN_QD_OX, HIGH);
   digitalWrite(RELAYPIN_QD_ETH, HIGH);
 
 }
