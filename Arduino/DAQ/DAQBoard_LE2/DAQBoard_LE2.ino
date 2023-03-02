@@ -525,10 +525,10 @@ void addReadingsToQueue() {
 
 void getReadings(){
   if(gainbool){
-    scale1.setgain(64);
-    scale2.setgain(64);
-    scale3.setgain(64);
-    scale4.setgain(64);
+    scale1.set_gain(64);
+    scale2.set_gain(64);
+    scale3.set_gain(64);
+    scale4.set_gain(64);
     readingPT1 = PT_Tanks_Offset_LOX + PT_Tanks_Slope_LOX * scale1.read(); 
     readingPT2 = ReadingsQueue[queueLength].pt2 ;
     readingPT3 = PT_Down_Offset_LOX + PT_Down_Slope_LOX * scale2.read(); 
@@ -538,10 +538,10 @@ void getReadings(){
     readingLC2 = LoadCell2_Offset + LoadCell2_Offset*scale4.read();
     readingLC3 = ReadingsQueue[queueLength].lc3;
   } else {
-    scale1.setgain(32,false);
-    scale2.setgain(32,false);
-    scale3.setgain(32,false);
-    scale4.setgain(32,false);
+    scale1.set_gain(32,false);
+    scale2.set_gain(32,false);
+    scale3.set_gain(32,false);
+    scale4.set_gain(32,false);
     readingPT1 = ReadingsQueue[queueLength].pt1;
     readingPT2 = PT_Tanks_Offset_ETH + PT_Tanks_Slope_ETH * scale1.read(); 
     readingPT3 = ReadingsQueue[queueLength].pt3; 
