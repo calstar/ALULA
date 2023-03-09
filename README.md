@@ -33,8 +33,28 @@
 4. (recommended) GitHub Desktop (https://desktop.github.com). You can pull, push, and edit files with ease. **Step 3 required if you would like to download GitHub Desktop as the software requires an external editor.**
 
 
-## How to update
-### Using Github Desktop
+## How to contribute
+
+### Using Git (recommended)
+CLONE USING: 
+```git clone --recurse-submodules git@github.com:calstar/LE2.git``` 
+
+Please refer to https://rocketry.gitbook.io/public/tutorials/avionics/git-and-workflow for more information.
+
+A basic workflow might go as follows:
+
+`git status` 
+
+`git add .` 
+
+`git status` Note: if you see files here that are not code/hardware and should not be added (binaries, images, autosave files, etc.), STOP and fix the `.gitignore` 
+
+`git commit -m "[Descriptive commit message of what you changed]"` 
+
+`git push` 
+
+
+### Using Github Desktop (not recommended)
 1. Make sure you have access to this project
     - Check with you administrators
 2. Go to the Github app, sign in, and click on the top left corner. You should see a pop-up window with an "Add" button. Select that button and choose "Clone repository."
@@ -46,10 +66,6 @@
 6. Check the project online and see if the changes have been reflected.
 
 
-### Using Git
-CLONE USING: 
-```git clone --recurse-submodules https://github.com/calstar/LE2.git ```
-Please refer to https://rocketry.gitbook.io/public/tutorials/avionics/git-and-workflow for more information.
 
 
 ## Helpful resources
