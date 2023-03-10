@@ -11,13 +11,13 @@ This code runs on the DAQ ESP32 and has a couple of main tasks.
 #include <Arduino.h>
 #include "HX711.h"
 #define IDLE_DELAY 250
-#define GEN_DELAY 50
+#define GEN_DELAY 25
 
 // USER DEFINED PARAMETERS FOR TEST/HOTFIRE //
-#define BangBangPressFuel 400 //Indicates transition from normal fill to bang-bang
-#define pressureFuel 413    //In units of psi. Defines set pressure for fuel
+#define BangBangPressFuel 425 //Indicates transition from normal fill to bang-bang
+#define pressureFuel 450    //In units of psi. Defines set pressure for fuel
 #define BangBangPressOx 425 //Indicates transition from normal fill to bang-bang
-#define pressureOx 445    //In units of psi. Defines set pressure for ox
+#define pressureOx 450    //In units of psi. Defines set pressure for ox
 #define abortPressure 525 //Cutoff pressure to automatically trigger abort
 #define period 0.5   //Sets period for bang-bang control
 float sendDelay = 250; //Sets frequency of data collection. 1/(sendDelay*10^-3) is frequency in Hz
@@ -69,8 +69,8 @@ float LoadCell3_Slope = 0.0001181;
 // End of sensor pinouts //
 
 // Relays pinouts. Use for solenoidPinOx, oxSolVent, oxQD, and fuelQD // 
-#define RELAYPIN_VENT_GOX 21
-#define RELAYPIN_VENT_ETH 23
+#define RELAYPIN_VENT 21
+#define RELAYPIN_QD_ETH 23
 #define RELAYPIN_QD_OX 22
 #define RELAYPIN_PRESSLOX 19
 #define RELAYPIN_PRESSETH 18
@@ -182,9 +182,9 @@ void setup() {
   // pinMode(ONBOARD_LED,OUTPUT);
   Serial.begin(115200);
 
-  pinMode(RELAYPIN_VENT_GOX, OUTPUT);
+  pinMode(RELAYPIN_VENT, OUTPUT);
   pinMode(RELAYPIN_QD_OX, OUTPUT);
-  pinMode(RELAYPIN_VENT_ETH, OUTPUT);
+  pinMode(RELAYPIN_QD_ETH, OUTPUT);
   pinMode(RELAYPIN_PRESSETH, OUTPUT);
   pinMode(RELAYPIN_PRESSLOX, OUTPUT);
   pinMode(RELAYPIN_IGNITER, OUTPUT);
@@ -192,9 +192,9 @@ void setup() {
   pinMode(RELAYPIN_PYROLOX, OUTPUT);
 
   //EVERYTHING SHOULD BE WRITTEN HIGH EXCEPT QDs, WHICH SHOULD BE LOW
-  digitalWrite(RELAYPIN_VENT_GOX, HIGH);
-  digitalWrite(RELAYPIN_QD_OX, HIGH);
-  digitalWrite(RELAYPIN_VENT_ETH, HIGH);
+  digitalWrite(RELAYPIN_VENT, HIGH);
+  digitalWrite(RELAYPIN_QD_OX, LOW);
+  digitalWrite(RELAYPIN_QD_ETH, LOW);
   digitalWrite(RELAYPIN_PRESSETH, HIGH);
   digitalWrite(RELAYPIN_PRESSLOX, HIGH);
   digitalWrite(RELAYPIN_IGNITER, HIGH);
@@ -253,11 +253,6 @@ void setup() {
 void loop() {
 
   switch (state) {
-//  case (DEBUGWIFI): //BASIC WIFI TEST DEBUG STATE B
-//    wifiDebug();
-//   
-//    if (commandedState==1) {state=1;} 
-//    break;
 
   case (IDLE):
     sendDelay = IDLE_DELAY;
@@ -334,10 +329,10 @@ void armed() {
 }
 
 bool press() {
-  sendData();
-  sendDelay = GEN_DELAY;
+  sendDelay = 25;
   oxComplete = (readingPT1 >= pressureOx);
   ethComplete = (readingPT2 >= pressureFuel);
+
   if (!sendData()) {
     getReadings();
   }
@@ -383,12 +378,8 @@ bool press() {
       }
     }    
   }
-//starttime = millis();
-//curtime = starttime;
+
   while (readingPT1 < pressureOx || readingPT2 < pressureFuel) {
-    sendData();
-    // nowtime = millis();
-    // if nowtime >= (curtime + (period * 500)) {
     if (readingPT1 >= abortPressure || readingPT2 >= abortPressure) {
       closeSolenoidFuel();
       closeSolenoidOx();
@@ -415,24 +406,21 @@ bool press() {
     if (!ethComplete) {
       openSolenoidFuel();
     }
-    // }
-    // curtime = millis();
-//    if curtime >= (starttime + (period * 500)) {
-//    closeSolenoidOx();
-//    closeSolenoidFuel();
-//    }
+    delay(period * 500);
+    closeSolenoidOx();
+    closeSolenoidFuel();
+    delay((1-period) * 500);
     if (!sendData()) {
       getReadings();
     }
   }
-  sendData();
   return true;
 }
 
 void quick_disconnect() {
-sendData();
-//  digitalWrite(RELAYPIN_QD_OX, LOW);
-  
+
+  digitalWrite(RELAYPIN_QD_OX, HIGH);
+  digitalWrite(RELAYPIN_QD_ETH, HIGH);
 
 }
 
@@ -444,20 +432,30 @@ void ignition() {
 void hotfire() {
   digitalWrite(RELAYPIN_PYROLOX, LOW);
   digitalWrite(RELAYPIN_PYROETH, LOW);
-  sendData();
 }
 
 void abort_sequence() {
-  sendData();
+  getReadings();
   // Waits for LOX pressure to decrease before venting Eth through pyro
-  vent();
-  sendData();
+  while (readingPT1 > 50) {
+    digitalWrite(RELAYPIN_VENT, LOW);
+    getReadings();
+  }
+  digitalWrite(RELAYPIN_VENT, HIGH);
+  digitalWrite(RELAYPIN_PYROETH, LOW);
+  while (readingPT2 > 5){
+    getReadings();
+  }
+  digitalWrite(RELAYPIN_PYROETH,HIGH);
+  while (true) {
+  digitalWrite(RELAYPIN_VENT, LOW);
+  getReadings();
   }
 
 
 }
 
-void debug() { //Manual State Control for Debug
+void debug() {
   //FILL IN
 }
 
@@ -485,8 +483,7 @@ void closeSolenoidOx() {
 }
 
 void vent() {
-   digitalWrite(RELAYPIN_VENT_ETH, LOW)
-   digitalWrite(RELAYPIN_VENT_GOX, LOW);
+  digitalWrite(RELAYPIN_VENT, LOW);
 }
 
 /// END OF HELPER FUNCTIONS ///
@@ -527,7 +524,7 @@ void addReadingsToQueue() {
 }
 
 void getReadings(){
- 
+  if(gainbool){
     scale1.set_gain(64);
     scale2.set_gain(64);
     scale3.set_gain(64);
@@ -540,7 +537,7 @@ void getReadings(){
     readingLC1 = ReadingsQueue[queueLength].lc1;
     readingLC2 = LoadCell2_Offset + LoadCell2_Offset*scale4.read();
     readingLC3 = ReadingsQueue[queueLength].lc3;
-  delay(25);
+  } else {
     scale1.set_gain(32,false);
     scale2.set_gain(32,false);
     scale3.set_gain(32,false);
@@ -553,14 +550,15 @@ void getReadings(){
     readingLC1 = LoadCell1_Offset + LoadCell2_Offset*scale3.read();
     readingLC2 = ReadingsQueue[queueLength].lc2;
     readingLC3 = LoadCell1_Offset + LoadCell2_Offset*scale4.read();
-
+  }
+  gainbool = !gainbool;
+  
   readingTC1 = analogRead(TC1);
   readingTC2 = analogRead(TC2);
   // readingCap1 = analogRead(CAPSENS1DATA);
   // readingCap2 = analogRead(CAPSENS2DATA);
 
-
-//  printSensorReadings(); //debug
+  printSensorReadings();
 }
 
 void printSensorReadings() {
