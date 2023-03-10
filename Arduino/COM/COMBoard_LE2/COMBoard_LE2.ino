@@ -197,6 +197,7 @@ void loop() {
     if(!SWITCH_ARMED.on()) {serialState=IDLE;}
    
     state = serialState;
+
     break;
 
   case (PRESS): 
@@ -207,6 +208,7 @@ void loop() {
     if (oxComplete) {digitalWrite(LED_PRESSLOX, HIGH);}
     if (SWITCH_QD.on()) {serialState=QD;}  //add pressComplete && later
     state = serialState;
+
     if(!SWITCH_PRESS.on() && !SWITCH_ARMED.on()) {serialState=IDLE;}
     
 
@@ -329,20 +331,31 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   oxComplete = incomingReadings.oxComplete;
   ethComplete = incomingReadings.ethComplete;
   queueSize = incomingReadings.queueSize;
+  Serial.print("PT1: "); 
+  Serial.print(incomingPT1);
+  Serial.print("   PT2: "); 
+  Serial.print(incomingPT2);
+  Serial.print("   PT3: "); 
+  Serial.print(incomingPT3);
+  Serial.print("   PT4: "); 
+  Serial.print(incomingPT4);
+  Serial.print("   PT5: "); 
+  Serial.println(incomingPT5);
+  
 
   
 
   
 }
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
-  // Serial.print("\r\nLast Packet Send Status:\t");
-  // Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
-  // if (status ==0){
-  //   success = "Delivery Success :)";
-  // }
-  // else{
-  //   success = "Delivery Fail :(";
-  // }
+  Serial.print("\r\nLast Packet Send Status:\t");
+  Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
+  if (status ==0){
+    success = "Delivery Success :)";
+  }
+  else{
+    success = "Delivery Fail :(";
+  }
 }
 
 void receiveDataPrint() {
