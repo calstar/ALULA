@@ -1,4 +1,4 @@
-#define PIN1 23
+#define PIN1 22
 int count;
 float times;
 void setup() {
