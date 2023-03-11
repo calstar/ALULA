@@ -1,3 +1,6 @@
+[submodule "le2_pcb/hardware-sch-blocks"]
+	path = le2_pcb/hardware-sch-blocks
+	url = https://github.com/calstar/hardware-sch-blocks.git
 [submodule "hardware-sch-blocks"]
 	path = hardware-sch-blocks
-	url = https://github.com/calstar/hardware-sch-blocks.git
+	url = git@github.com:calstar/hardware-sch-blocks.git
