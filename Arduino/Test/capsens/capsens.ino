@@ -6,8 +6,9 @@ long value = 0;
 float capacitance = 0;
 float max_capacitance = 50 ; //add this once blowdown starts
 float min_capacitance = 25; //add before fill
-float dielectric = 1;
-float initial_level = 6; //add based on placememnt of dip_tube
+float dielectric = (max_capacitance - min_capacitance)/height;
+float height = 1; //height of capsensor
+float initial_level = 1; //add based on placememnt of dip_tube
 
 
 void setup()
@@ -76,7 +77,7 @@ void loop(){
         count = 0;
         value = long((long)buffer[0] << 16) + ((long)buffer[1] << 8) + (long)buffer[2] - 0x800000;
         capacitance = (float)value/ 1024000.0;
-        level = (max_capacitance - min_capacitance)/dielectric + initital_level;
+        level = (max_capacitance - capacitance)/dielectric + initital_level;
         Serial.println(capacitance);
         Serial.println(level);
       } 
