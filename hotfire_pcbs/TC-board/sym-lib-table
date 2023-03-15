@@ -1,0 +1,4 @@
+(sym_lib_table
+  (lib (name "PCIE_Card_Edge")(type "KiCad")(uri "${KIPRJMOD}/../../hardware-sch-blocks/LE2/PCIE-LP-01-01-F-DV-A-TR/PCIE-LP-01-01-F-DV-A-TR.kicad_sym")(options "")(descr ""))
+  (lib (name "MAX31856_Breakout")(type "KiCad")(uri "${KIPRJMOD}/../../hardware-sch-blocks/LE2/MAX31856_Breakout/MAX31856_Breakout.kicad_sym")(options "")(descr ""))
+)
