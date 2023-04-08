@@ -11,6 +11,10 @@ This code runs on the COM ESP32 and has a couple of main tasks.
 #include "HX711.h"
 #include <ezButton.h>
 #include "avdweb_Switch.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/Task.h"
+
+
 
  Switch SWITCH_ARMED = Switch(14);  //correct
 Switch SWITCH_PRESS = Switch(12);  //correct
@@ -29,36 +33,36 @@ Switch SWITCH_ABORT = Switch(18);
 
 float pressTime = 0;
 
-String success;
-String message;
-int commandedState;
+volatile String success;
+volatile String message;
+volatile int commandedState;
 
-int incomingMessageTime;
-float incomingPT1 = 4; //PT errors when initialized to zero
-float incomingPT2 = 4;
-float incomingPT3 = 4;
-float incomingPT4 = 4;
-float incomingPT5 = 4;
-float incomingLC1 = 4;
-float incomingLC2 = 4;
-float incomingLC3 = 4;
-float incomingTC1 = 4;
-float incomingTC2 = 4;
-float incomingCap1 = 0;
-float incomingCap2 = 0;
-bool pressComplete = false;
-bool ethComplete = false;
-bool oxComplete = false;
-short int queueSize = 0;
+volatile int incomingMessageTime;
+volatile float incomingPT1 = 4; //PT errors when initialized to zero
+volatile float incomingPT2 = 4;
+volatile float incomingPT3 = 4;
+volatile float incomingPT4 = 4;
+volatile float incomingPT5 = 4;
+volatile float incomingLC1 = 4;
+volatile float incomingLC2 = 4;
+volatile float incomingLC3 = 4;
+volatile float incomingTC1 = 4;
+volatile float incomingTC2 = 4;
+volatile float incomingCap1 = 0;
+volatile float incomingCap2 = 0;
+volatile bool pressComplete = false;
+volatile bool ethComplete = false;
+volatile bool oxComplete = false;
+volatile short int queueSize = 0;
 
 esp_now_peer_info_t peerInfo;
 
 //TIMING VARIABLES
-int state;
-int serialState;
-int manualState;
-int DAQState;
-int loopStartTime;
+volatile int state;
+volatile int serialState;
+volatile int manualState;
+volatile int DAQState;
+volatile int loopStartTime;
 int sendDelay = 50;   //Measured in ms
 enum STATES {IDLE, ARMED, PRESS, QD, IGNITION, HOTFIRE, ABORT, DEBUG=99};
 
@@ -82,23 +86,23 @@ uint8_t broadcastAddress[] = {0x08, 0x3A, 0xF2, 0xB7, 0x0E, 0x44};
 //Structure example to send data
 //Must match the receiver structure
 typedef struct struct_message {
-    float messageTime;
-    float pt1;
-    float pt2;
-    float pt3;
-    float pt4;
-    float pt5;
-    float lc1;
-    float lc2;
-    float lc3;
-    float tc1;
-    float tc2;
-    int commandedState;
-    int DAQState;
-    short int queueSize;
-    bool pressComplete;
-    bool ethComplete;
-    bool oxComplete;
+    volatile float messageTime;
+    volatile float pt1;
+    volatile float pt2;
+    volatile float pt3;
+    volatile float pt4;
+    volatile float pt5;
+    volatile float lc1;
+    volatile float lc2;
+    volatile float lc3;
+    volatile float tc1;
+    volatile float tc2;
+    volatile int commandedState;
+    volatile int DAQState;
+    volatile short int queueSize;
+    volatile bool pressComplete;
+    volatile bool ethComplete;
+    volatile bool oxComplete;
 } struct_message; 
 
 // Create a struct_message called Readings to recieve sensor readings remotely
@@ -107,7 +111,109 @@ struct_message incomingReadings;
 // Create a struct_message to send commands
 struct_message Commands;
 
+void SM( void * pvParameters ){
+  Serial.print("SM running on core ");
+  Serial.println(xPortGetCoreID());
+  for(;;){
+    loopStartTime=millis();
+  SerialRead();
+  SWITCH_ARMED.poll();
+  SWITCH_PRESS.poll();
+  SWITCH_QD.poll();
+  SWITCH_IGNITION.poll();
+  SWITCH_HOTFIRE.poll();
+  SWITCH_ABORT.poll();
+  Serial.println(state);
+  Serial.println(DAQState);
 
+  switch (state) {
+
+  case (IDLE): //Includes polling
+    //idle();
+    if (SWITCH_ABORT.on()) {serialState=ABORT;}
+    if (SWITCH_ARMED.on()) {serialState=ARMED;}
+    state = serialState;
+    break;
+
+  case (ARMED):
+    //armed();
+    if (DAQState == ARMED) {digitalWrite(LED_ARMED, HIGH);}
+    if (SWITCH_ABORT.on()) {serialState=ABORT;}
+    if (SWITCH_PRESS.on()) {serialState=PRESS;}
+    if(!SWITCH_ARMED.on()) {serialState=IDLE;}
+   
+    state = serialState;
+
+    break;
+
+  case (PRESS): 
+   // press();
+    if (SWITCH_ABORT.on()) {serialState=ABORT;}
+    if (DAQState == PRESS) {digitalWrite(LED_PRESS, HIGH);}
+    if (ethComplete) {digitalWrite(LED_PRESSETH, HIGH);}
+    if (oxComplete) {digitalWrite(LED_PRESSLOX, HIGH);}
+    if (SWITCH_QD.on()) {serialState=QD;}  //add pressComplete && later
+    state = serialState;
+
+    if(!SWITCH_PRESS.on() && !SWITCH_ARMED.on()) {serialState=IDLE;}
+    
+
+  case (QD):
+    //quick_disconnect();
+    if (SWITCH_ABORT.on()) {serialState=ABORT;}
+    if (DAQState == QD) {digitalWrite(LED_QD, HIGH);}
+    if (SWITCH_IGNITION.on()) {serialState=IGNITION;}
+    state = serialState;
+    if(!SWITCH_QD.on() && !SWITCH_PRESS.on() && !SWITCH_ARMED.on()) {serialState=IDLE;}
+    break;
+
+  case (IGNITION):
+    //ignition();
+    if (SWITCH_ABORT.on()) {serialState=ABORT;}
+    if (DAQState == IGNITION) {digitalWrite(LED_IGNITION, HIGH);}
+    if (SWITCH_HOTFIRE.on()) {serialState=HOTFIRE;}
+    state = serialState;
+    if(!SWITCH_QD.on() && !SWITCH_PRESS.on() && !SWITCH_ARMED.on() && !SWITCH_IGNITION.on()) {serialState=IDLE;}
+    break;
+
+  case (HOTFIRE):
+    // hotfire();
+
+    if (SWITCH_ABORT.on()) {serialState=ABORT;}
+    if (DAQState == HOTFIRE) {digitalWrite(LED_HOTFIRE, HIGH);}
+    if(!SWITCH_QD.on() && !SWITCH_PRESS.on() && !SWITCH_ARMED.on() && !SWITCH_IGNITION.on() && !SWITCH_HOTFIRE.on()) {serialState=IDLE;}
+    
+    state = serialState;
+    break;
+  
+  case (ABORT):
+    if (DAQState == ABORT) {digitalWrite(LED_ABORT, HIGH);} 
+   digitalWrite(LED_ABORT, HIGH);
+    digitalWrite(LED_IGNITION,LOW);
+    digitalWrite(LED_QD, LOW);
+    digitalWrite(LED_ARMED, LOW);
+    digitalWrite(LED_PRESS, LOW);
+    digitalWrite(LED_PRESSETH, LOW);
+    digitalWrite(LED_PRESSLOX, LOW);
+    digitalWrite(LED_HOTFIRE, LOW);
+    state = ABORT;
+    break;
+
+  case (DEBUG):
+   // debug();
+    serialState=IDLE;
+    state = serialState;
+    break;
+  }
+    
+  }
+}
+void Comm( void * pvParameters ){
+  while(true){
+  dataSendCheck();
+  }
+
+}
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(115200);
@@ -132,6 +238,24 @@ void setup() {
   digitalWrite(LED_IGNITION, LOW);
   digitalWrite(LED_HOTFIRE, LOW);
   digitalWrite(LED_ABORT, LOW);
+
+  xTaskCreatePinnedToCore(
+                    Comm,          /* Task function. */
+                    "Comm",        /* String with name of task. */
+                    10000,            /* Stack size in bytes. */
+                    NULL,             /* Parameter passed as input of the task */
+                    1,                /* Priority of the task. */
+                    NULL,             /* Task handle. */
+                    0);               /*core*/
+  xTaskCreatePinnedToCore(
+                    SM,             
+                    "SM",  
+                    100000,
+                    NULL,
+                    1,
+                    NULL,
+                    1);
+ 
 
   while(SWITCH_ABORT.on()){digitalWrite(LED_ABORT, HIGH);}
 
@@ -167,99 +291,10 @@ void setup() {
   serialState = IDLE;
 }
 
+
 void loop() {
-  esp_now_register_recv_cb(OnDataRecv);
-  loopStartTime=millis();
-  SerialRead();
-  SWITCH_ARMED.poll();
-  SWITCH_PRESS.poll();
-  SWITCH_QD.poll();
-  SWITCH_IGNITION.poll();
-  SWITCH_HOTFIRE.poll();
-  SWITCH_ABORT.poll();
-  Serial.println(state);
-  Serial.println(DAQState);
-
-  switch (state) {
-
-  case (IDLE): //Includes polling
-    idle();
-    if (SWITCH_ABORT.on()) {serialState=ABORT;}
-    if (SWITCH_ARMED.on()) {serialState=ARMED;}
-    state = serialState;
-    break;
-
-  case (ARMED):
-    armed();
-    if (DAQState == ARMED) {digitalWrite(LED_ARMED, HIGH);}
-    if (SWITCH_ABORT.on()) {serialState=ABORT;}
-    if (SWITCH_PRESS.on()) {serialState=PRESS;}
-    if(!SWITCH_ARMED.on()) {serialState=IDLE;}
-   
-    state = serialState;
-
-    break;
-
-  case (PRESS): 
-    press();
-    if (SWITCH_ABORT.on()) {serialState=ABORT;}
-    if (DAQState == PRESS) {digitalWrite(LED_PRESS, HIGH);}
-    if (ethComplete) {digitalWrite(LED_PRESSETH, HIGH);}
-    if (oxComplete) {digitalWrite(LED_PRESSLOX, HIGH);}
-    if (SWITCH_QD.on()) {serialState=QD;}  //add pressComplete && later
-    state = serialState;
-
-    if(!SWITCH_PRESS.on() && !SWITCH_ARMED.on()) {serialState=IDLE;}
-    
-
-  case (QD):
-    quick_disconnect();
-    if (SWITCH_ABORT.on()) {serialState=ABORT;}
-    if (DAQState == QD) {digitalWrite(LED_QD, HIGH);}
-    if (SWITCH_IGNITION.on()) {serialState=IGNITION;}
-    state = serialState;
-    if(!SWITCH_QD.on() && !SWITCH_PRESS.on() && !SWITCH_ARMED.on()) {serialState=IDLE;}
-    break;
-
-  case (IGNITION):
-    ignition();
-    if (SWITCH_ABORT.on()) {serialState=ABORT;}
-    if (DAQState == IGNITION) {digitalWrite(LED_IGNITION, HIGH);}
-    if (SWITCH_HOTFIRE.on()) {serialState=HOTFIRE;}
-    state = serialState;
-    if(!SWITCH_QD.on() && !SWITCH_PRESS.on() && !SWITCH_ARMED.on() && !SWITCH_IGNITION.on()) {serialState=IDLE;}
-    break;
-
-  case (HOTFIRE):
-    hotfire();
-
-    if (SWITCH_ABORT.on()) {serialState=ABORT;}
-    if (DAQState == HOTFIRE) {digitalWrite(LED_HOTFIRE, HIGH);}
-    if(!SWITCH_QD.on() && !SWITCH_PRESS.on() && !SWITCH_ARMED.on() && !SWITCH_IGNITION.on() && !SWITCH_HOTFIRE.on()) {serialState=IDLE;}
-    
-    state = serialState;
-    break;
   
-  case (ABORT):
-    if (DAQState == ABORT) {digitalWrite(LED_ABORT, HIGH);} 
-   digitalWrite(LED_ABORT, HIGH);
-    digitalWrite(LED_IGNITION,LOW);
-    digitalWrite(LED_QD, LOW);
-    digitalWrite(LED_ARMED, LOW);
-    digitalWrite(LED_PRESS, LOW);
-    digitalWrite(LED_PRESSETH, LOW);
-    digitalWrite(LED_PRESSLOX, LOW);
-    digitalWrite(LED_HOTFIRE, LOW);
-    state = ABORT;
-    abort_sequence();
-    break;
-
-  case (DEBUG):
-    debug();
-    serialState=IDLE;
-    state = serialState;
-    break;
-  }
+  
 }
 
 void idle() {

@@ -10,6 +10,8 @@ This code runs on the DAQ ESP32 and has a couple of main tasks.
 #include <Wire.h>
 #include <Arduino.h>
 #include "HX711.h"
+#include <SPI.h>
+#include "Adafruit_MAX31855.h"
 #define IDLE_DELAY 250
 #define GEN_DELAY 25
 
@@ -58,26 +60,32 @@ float LoadCell2_Slope = 0.0001181;
 float LoadCell3_Offset = 10.663;
 float LoadCell3_Slope = 0.0001181;
 
-#define TC1 33
-#define TC2 25
-#define TCCLK 4
-
+#define TCSDO   5
+#define TCSDI   17
+#define TCCLK  18
+#define TC1_CS 16
 // #define CAPSENS1DATA 40
 // #define CAPSENS1CLK 52
 // #define CAPSENS2DATA 13
 // #define CAPSENS2CLK 21
 // End of sensor pinouts //
 
-// Relays pinouts. Use for solenoidPinOx, oxSolVent, oxQD, and fuelQD // 
-#define RELAYPIN_VENT 21
-#define RELAYPIN_QD_ETH 23
-#define RELAYPIN_QD_OX 22
-#define RELAYPIN_PRESSLOX 19
-#define RELAYPIN_PRESSETH 18
-#define RELAYPIN_IGNITER 5
-#define RELAYPIN_PYROLOX 17
-#define RELAYPIN_PYROETH 16
-// End of relay pinouts //
+// GPI expander // 
+#define I2C_SDA 21
+#define I2C_SCL 22
+
+#define MOSFET_IGNITER 0
+#define MOSFET_ETH_MAIN 1
+#define MOSFET_LOX_MAIN2 2
+#define MOSFET_LOX_MAIN1 3
+#define MOSFET_ETH_PRESS 4
+#define MOSFET_LOX_PRESS 5
+#define MOSFET_ETH_VENT 6 
+#define MOSFET_LOX_VENT 7
+
+
+// MOSFET pinouts //
+
 
 String serialMessage;
 
@@ -104,7 +112,15 @@ uint8_t broadcastAddress[] ={0x08, 0x3A, 0xF2, 0xB7, 0x0E, 0x4A};
 // {0xC4, 0xDD, 0x57, 0x9E, 0x96, 0x34}
 
 //STATEFLOW VARIABLES
-enum STATES {IDLE, ARMED, PRESS, QD, IGNITION, HOTFIRE, ABORT, DEBUG=99};
+enum STATES {IDLE, ARMED, PRESS, QD, IGNITION, HOTFIRE, ABORT};
+#define DEBUG 99
+#define DEBUG_IDLE 90
+#define DEBUG_ARMED 91
+#define DEBUG_PRESS 92
+#define DEBUG_QD 93
+#define DEBUG_IGNITION 94
+#define DEBUG_HOTFIRE 95
+#define DEBUG_ABORT 96
 int state;
 
 short int queueLength=0;
@@ -117,6 +133,7 @@ bool pressComplete = false ;
 float sendTime;
 bool gainbool = true; //gainbool == true => gain = 64; else gain = 32
 // Define variables to store readings to be sent
+int debug_state = 0;
 int readingPT1=1;
 int readingPT2=1;
 int readingPT3=1;
@@ -182,24 +199,37 @@ void setup() {
   // pinMode(ONBOARD_LED,OUTPUT);
   Serial.begin(115200);
 
-  pinMode(RELAYPIN_VENT, OUTPUT);
-  pinMode(RELAYPIN_QD_OX, OUTPUT);
-  pinMode(RELAYPIN_QD_ETH, OUTPUT);
-  pinMode(RELAYPIN_PRESSETH, OUTPUT);
-  pinMode(RELAYPIN_PRESSLOX, OUTPUT);
-  pinMode(RELAYPIN_IGNITER, OUTPUT);
-  pinMode(RELAYPIN_PYROETH, OUTPUT);
-  pinMode(RELAYPIN_PYROLOX, OUTPUT);
+  while (!Serial) delay(1); // wait for Serial on Leonardo/Zero, etc
+
+  // Serial.println("MAX31855 test");
+  // // wait for MAX chip to stabilize
+  // delay(500);
+  // Serial.print("Initializing sensor...");
+  // if (!thermocouple.begin()) {
+  //   Serial.println("ERROR.");
+  //   while (1) delay(10);
+  // }
+
+  // OPTIONAL: Can configure fault checks as desired (default is ALL)
+  // Multiple checks can be logically OR'd together.
+  // thermocouple.setFaultChecks(MAX31855_FAULT_OPEN | MAX31855_FAULT_SHORT_VCC);  // short to GND fault is ignored
+
+  Serial.println("DONE.");
+ 
+  pcf.startI2C(21, 22, SEARCH); //Only SEARCH, if using normal pins in Arduino
+  if (!pcf.check(SEARCH)) {
+    Serial.println("Device not found. Try to specify the address");
+    Serial.println(pcf.whichAddr());
+    while (true);
+  }
+  pcf.setAllBitsUp(); // make sure everything is off by default (Up = Off, Down = On)
+  delay(500); // startup time to make sure its good for personal testing
+
+
+  
 
   //EVERYTHING SHOULD BE WRITTEN HIGH EXCEPT QDs, WHICH SHOULD BE LOW
-  digitalWrite(RELAYPIN_VENT, HIGH);
-  digitalWrite(RELAYPIN_QD_OX, LOW);
-  digitalWrite(RELAYPIN_QD_ETH, LOW);
-  digitalWrite(RELAYPIN_PRESSETH, HIGH);
-  digitalWrite(RELAYPIN_PRESSLOX, HIGH);
-  digitalWrite(RELAYPIN_IGNITER, HIGH);
-  digitalWrite(RELAYPIN_PYROETH, HIGH);
-  digitalWrite(RELAYPIN_PYROLOX, HIGH);
+  pcf.setAllBitsUp();
 
   //set gains for pt pins
   scale1.begin(PTOUT1, CLKPT1); scale1.set_gain(64);
@@ -417,38 +447,33 @@ bool press() {
   return true;
 }
 
-void quick_disconnect() {
 
-  digitalWrite(RELAYPIN_QD_OX, HIGH);
-  digitalWrite(RELAYPIN_QD_ETH, HIGH);
-
-}
 
 void ignition() {
-  digitalWrite(RELAYPIN_IGNITER, LOW);
+  digitalWrite(MOSFET_IGNITER, LOW);
   sendData();  
 }
 
 void hotfire() {
-  digitalWrite(RELAYPIN_PYROLOX, LOW);
-  digitalWrite(RELAYPIN_PYROETH, LOW);
+  digitalWrite(MOSFET_PYROLOX, LOW);
+  digitalWrite(MOSFET_PYROETH, LOW);
 }
 
 void abort_sequence() {
   getReadings();
   // Waits for LOX pressure to decrease before venting Eth through pyro
   while (readingPT1 > 50) {
-    digitalWrite(RELAYPIN_VENT, LOW);
+    digitalWrite(MOSFET_VENT, LOW);
     getReadings();
   }
-  digitalWrite(RELAYPIN_VENT, HIGH);
-  digitalWrite(RELAYPIN_PYROETH, LOW);
+  digitalWrite(MOSFET_VENT, HIGH);
+  digitalWrite(MOSFET_PYROETH, LOW);
   while (readingPT2 > 5){
     getReadings();
   }
-  digitalWrite(RELAYPIN_PYROETH,HIGH);
+  digitalWrite(MOSFET_PYROETH,HIGH);
   while (true) {
-  digitalWrite(RELAYPIN_VENT, LOW);
+  digitalWrite(MOSFET_VENT, LOW);
   getReadings();
   }
 
@@ -456,7 +481,47 @@ void abort_sequence() {
 }
 
 void debug() {
-  //FILL IN
+  //just a mini state machine
+  debug_state = Serial.parseInt();
+  switch (state) {
+
+  case (DEBUG_IDLE):
+    sendDelay = IDLE_DELAY;
+    idle();
+    break;
+
+  case (DEBUG_ARMED): //NEED TO ADD TO CASE OPTIONS //ALLOWS OTHER CASES TO TRIGGER //INITIATE TANK PRESS LIVE READINGS
+    sendDelay = GEN_DELAY;
+    armed();
+    
+    break;
+
+  case (DEBUG_PRESS):
+    sendDelay = GEN_DELAY;
+    pressComplete = press();
+    
+    break;
+
+  case (DEBUG_QD):
+    sendDelay = GEN_DELAY;
+    break;
+
+  case (DEBUG_IGNITION): 
+    sendDelay = GEN_DELAY;
+    ignition();
+    break;
+
+  case (DEBUG_HOTFIRE): 
+    sendDelay = GEN_DELAY;
+    hotfire();
+    break;
+
+  case (DEBUG_ABORT):
+    sendDelay = GEN_DELAY;
+    abort_sequence();
+    break;
+
+  
 }
 
 
@@ -467,24 +532,22 @@ void debug() {
 /// HELPER FUNCTIONS ///
 
 void openSolenoidFuel() {
-  digitalWrite(RELAYPIN_PRESSETH, LOW);
+  digitalWrite(MOSFET_PRESSETH, LOW);
 }
 
 void closeSolenoidFuel() {
-  digitalWrite(RELAYPIN_PRESSETH, HIGH);
+  pcf.setLeftBitUp();
 }
 
 void openSolenoidOx() {
-  digitalWrite(RELAYPIN_PRESSLOX, LOW);
+  digitalWrite(MOSFET_PRESSLOX, LOW);
 }
 
 void closeSolenoidOx() {
-  digitalWrite(RELAYPIN_PRESSLOX, HIGH);
+  digitalWrite(MOsFET_PRESSLOX, HIGH);
 }
 
-void vent() {
-  digitalWrite(RELAYPIN_VENT, LOW);
-}
+
 
 /// END OF HELPER FUNCTIONS ///
 
