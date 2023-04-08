@@ -283,9 +283,11 @@ void setup() {
 void loop() {
 
   switch (state) {
+    
 
   case (IDLE):
     sendDelay = IDLE_DELAY;
+    if (commandedState==IDLE) {state=IDLE; currDAQState=IDLE;}
     idle();
     if (commandedState==ABORT) {state=ABORT; currDAQState=ABORT;}
     if (commandedState==ARMED) {state=ARMED; currDAQState=ARMED;}
@@ -295,7 +297,7 @@ void loop() {
   case (ARMED): //NEED TO ADD TO CASE OPTIONS //ALLOWS OTHER CASES TO TRIGGER //INITIATE TANK PRESS LIVE READINGS
     sendDelay = GEN_DELAY;
     armed();
-    // if (commandedState==IDLE) {state=IDLE; currDAQState=IDLE;}
+    if (commandedState==IDLE) {state=IDLE; currDAQState=IDLE;}
     if (commandedState==ABORT) {state=ABORT; currDAQState=ABORT;}
     if (commandedState==PRESS) {state=PRESS; currDAQState=PRESS;}
     
@@ -304,6 +306,7 @@ void loop() {
   case (PRESS):
     sendDelay = GEN_DELAY;
     pressComplete = press();
+    if (commandedState==IDLE) {state=IDLE; currDAQState=IDLE;}
     if (commandedState==ABORT) {state=ABORT; currDAQState=ABORT;}
     if (pressComplete && commandedState==QD) {state=QD; currDAQState=QD;}
     if (pressComplete && commandedState==IGNITION) {state=IGNITION; currDAQState=IGNITION;}
@@ -313,6 +316,7 @@ void loop() {
   case (QD):
     sendDelay = GEN_DELAY;
     quick_disconnect();
+    if (commandedState==IDLE) {state=IDLE; currDAQState=IDLE;}
     if (commandedState==ABORT) {state=ABORT; currDAQState=ABORT;}
     if (commandedState==IGNITION) {state=IGNITION; currDAQState=IGNITION;}
     
@@ -322,6 +326,7 @@ void loop() {
   case (IGNITION): 
     sendDelay = GEN_DELAY;
     ignition();
+    if (commandedState==IDLE) {state=IDLE; currDAQState=IDLE;}
     if (commandedState==ABORT) {state=ABORT; currDAQState=ABORT;}
     if (commandedState==HOTFIRE) {state=HOTFIRE; currDAQState=HOTFIRE;}
     
@@ -331,6 +336,7 @@ void loop() {
   case (HOTFIRE): 
     sendDelay = GEN_DELAY;
     hotfire();
+    if (commandedState==IDLE) {state=IDLE; currDAQState=IDLE;}
     if (commandedState==ABORT) {state=ABORT; currDAQState=ABORT;}
     break;
 
@@ -450,76 +456,88 @@ bool press() {
 
 
 void ignition() {
-  digitalWrite(MOSFET_IGNITER, LOW);
+  pcf.setLeftBitUp(MOSFET_IGNITER);
   sendData();  
 }
 
 void hotfire() {
-  digitalWrite(MOSFET_PYROLOX, LOW);
-  digitalWrite(MOSFET_PYROETH, LOW);
+  pcf.setLeftBitUp(MOSFET_LOX_MAIN);
+  pcf.setLeftBitUp(MOSFET_ETH_MAIN);
 }
 
 void abort_sequence() {
   getReadings();
   // Waits for LOX pressure to decrease before venting Eth through pyro
-  while (readingPT1 > 50) {
-    digitalWrite(MOSFET_VENT, LOW);
-    getReadings();
-  }
-  digitalWrite(MOSFET_VENT, HIGH);
-  digitalWrite(MOSFET_PYROETH, LOW);
-  while (readingPT2 > 5){
-    getReadings();
-  }
-  digitalWrite(MOSFET_PYROETH,HIGH);
-  while (true) {
-  digitalWrite(MOSFET_VENT, LOW);
+  
+  pcf.setLeftBitUp(MOSFET_VENT_LOX);
+  while(millis() - currtime < 10){
   getReadings();
   }
+  pcf.setLeftBitUp(MOSFET_VENT_ETH);
+  
 
 
 }
+void closeSolenoidOx(){
+  pcf.setLeftBitUp(MOSFET_LOX_PRESS);
+}
+ void closeSolenoidFuel(){
+  pcf.setLeftBitUp(MOSFET_ETH_PRESS);
+}
+void openSolenoidFuel(){
+  pcf.setLeftBitDown(MOSFET_ETH_PRESS);
+}
+void openSolenoidOx(){
+  pcf.setLeftBitDown(MOSFET_LOX_PRESS);
+}
 
 void debug() {
-  //just a mini state machine
-  debug_state = Serial.parseInt();
-  switch (state) {
-
+  //just a mini state machine]
+  //debug = 99, debug_states = 90+state
+  //to return to idle , input 0
+  while(currDAQState == DEBUG){
+    debug_state = Serial.parseInt();
+  switch (debug_state) {
   case (DEBUG_IDLE):
     sendDelay = IDLE_DELAY;
     idle();
-    break;
+ 
 
   case (DEBUG_ARMED): //NEED TO ADD TO CASE OPTIONS //ALLOWS OTHER CASES TO TRIGGER //INITIATE TANK PRESS LIVE READINGS
     sendDelay = GEN_DELAY;
     armed();
     
-    break;
+
 
   case (DEBUG_PRESS):
     sendDelay = GEN_DELAY;
     pressComplete = press();
     
-    break;
+
 
   case (DEBUG_QD):
     sendDelay = GEN_DELAY;
-    break;
+  
 
   case (DEBUG_IGNITION): 
     sendDelay = GEN_DELAY;
     ignition();
-    break;
+
 
   case (DEBUG_HOTFIRE): 
     sendDelay = GEN_DELAY;
     hotfire();
-    break;
+
 
   case (DEBUG_ABORT):
     sendDelay = GEN_DELAY;
     abort_sequence();
+
+  }
+  default : 
+  currDAQstate = IDLE;
     break;
+  }
 
   
 }
