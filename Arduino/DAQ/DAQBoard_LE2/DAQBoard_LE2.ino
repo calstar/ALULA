@@ -267,14 +267,14 @@ void setup() {
   pcf.setAllBitsUp();
 
   //set gains for pt pins
-  scale_PT_O1.begin(PT_O1, CLK); scale_PT_O1.set_gain(64);
-  scale_PT_O2.begin(PT_O2, CLK); scale_PT_O2.set_gain(64);
-  // scale_PT_E1.begin(PT_E1, CLK); scale_PT_E1.set_gain(64);
-  scale_PT_E2.begin(PT_E2, CLK); scale_PT_E2.set_gain(64);
-  // scale_PT_C1.begin(PT_C1, CLK); scale_PT_C1.set_gain(64);
-   scale_LC1.begin(LC1, CLK); scale_LC1.set_gain(64);
-    scale_LC2.begin(LC2, CLK); scale_LC2.set_gain(64);
-     scale_LC3.begin(LC3, CLK); scale_LC3.set_gain(64);
+  // scale_PT_O1.begin(PT_O1, CLK); scale_PT_O1.set_gain(64);
+  // scale_PT_O2.begin(PT_O2, CLK); scale_PT_O2.set_gain(64);
+  // // scale_PT_E1.begin(PT_E1, CLK); scale_PT_E1.set_gain(64);
+  // scale_PT_E2.begin(PT_E2, CLK); scale_PT_E2.set_gain(64);
+  // // scale_PT_C1.begin(PT_C1, CLK); scale_PT_C1.set_gain(64);
+  //  scale_LC1.begin(LC1, CLK); scale_LC1.set_gain(64);
+  //   scale_LC2.begin(LC2, CLK); scale_LC2.set_gain(64);
+  //    scale_LC3.begin(LC3, CLK); scale_LC3.set_gain(64);
   
 
   pinMode(TC1_CS, INPUT);
@@ -422,18 +422,21 @@ bool press() {
       getReadings();
     }
       
-    if (reading_PT_O1 < BangBangPressOx) {
+    if (reading_PT_O1 < pressureOx) {
       openSolenoidOx();
+      reading_PT_O1 = reading_PT_O1 + 1;
     } else {
       closeSolenoidOx();
       oxComplete = true;
     }
-    if (reading_PT_E1 < BangBangPressFuel) {
+    if (reading_PT_E1 < pressureFuel) {
       openSolenoidFuel();
+      reading_PT_E1 = reading_PT_E1 + 1;
     } else {
       closeSolenoidFuel();
       ethComplete = true;
     }
+
 
 //ABORT CASES
   if (reading_PT_O1 >= abortPressure || reading_PT_E1 >= abortPressure) {
