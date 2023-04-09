@@ -1,3 +1,0 @@
-[submodule "hardware-sch-blocks"]
-	path = hardware-sch-blocks
-	url = https://github.com/calstar/hardware-sch-blocks.git
