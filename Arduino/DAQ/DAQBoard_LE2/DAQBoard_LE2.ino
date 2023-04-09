@@ -34,7 +34,7 @@ float sendDelay = 250; //Sets frequency of data collection. 1/(sendDelay*10^-3) 
 //::::::DEFINE INSTRUMENT PINOUTS::::::://
 
 // DEFINE CLK PIN (SHARED ACROSS ALL HX INSTRUMENTS)
-#define CLK = 27
+#define CLK 27
 
 //::SET SENSOR PINOUTS:://
 
@@ -346,7 +346,7 @@ void loop() {
 
   case (QD):
     sendDelay = GEN_DELAY;
-    quick_disconnect();
+    //quick_disconnect();
     if (commandedState==IDLE) {state=IDLE; currDAQState=IDLE;}
     if (commandedState==ABORT) {state=ABORT; currDAQState=ABORT;}
     if (commandedState==IGNITION) {state=IGNITION; currDAQState=IGNITION;}
@@ -412,13 +412,13 @@ bool press() {
       
     if (reading_PT_O1 < BangBangPressOx) {
       openSolenoidOx();
-    else
+    } else {
       closeSolenoidOx();
       oxComplete = true;
     }
     if (reading_PT_E1 < BangBangPressFuel) {
       openSolenoidFuel();
-    else
+    } else {
       closeSolenoidFuel();
       ethComplete = true;
     }
