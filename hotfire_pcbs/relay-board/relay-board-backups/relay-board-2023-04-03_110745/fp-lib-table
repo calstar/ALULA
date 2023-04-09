@@ -1,0 +1,6 @@
+(fp_lib_table
+  (lib (name "hotfire_pcbs")(type "KiCad")(uri "/Users/dulanya/Desktop/LE2/hotfire_pcbs.pretty")(options "")(descr ""))
+  (lib (name "Library")(type "KiCad")(uri "/Users/dulanya/Desktop/LE2/hotfire_pcbs/PCF8575/Library.pretty")(options "")(descr ""))
+  (lib (name "PCF875BreakoutBoard5")(type "KiCad")(uri "/Users/dulanya/Desktop/LE2/hardware-sch-blocks/LE2/PCF8575_Breakout/PCF8575_Breakout.pretty")(options "")(descr ""))
+  (lib (name "MOSFET")(type "KiCad")(uri "${KIPRJMOD}/../../CSD25402Q3AT(1)")(options "")(descr ""))
+)

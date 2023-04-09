@@ -34,7 +34,7 @@ float sendDelay = 250; //Sets frequency of data collection. 1/(sendDelay*10^-3) 
 //::::::DEFINE INSTRUMENT PINOUTS::::::://
 
 // DEFINE CLK PIN (SHARED ACROSS ALL HX INSTRUMENTS)
-#define CLK = 27
+#define CLK 27
 
 //::SET SENSOR PINOUTS:://
 
@@ -72,7 +72,7 @@ float LC1_Slope = 0.0001181;
 float LC2_Offset = 10.663;
 float LC2_Slope = 0.0001181;
 
-#define LC_3 26
+#define LC3 26
 float LC3_Offset = 10.663;
 float LC3_Slope = 0.0001181;
 
@@ -95,12 +95,17 @@ float LC3_Slope = 0.0001181;
 
 #define MOSFET_IGNITER 0
 #define MOSFET_ETH_MAIN 1
-#define MOSFET_LOX_MAIN2 2
-#define MOSFET_LOX_MAIN1 3
+#define MOSFET_EXTRA 2
+#define MOSFET_LOX_MAIN 3
 #define MOSFET_ETH_PRESS 4
 #define MOSFET_LOX_PRESS 5
-#define MOSFET_ETH_VENT 6 
-#define MOSFET_LOX_VENT 7
+#define MOSFET_VENT_ETH 6
+#define MOSFET_VENT_LOX 7
+
+
+bool sendData();
+void getReadings();
+
 
 // MOSFET pinouts //
 
@@ -128,7 +133,7 @@ HX711 scale_LC3;
 //HEADERLESS BOARD {0x7C, 0x87, 0xCE, 0xF0 0x69, 0xAC}
 //NEWEST COM BOARD IN EVA {0x24, 0x62, 0xAB, 0xD2, 0x85, 0xDC}
 // uint8_t broadcastAddress[] = {0x24, 0x62, 0xAB, 0xD2, 0x85, 0xDC};
-uint8_t broadcastAddress[] ={0x08, 0x3A, 0xF2, 0xB7, 0x0E, 0x4A};
+uint8_t broadcastAddress[] ={0xC8, 0xF0, 0x9E, 0x50, 0x23, 0x34};
 // {0x7C, 0x87, 0xCE, 0xF0, 0x69, 0xAC};
 //{0x3C, 0x61, 0x05, 0x4A, 0xD5, 0xE0};
 // {0xC4, 0xDD, 0x57, 0x9E, 0x96, 0x34}
@@ -223,11 +228,12 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
 
 
 
-
+    
 
 // Initialize all sensors and parameters
 void setup() {
   // pinMode(ONBOARD_LED,OUTPUT);
+  
   Serial.begin(115200);
 
   while (!Serial) delay(1); // wait for Serial on Leonardo/Zero, etc
@@ -263,9 +269,12 @@ void setup() {
   //set gains for pt pins
   scale_PT_O1.begin(PT_O1, CLK); scale_PT_O1.set_gain(64);
   scale_PT_O2.begin(PT_O2, CLK); scale_PT_O2.set_gain(64);
-  scale_PT_E1.begin(PT_E1, CLK); scale_PT_E1.set_gain(64);
+  // scale_PT_E1.begin(PT_E1, CLK); scale_PT_E1.set_gain(64);
   scale_PT_E2.begin(PT_E2, CLK); scale_PT_E2.set_gain(64);
-  scale_PT_C1.begin(PT_C1, CLK); scale_PT_C1.set_gain(64);
+  // scale_PT_C1.begin(PT_C1, CLK); scale_PT_C1.set_gain(64);
+   scale_LC1.begin(LC1, CLK); scale_LC1.set_gain(64);
+    scale_LC2.begin(LC2, CLK); scale_LC2.set_gain(64);
+     scale_LC3.begin(LC3, CLK); scale_LC3.set_gain(64);
   
 
   pinMode(TC1_CS, INPUT);
@@ -311,7 +320,9 @@ void setup() {
 
 // Implementation of State Machine
 void loop() {
-  if(Serial.available() > 1){if(Serial.parseInt() == 99){state = DEBUG;}}
+  if(Serial.available() > 1){if(Serial.parseInt() == 99){Serial.println("bruh");state = DEBUG;}}
+  Serial.println(state);
+ 
 
   switch (state) {
     
@@ -346,7 +357,7 @@ void loop() {
 
   case (QD):
     sendDelay = GEN_DELAY;
-    quick_disconnect();
+    //quick_disconnect();
     if (commandedState==IDLE) {state=IDLE; currDAQState=IDLE;}
     if (commandedState==ABORT) {state=ABORT; currDAQState=ABORT;}
     if (commandedState==IGNITION) {state=IGNITION; currDAQState=IGNITION;}
@@ -389,7 +400,7 @@ void loop() {
 /// STATE FUNCTION DEFINITIONS ///
 
 void idle() {
-  sendData();
+  Serial.println(sendData());
 }
 
 void armed() {
@@ -397,6 +408,7 @@ void armed() {
 }
 
 bool press() {
+
   sendDelay = 25;
   oxComplete = (reading_PT_O1 >= pressureOx);
   ethComplete = (reading_PT_E1 >= pressureFuel);
@@ -412,13 +424,13 @@ bool press() {
       
     if (reading_PT_O1 < BangBangPressOx) {
       openSolenoidOx();
-    else
+    } else {
       closeSolenoidOx();
       oxComplete = true;
     }
     if (reading_PT_E1 < BangBangPressFuel) {
       openSolenoidFuel();
-    else
+    } else {
       closeSolenoidFuel();
       ethComplete = true;
     }
@@ -516,21 +528,32 @@ bool press() {
 
 
 void ignition() {
+
   pcf.setLeftBitUp(MOSFET_IGNITER);
   sendData();  
 }
 
 void hotfire() {
+ 
   pcf.setLeftBitDown(MOSFET_LOX_MAIN);
   pcf.setLeftBitDown(MOSFET_ETH_MAIN);
   sendData();
 }
 
+void quick_disconnect() {
+   
+    if (!sendData()) {
+      getReadings();
+    }
+}
+
+
 void abort_sequence() {
+
   getReadings();
   // Waits for LOX pressure to decrease before venting Eth through pyro
   pcf.setLeftBitDown(MOSFET_VENT_LOX);
-  currtime = millis();
+  int currtime = millis();
   while(millis() - currtime < 10000){
   getReadings();
   }
@@ -538,12 +561,12 @@ void abort_sequence() {
 
   if (reading_PT_O1 > 5) {
     pcf.setLeftBitDown(MOSFET_VENT_LOX);
-  else
+  } else {
     pcf.setLeftBitUp(MOSFET_VENT_LOX); 
   }
   if (reading_PT_E1 > 5) {
     pcf.setLeftBitDown(MOSFET_VENT_ETH);
-  else
+  } else {
     pcf.setLeftBitUp(MOSFET_VENT_ETH); 
   }
 }
@@ -565,48 +588,51 @@ void debug() {
   //just a mini state machine]
   //debug = 99, debug_states = 90+state
   //to return to idle , input 0
+  Serial.println("Entering debug mode...");
+  
   while(currDAQState == DEBUG){
-    debug_state = Serial.parseInt();
+    if(Serial.available() > 1){debug_state = Serial.parseInt();}
   switch (debug_state) {
-  case (DEBUG_IDLE):
-    sendDelay = IDLE_DELAY;
-    idle();
- 
+    case (DEBUG_IDLE):
+      sendDelay = IDLE_DELAY;
+      idle();
+  
 
-  case (DEBUG_ARMED): //NEED TO ADD TO CASE OPTIONS //ALLOWS OTHER CASES TO TRIGGER //INITIATE TANK PRESS LIVE READINGS
-    sendDelay = GEN_DELAY;
-    armed();
+    case (DEBUG_ARMED): //NEED TO ADD TO CASE OPTIONS //ALLOWS OTHER CASES TO TRIGGER //INITIATE TANK PRESS LIVE READINGS
+      sendDelay = GEN_DELAY;
+      armed();
+      
+
+
+    case (DEBUG_PRESS):
+      sendDelay = GEN_DELAY;
+      pressComplete = press();
+      
+
+
+    case (DEBUG_QD):
+      sendDelay = GEN_DELAY;
+      getReadings();
+
+    case (DEBUG_IGNITION): 
+      sendDelay = GEN_DELAY;
+      ignition();
+
+
+    case (DEBUG_HOTFIRE): 
+      sendDelay = GEN_DELAY;
+      hotfire();
+
+
+    case (DEBUG_ABORT):
+      sendDelay = GEN_DELAY;
+      abort_sequence();
+
     
-
-
-  case (DEBUG_PRESS):
-    sendDelay = GEN_DELAY;
-    pressComplete = press();
-    
-
-
-  case (DEBUG_QD):
-    sendDelay = GEN_DELAY;
-    getReadings();
-
-  case (DEBUG_IGNITION): 
-    sendDelay = GEN_DELAY;
-    ignition();
-
-
-  case (DEBUG_HOTFIRE): 
-    sendDelay = GEN_DELAY;
-    hotfire();
-
-
-  case (DEBUG_ABORT):
-    sendDelay = GEN_DELAY;
-    abort_sequence();
-
-  }
-  default : 
-  currDAQstate = IDLE;
-    break;
+    default : 
+    currDAQState = IDLE;
+      break;
+    }
   }
 
   
@@ -620,7 +646,9 @@ void debug() {
 
 bool sendData() {
   if ((millis()-sendTime)>sendDelay) { 
+    
     addReadingsToQueue();
+    
     sendQueue();
     return true;
   }
@@ -628,7 +656,10 @@ bool sendData() {
 }
 
 void addReadingsToQueue() {
+  
   getReadings();
+  
+  
   if (queueLength<40) {
     queueLength+=1;
     ReadingsQueue[queueLength].messageTime=millis();
@@ -651,24 +682,18 @@ void addReadingsToQueue() {
 }
 
 void getReadings(){
-    scale_PT_O1.set_gain(64);
-    scale_PT_O2.set_gain(64);
-    scale_PT_E1.set_gain(64);
-    scale_PT_E2.set_gain(64);
-    scale_PT_C1.set_gain(64);
-    scale_LC1.set_gain(64);
-    scale_LC2.set_gain(64);
-    scale_LC3.set_gain(64);
-    reading_PT_O1 = PT_Tanks_Offset_LOX + PT_Tanks_Slope_LOX * scale_PT_O1.read(); 
-    reading_PT_O2 = PT_Down_Offset_LOX + PT_Down_Slope_LOX * scale_PT_O2.read(); 
-    reading_PT_E1 = PT_Chamber_Offset + PT_Chamber_Slope * scale_PT_E1.read();
-    reading_PT_E2 = LoadCell2_Offset + LoadCell2_Offset * scale_PT_E2.read();
-    reading_PT_C1 = PT_Tanks_Offset_ETH + PT_Tanks_Slope_ETH * scale_PT_C1.read(); 
-    reading_LC1 = PT_Down_Offset_ETH + PT_Down_Slope_ETH * scale_LC1.read(); 
-    reading_LC2 = LoadCell1_Offset + LoadCell2_Offset*scale_LC2.read();
-    reading_LC3 = LoadCell1_Offset + LoadCell2_Offset*scale_LC3.read();
-    reading_TC1 = analogRead(TC1);
-    reading_TC2 = analogRead(TC2);
+
+   Serial.println("bruh");
+    reading_PT_O1 = PT_O1_Offset + PT_O1_Slope * scale_PT_O1.read(); 
+    reading_PT_O2 = PT_O2_Offset + PT_O2_Slope * scale_PT_O2.read(); 
+    //reading_PT_E1 = PT_E1_Offset + PT_E1_Slope * scale_PT_E1.read();
+    reading_PT_E2 = PT_E2_Offset + PT_E2_Slope * scale_PT_E2.read();
+    //reading_PT_C1 = PT_C1_Offset + PT_C1_Slope * scale_PT_C1.read(); 
+    reading_LC1 = LC1_Offset + LC1_Slope * scale_LC1.read(); 
+    reading_LC2 = LC2_Offset +LC2_Slope *scale_LC2.read();
+    reading_LC3 = LC3_Offset + LC3_Slope *scale_LC3.read();
+    reading_TC1 = analogRead(T1);
+    reading_TC2 = analogRead(T2);
     
   // readingCap1 = analogRead(CAPSENS1DATA);
   // readingCap2 = analogRead(CAPSENS2DATA);
