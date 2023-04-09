@@ -88,7 +88,7 @@ float receiveTime = 0;
 //NON BUSTED DAQ {0x7C, 0x9E, 0xBD, 0xD8, 0xFC, 0x14}
 // uint8_t broadcastAddress[] = {0x7C, 0x9E, 0xBD, 0xD8, 0xFC, 0x14}; //change to new Mac Address
 // {0xC4, 0xDD, 0x57, 0x9E, 0x96, 0x34};
-uint8_t broadcastAddress[] = {0x08, 0x3A, 0xF2, 0xB7, 0x0E, 0x44};
+uint8_t broadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x4F, 0xAF, 0x40};
 //{0x30, 0xC6, 0xF7, 0x2A, 0x28, 0x04}
 
 //Structure example to send data
@@ -197,8 +197,8 @@ void loop(){
   SWITCH_IGNITION.poll();
   SWITCH_HOTFIRE.poll();
   SWITCH_ABORT.poll();
-  // Serial.println(state);
-  // Serial.println(DAQState);
+  Serial.println(state);
+  Serial.println(DAQState);
   if(!SWITCH_PRESS.on() && !SWITCH_ARMED.on() && !SWITCH_ABORT.on() && !SWITCH_QD.on() && !SWITCH_IGNITION.on() && !SWITCH_HOTFIRE.on()) {serialState=IDLE;}
 
 
@@ -206,15 +206,14 @@ void loop(){
   Serial.println(state);
 
   case (IDLE): //Includes polling
-    //idle();
+    idle();
     if (SWITCH_ABORT.on()) {serialState=ABORT;}
     if (SWITCH_ARMED.on()) {serialState=ARMED;}
     state = serialState;
-    idle();
     break;
 
   case (ARMED):
-    //armed();
+    armed();
     if (DAQState == ARMED) {digitalWrite(LED_ARMED, HIGH);}
     if (SWITCH_ABORT.on()) {serialState=ABORT;}
     if (SWITCH_PRESS.on()) {serialState=PRESS;}
@@ -391,9 +390,9 @@ void debug() {
 }
 
 void dataSendCheck() {
-  if ((loopStartTime-sendTime) > sendDelay) {
+ 
     dataSend(); 
-  }
+  
 }
 
 void dataSend() {
