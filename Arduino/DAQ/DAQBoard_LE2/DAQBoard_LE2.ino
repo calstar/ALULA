@@ -12,10 +12,15 @@ This code runs on the DAQ ESP32 and has a couple of main tasks.
 #include "HX711.h"
 #include <SPI.h>
 #include "Adafruit_MAX31855.h"
+
+#include <EasyPCF8575.h>
+EasyPCF8575 pcf;
+
 #define IDLE_DELAY 250
 #define GEN_DELAY 25
 
-// USER DEFINED PARAMETERS FOR TEST/HOTFIRE //
+
+// MODEL DEFINED PARAMETERS FOR TEST/HOTFIRE //
 #define BangBangPressFuel 425 //Indicates transition from normal fill to bang-bang
 #define pressureFuel 450    //In units of psi. Defines set pressure for fuel
 #define BangBangPressOx 425 //Indicates transition from normal fill to bang-bang
@@ -25,45 +30,59 @@ This code runs on the DAQ ESP32 and has a couple of main tasks.
 float sendDelay = 250; //Sets frequency of data collection. 1/(sendDelay*10^-3) is frequency in Hz
 // END OF USER DEFINED PARAMETERS //
 //refer to https://docs.google.com/spreadsheets/d/17NrJWC0AR4Gjejme-EYuIJ5uvEJ98FuyQfYVWI3Qlio/edit#gid=1185803967 for all pinouts
-// Set sensor pinouts 
-// USED FOR LOX TANK(gain 32) AND ETH TANK(gain 64)
-#define PTOUT1 36
-#define CLKPT1 27
-float PT_Tanks_Offset_LOX = 10.663;
-float PT_Tanks_Slope_LOX = 0.0001181;
-float PT_Tanks_Offset_ETH = 10.663;
-float PT_Tanks_Slope_ETH = 0.0001181;
+
+//::::::DEFINE INSTRUMENT PINOUTS::::::://
+
+// DEFINE CLK PIN (SHARED ACROSS ALL HX INSTRUMENTS)
+#define CLK = 27
+
+//::SET SENSOR PINOUTS:://
+
+// LOX System
+#define PT_O1 39 //LOX Tank PT
+#define PT_O2 36 //LOX Injector PT
+float PT_O1_Offset = 10.663;
+float PT_O1_Slope = 0.0001181;
+float PT_O2_Offset = 10.663;
+float PT_O2_Slope = 0.0001181;
 
 
-// USED FOR THE DOWNSTREAM PTs ON LOX(gain 32) AND ETH(gain 64) sides
-#define PTOUT2 39
-#define CLKPT2 27
-float PT_Down_Offset_LOX = 10.663;
-float PT_Down_Slope_LOX = 0.0001181;
-float PT_Down_Offset_ETH = 10.663;
-float PT_Down_Slope_ETH = 0.0001181;
+// ETH System
+#define PT_E1 34 //ETH tank PT
+float PT_E1_Offset = 10.663;
+float PT_E1_Slope = 0.0001181;
 
-// USED FOR CHAMBER PRESSURE(gain 32) AND LOADCELL1(gain 64)
-#define PTOUT3 34
-#define CLKPT3 27
-float PT_Chamber_Offset = 10.663;
-float PT_Chamber_Slope = 0.0001181;
-float LoadCell1_Offset = 10.663;
-float LoadCell1_Slope = 0.0001181;
+#define PT_E2 35 //ETH Injector PT
+float PT_E2_Offset = 10.663;
+float PT_E2_Slope = 0.0001181;
 
 
-// USED FOR LOADCELL2(gain 32) and LOADCELL3(gain 64)
-#define PTOUT4 35
-#define CLKPT4 27
-float LoadCell2_Offset = 10.663;
-float LoadCell2_Slope = 0.0001181;
-float LoadCell3_Offset = 10.663;
-float LoadCell3_Slope = 0.0001181;
+// Combustion Chamber
+#define PT_C1 32
+float PT_C1_Offset = 10.663;
+float PT_C1_Slope = 0.0001181;
 
-#define TCSDO   5
-#define TCSDI   17
-#define TCCLK  18
+
+// LOADCELLS
+#define LC1 33
+float LC1_Offset = 10.663;
+float LC1_Slope = 0.0001181;
+
+#define LC2 25
+float LC2_Offset = 10.663;
+float LC2_Slope = 0.0001181;
+
+#define LC_3 26
+float LC3_Offset = 10.663;
+float LC3_Slope = 0.0001181;
+
+
+//DEFINE THERMOCOUPLE PINS
+#define TCSDO 5
+#define TCSDI 17
+#define TCCLK 18
 #define TC1_CS 16
+#define TC2_CS 4
 // #define CAPSENS1DATA 40
 // #define CAPSENS1CLK 52
 // #define CAPSENS2DATA 13
@@ -83,17 +102,20 @@ float LoadCell3_Slope = 0.0001181;
 #define MOSFET_ETH_VENT 6 
 #define MOSFET_LOX_VENT 7
 
-
 // MOSFET pinouts //
 
 
 String serialMessage;
 
 // Initialize the PT and LC sensor objects which use the HX711 breakout board
-HX711 scale1;
-HX711 scale2;
-HX711 scale3;
-HX711 scale4;
+HX711 scale_PT_O1;
+HX711 scale_PT_O2;
+HX711 scale_PT_E1;
+HX711 scale_PT_E2;
+HX711 scale_PT_C1;
+HX711 scale_LC1;
+HX711 scale_LC2;
+HX711 scale_LC3;
 // End of HX711 initialization
 
 //////////////
@@ -130,20 +152,24 @@ bool ethComplete = false;
 bool oxComplete = false;
 bool pressComplete = false ;
 
+
+
+//::::DEFINE READOUT VARIABLES:::://
+
 float sendTime;
-bool gainbool = true; //gainbool == true => gain = 64; else gain = 32
+
 // Define variables to store readings to be sent
 int debug_state = 0;
-int readingPT1=1;
-int readingPT2=1;
-int readingPT3=1;
-int readingPT4=1;
-int readingPT5=1;
-int readingLC1=1;
-int readingLC2=1;
-int readingLC3=1;
-int readingTC1=1;
-int readingTC2=1;
+int reading_PT_O1=1;
+int reading_PT_O2=1;
+int reading_PT_E1=1;
+int reading_PT_E2=1;
+int reading_PT_C1=1;
+int reading_LC1=1;
+int reading_LC2=1;
+int reading_LC3=1;
+int reading_TC1=1;
+int reading_TC2=1;
 float readingCap1=0;
 float readingCap2=0;
 short int queueSize=0;
@@ -152,11 +178,11 @@ short int queueSize=0;
 //Must match the receiver structure
 typedef struct struct_message {
     int messageTime;
-    int pt1;  
-    int pt2; 
-    int pt3;  
-    int pt4;  
-    int pt5;  
+    int pt1;  //PTO1
+    int pt2;  //PTO2
+    int pt3;  //PTE1
+    int pt4;  //PTE2
+    int pt5;  //PTC1
     int lc1; 
     int lc2;
     int lc3;
@@ -194,6 +220,11 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   commandedState = Commands.commandedState;
 }
 
+
+
+
+
+
 // Initialize all sensors and parameters
 void setup() {
   // pinMode(ONBOARD_LED,OUTPUT);
@@ -226,20 +257,19 @@ void setup() {
   delay(500); // startup time to make sure its good for personal testing
 
 
-  
-
   //EVERYTHING SHOULD BE WRITTEN HIGH EXCEPT QDs, WHICH SHOULD BE LOW
   pcf.setAllBitsUp();
 
   //set gains for pt pins
-  scale1.begin(PTOUT1, CLKPT1); scale1.set_gain(64);
-  scale2.begin(PTOUT2, CLKPT2); scale2.set_gain(64);
-  scale3.begin(PTOUT3, CLKPT3); scale3.set_gain(64);
-  scale4.begin(PTOUT4, CLKPT4); scale4.set_gain(64);
+  scale_PT_O1.begin(PT_O1, CLK); scale_PT_O1.set_gain(64);
+  scale_PT_O2.begin(PT_O2, CLK); scale_PT_O2.set_gain(64);
+  scale_PT_E1.begin(PT_E1, CLK); scale_PT_E1.set_gain(64);
+  scale_PT_E2.begin(PT_E2, CLK); scale_PT_E2.set_gain(64);
+  scale_PT_C1.begin(PT_C1, CLK); scale_PT_C1.set_gain(64);
   
 
-  pinMode(TC1, INPUT);
-  pinMode(TC2, INPUT);
+  pinMode(TC1_CS, INPUT);
+  pinMode(TC2_CS, INPUT);
 
   // pinMode(CAPSENS1DATA, INPUT);
   // pinMode(CAPSENS1CLK, OUTPUT);
@@ -281,6 +311,7 @@ void setup() {
 
 // Implementation of State Machine
 void loop() {
+  if(Serial.available() > 1){if(Serial.parseInt() == 99){state = DEBUG;}}
 
   switch (state) {
     
@@ -330,7 +361,7 @@ void loop() {
     if (commandedState==ABORT) {state=ABORT; currDAQState=ABORT;}
     if (commandedState==HOTFIRE) {state=HOTFIRE; currDAQState=HOTFIRE;}
     
-    
+
     break;
 
   case (HOTFIRE): 
@@ -343,6 +374,7 @@ void loop() {
   case (ABORT):
     sendDelay = GEN_DELAY;
     abort_sequence();
+    if (commandedState==IDLE) {state=IDLE; currDAQState=IDLE;}
     break;
 
   case (DEBUG):
@@ -366,90 +398,118 @@ void armed() {
 
 bool press() {
   sendDelay = 25;
-  oxComplete = (readingPT1 >= pressureOx);
-  ethComplete = (readingPT2 >= pressureFuel);
+  oxComplete = (reading_PT_O1 >= pressureOx);
+  ethComplete = (reading_PT_E1 >= pressureFuel);
 
   if (!sendData()) {
     getReadings();
   }
-  while (readingPT1 < BangBangPressOx && readingPT2 < BangBangPressFuel) {
-    openSolenoidOx();
-    openSolenoidFuel();
-    if (commandedState == ABORT) {
-      closeSolenoidOx();
-      closeSolenoidFuel();
-      state = ABORT;
-      return false;
-    }
+  
+  while (reading_PT_O1 < pressureOx && reading_PT_E1 < pressureFuel) {
     if (!sendData()) {
       getReadings();
-    }    
-  }
-
-  if (readingPT1 < BangBangPressOx && readingPT2 > BangBangPressFuel) {
-    closeSolenoidFuel();
-    while (readingPT1 < BangBangPressOx && readingPT2 < pressureFuel) {
+    }
+      
+    if (reading_PT_O1 < BangBangPressOx) {
       openSolenoidOx();
-      if (commandedState == ABORT) {
-        closeSolenoidOx();
-        state = ABORT;
-        return false;
-      }
-      if (!sendData()) {
-        getReadings();
-      }
-    }
-  }
-  if (readingPT1 > BangBangPressOx && readingPT2 < BangBangPressFuel) {
-    closeSolenoidOx();
-    while (readingPT2 < BangBangPressFuel && readingPT1 < pressureOx) {
-      openSolenoidFuel();
-      if (commandedState == ABORT) {
-        closeSolenoidFuel();
-        state = ABORT;
-        return false;
-      }
-      if (!sendData()) {
-        getReadings();
-      }
-    }    
-  }
-
-  while (readingPT1 < pressureOx || readingPT2 < pressureFuel) {
-    if (readingPT1 >= abortPressure || readingPT2 >= abortPressure) {
-      closeSolenoidFuel();
-      closeSolenoidOx();
-      state = ABORT;
-      return false;
-    }
-    if (readingPT1 >= pressureOx) {
+    else
       closeSolenoidOx();
       oxComplete = true;
     }
-    if (readingPT2 >= pressureFuel) {
+    if (reading_PT_E1 < BangBangPressFuel) {
+      openSolenoidFuel();
+    else
       closeSolenoidFuel();
       ethComplete = true;
     }
+
+//ABORT CASES
+  if (reading_PT_O1 >= abortPressure || reading_PT_E1 >= abortPressure) {
+      closeSolenoidFuel();
+      closeSolenoidOx();
+      state = ABORT;
+      return false;
+    }
+    
     if (commandedState == ABORT) {
       closeSolenoidOx();
       closeSolenoidFuel();
       state = ABORT;
-      return false;      
+      return false;
     }
-    if (!oxComplete) {
-      openSolenoidOx();
-    }
-    if (!ethComplete) {
-      openSolenoidFuel();
-    }
-    delay(period * 500);
-    closeSolenoidOx();
-    closeSolenoidFuel();
-    delay((1-period) * 500);
     if (!sendData()) {
       getReadings();
-    }
+    }    
+  
   }
+
+//:::BANGBANG CODE::://
+//  if (reading_PT_O1 < BangBangPressOx && reading_PT_E1 > BangBangPressFuel) {
+//    closeSolenoidFuel();
+//    while (reading_PT_O1 < BangBangPressOx && reading_PT_E1 < pressureFuel) {
+//      openSolenoidOx();
+//      if (commandedState == ABORT) {
+//        closeSolenoidOx();
+//        state = ABORT;
+//        return false;
+//      }
+//      if (!sendData()) {
+//        getReadings();
+//      }
+//    }
+//  }
+//  if (reading_PT_O1 > BangBangPressOx && reading_PT_E1 < BangBangPressFuel) {
+//    closeSolenoidOx();
+//    while (reading_PT_E1 < BangBangPressFuel && reading_PT_O1 < pressureOx) {
+//      openSolenoidFuel();
+//      if (commandedState == ABORT) {
+//        closeSolenoidFuel();
+//        state = ABORT;
+//        return false;
+//      }
+//      if (!sendData()) {
+//        getReadings();
+//      }
+//    }    
+//  }
+//
+//  while (reading_PT_O1 < pressureOx || reading_PT_E1 < pressureFuel) {
+//    if (reading_PT_O1 >= abortPressure || reading_PT_E1 >= abortPressure) {
+//      closeSolenoidFuel();
+//      closeSolenoidOx();
+//      state = ABORT;
+//      return false;
+//    }
+//    if (reading_PT_O1 >= pressureOx) {
+//      closeSolenoidOx();
+//      oxComplete = true;
+//    }
+//    if (reading_PT_E1 >= pressureFuel) {
+//      closeSolenoidFuel();
+//      ethComplete = true;
+//    }
+//    if (commandedState == ABORT) {
+//      closeSolenoidOx();
+//      closeSolenoidFuel();
+//      state = ABORT;
+//      return false;      
+//    }
+//    if (!oxComplete) {
+//      openSolenoidOx();
+//    }
+//    if (!ethComplete) {
+//      openSolenoidFuel();
+//    }
+//    
+//    delay(period * 500);
+//    closeSolenoidOx();
+//    closeSolenoidFuel();
+//    delay((1-period) * 500);
+//    if (!sendData()) {
+//      getReadings();
+//    }
+//  }
+ 
   return true;
 }
 
@@ -461,23 +521,33 @@ void ignition() {
 }
 
 void hotfire() {
-  pcf.setLeftBitUp(MOSFET_LOX_MAIN);
-  pcf.setLeftBitUp(MOSFET_ETH_MAIN);
+  pcf.setLeftBitDown(MOSFET_LOX_MAIN);
+  pcf.setLeftBitDown(MOSFET_ETH_MAIN);
+  sendData();
 }
 
 void abort_sequence() {
   getReadings();
   // Waits for LOX pressure to decrease before venting Eth through pyro
-  
-  pcf.setLeftBitUp(MOSFET_VENT_LOX);
-  while(millis() - currtime < 10){
+  pcf.setLeftBitDown(MOSFET_VENT_LOX);
+  currtime = millis();
+  while(millis() - currtime < 10000){
   getReadings();
   }
-  pcf.setLeftBitUp(MOSFET_VENT_ETH);
-  
+  pcf.setLeftBitDown(MOSFET_VENT_ETH);
 
-
+  if (reading_PT_O1 > 5) {
+    pcf.setLeftBitDown(MOSFET_VENT_LOX);
+  else
+    pcf.setLeftBitUp(MOSFET_VENT_LOX); 
+  }
+  if (reading_PT_E1 > 5) {
+    pcf.setLeftBitDown(MOSFET_VENT_ETH);
+  else
+    pcf.setLeftBitUp(MOSFET_VENT_ETH); 
+  }
 }
+
 void closeSolenoidOx(){
   pcf.setLeftBitUp(MOSFET_LOX_PRESS);
 }
@@ -517,7 +587,7 @@ void debug() {
 
   case (DEBUG_QD):
     sendDelay = GEN_DELAY;
-  
+    getReadings();
 
   case (DEBUG_IGNITION): 
     sendDelay = GEN_DELAY;
@@ -546,30 +616,6 @@ void debug() {
 /// END OF STATE FUNCTION DEFINITIONS ///
 
 
-
-/// HELPER FUNCTIONS ///
-
-void openSolenoidFuel() {
-  digitalWrite(MOSFET_PRESSETH, LOW);
-}
-
-void closeSolenoidFuel() {
-  pcf.setLeftBitUp();
-}
-
-void openSolenoidOx() {
-  digitalWrite(MOSFET_PRESSLOX, LOW);
-}
-
-void closeSolenoidOx() {
-  digitalWrite(MOsFET_PRESSLOX, HIGH);
-}
-
-
-
-/// END OF HELPER FUNCTIONS ///
-
-
 /// DATA LOGGING AND COMMUNICATION ///
 
 bool sendData() {
@@ -586,16 +632,16 @@ void addReadingsToQueue() {
   if (queueLength<40) {
     queueLength+=1;
     ReadingsQueue[queueLength].messageTime=millis();
-    ReadingsQueue[queueLength].pt1=readingPT1;
-    ReadingsQueue[queueLength].pt2=readingPT2;
-    ReadingsQueue[queueLength].pt3=readingPT3;
-    ReadingsQueue[queueLength].pt4=readingPT4;
-    ReadingsQueue[queueLength].pt5=readingPT5;
-    ReadingsQueue[queueLength].lc1=readingLC1;
-    ReadingsQueue[queueLength].lc2=readingLC2;
-    ReadingsQueue[queueLength].lc3=readingLC3;
-    ReadingsQueue[queueLength].tc1=readingTC1;
-    ReadingsQueue[queueLength].tc2=readingTC2;
+    ReadingsQueue[queueLength].pt1=reading_PT_O1;
+    ReadingsQueue[queueLength].pt2=reading_PT_O2;
+    ReadingsQueue[queueLength].pt3=reading_PT_E1;
+    ReadingsQueue[queueLength].pt4=reading_PT_E2;
+    ReadingsQueue[queueLength].pt5=reading_PT_C1;
+    ReadingsQueue[queueLength].lc1=reading_LC1;
+    ReadingsQueue[queueLength].lc2=reading_LC2;
+    ReadingsQueue[queueLength].lc3=reading_LC3;
+    ReadingsQueue[queueLength].tc1=reading_TC1;
+    ReadingsQueue[queueLength].tc2=reading_TC2;
     ReadingsQueue[queueLength].queueSize=queueLength;
     ReadingsQueue[queueLength].DAQState=currDAQState;
     ReadingsQueue[queueLength].pressComplete=pressComplete;
@@ -605,37 +651,25 @@ void addReadingsToQueue() {
 }
 
 void getReadings(){
-  if(gainbool){
-    scale1.set_gain(64);
-    scale2.set_gain(64);
-    scale3.set_gain(64);
-    scale4.set_gain(64);
-    readingPT1 = PT_Tanks_Offset_LOX + PT_Tanks_Slope_LOX * scale1.read(); 
-    readingPT2 = ReadingsQueue[queueLength].pt2 ;
-    readingPT3 = PT_Down_Offset_LOX + PT_Down_Slope_LOX * scale2.read(); 
-    readingPT4 = ReadingsQueue[queueLength].pt4;
-    readingPT5 = PT_Chamber_Offset + PT_Chamber_Slope * scale3.read();
-    readingLC1 = ReadingsQueue[queueLength].lc1;
-    readingLC2 = LoadCell2_Offset + LoadCell2_Offset*scale4.read();
-    readingLC3 = ReadingsQueue[queueLength].lc3;
-  } else {
-    scale1.set_gain(32,false);
-    scale2.set_gain(32,false);
-    scale3.set_gain(32,false);
-    scale4.set_gain(32,false);
-    readingPT1 = ReadingsQueue[queueLength].pt1;
-    readingPT2 = PT_Tanks_Offset_ETH + PT_Tanks_Slope_ETH * scale1.read(); 
-    readingPT3 = ReadingsQueue[queueLength].pt3; 
-    readingPT4 = PT_Down_Offset_ETH + PT_Down_Slope_ETH * scale2.read(); 
-    readingPT5 = ReadingsQueue[queueLength].pt5;
-    readingLC1 = LoadCell1_Offset + LoadCell2_Offset*scale3.read();
-    readingLC2 = ReadingsQueue[queueLength].lc2;
-    readingLC3 = LoadCell1_Offset + LoadCell2_Offset*scale4.read();
-  }
-  gainbool = !gainbool;
-  
-  readingTC1 = analogRead(TC1);
-  readingTC2 = analogRead(TC2);
+    scale_PT_O1.set_gain(64);
+    scale_PT_O2.set_gain(64);
+    scale_PT_E1.set_gain(64);
+    scale_PT_E2.set_gain(64);
+    scale_PT_C1.set_gain(64);
+    scale_LC1.set_gain(64);
+    scale_LC2.set_gain(64);
+    scale_LC3.set_gain(64);
+    reading_PT_O1 = PT_Tanks_Offset_LOX + PT_Tanks_Slope_LOX * scale_PT_O1.read(); 
+    reading_PT_O2 = PT_Down_Offset_LOX + PT_Down_Slope_LOX * scale_PT_O2.read(); 
+    reading_PT_E1 = PT_Chamber_Offset + PT_Chamber_Slope * scale_PT_E1.read();
+    reading_PT_E2 = LoadCell2_Offset + LoadCell2_Offset * scale_PT_E2.read();
+    reading_PT_C1 = PT_Tanks_Offset_ETH + PT_Tanks_Slope_ETH * scale_PT_C1.read(); 
+    reading_LC1 = PT_Down_Offset_ETH + PT_Down_Slope_ETH * scale_LC1.read(); 
+    reading_LC2 = LoadCell1_Offset + LoadCell2_Offset*scale_LC2.read();
+    reading_LC3 = LoadCell1_Offset + LoadCell2_Offset*scale_LC3.read();
+    reading_TC1 = analogRead(TC1);
+    reading_TC2 = analogRead(TC2);
+    
   // readingCap1 = analogRead(CAPSENS1DATA);
   // readingCap2 = analogRead(CAPSENS2DATA);
 
@@ -647,26 +681,27 @@ void printSensorReadings() {
  //
  serialMessage.concat(millis());
  serialMessage.concat(" ");
- serialMessage.concat(readingPT1);
+ serialMessage.concat(reading_PT_O1);
  serialMessage.concat(" ");
- serialMessage.concat(readingPT2);
+ serialMessage.concat(reading_PT_O2);
  serialMessage.concat(" ");
- serialMessage.concat(readingPT3);
+ serialMessage.concat(reading_PT_E1);
  serialMessage.concat(" ");
- serialMessage.concat(readingPT4);
+ serialMessage.concat(reading_PT_E2);
  serialMessage.concat(" ");
- serialMessage.concat(readingPT5);
+ serialMessage.concat(reading_PT_C1);
  serialMessage.concat(" ");
- serialMessage.concat(readingLC1);
+ serialMessage.concat(reading_LC1);
  serialMessage.concat(" ");
- serialMessage.concat(readingLC2);
+ serialMessage.concat(reading_LC2);
  serialMessage.concat(" ");
- serialMessage.concat(readingLC3);
+ serialMessage.concat(reading_LC3);
  serialMessage.concat(" ");
- serialMessage.concat(readingTC1);
+ serialMessage.concat(reading_TC1);
  serialMessage.concat(" ");
- serialMessage.concat(readingTC2);
+ serialMessage.concat(reading_TC2);
  serialMessage.concat(" ");
+ serialMessage.concat(debug_state);
 //  serialMessage.concat(readingCap1);
 //  serialMessage.concat(" ");
 //  serialMessage.concat(readingCap2);

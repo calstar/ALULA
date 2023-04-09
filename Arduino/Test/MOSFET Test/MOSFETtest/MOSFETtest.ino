@@ -7,7 +7,7 @@ EasyPCF8575 pcf;
 int dt = 50;
 
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(9600);
   pcf.startI2C(21, 22, SEARCH); //Only SEARCH, if using normal pins in Arduino
   if (!pcf.check(SEARCH)) {
     Serial.println("Device not found. Try to specify the address");
@@ -19,45 +19,41 @@ void setup() {
 }
 
 void loop() {
-  int num_pins = 8;
-  cycle_led(num_pins);
-//  toggle_0_7(0);
-//  toggle_0_7(1);
-//  toggle_0_7(2);
-//  toggle_0_7(3);
-//  toggle_0_7(4);
-//  toggle_0_7(5);
-//  toggle_0_7(6);
-//  toggle_0_7(7);
+  int pins[] = {1, 0, 8, 9, 10, 11, 12, 13, 14, 15}; // Array of pins
+  int numPins = 10; // Number of pins in the array
+  cycle_led(pins, numPins); // Call the function to set all pins high
+//  toggle(0);
+//  toggle(1);
+//  toggle(8);
+//  toggle(9);
+//  toggle(10);
+//  toggle(11);
+//  toggle(12);
+//  toggle(13);
+//  toggle(14);
+//  toggle(15);
 }
 
-void cycle_led(int num_pins) {
-  for (int i = 0; i < num_pins; i++) {
-    pcf.setLeftBitUp(i);
+void cycle_led(int pins[], int numPins) {
+  for (int i = 0; i < numPins; i++) {
+    pcf.setBitUp(pins[i]);
     Serial.print("pin high: ");
-    Serial.println(i);
+    Serial.println(pins[i]);
     delay(dt);
   }
 
-  for (int i = 0; i < num_pins; i++) {
-    pcf.setLeftBitDown(i);
+  for (int i = 0; i < numPins; i++) {
+    pcf.setBitDown(pins[i]);
     Serial.print("pin low: ");
-    Serial.println(i);
+    Serial.println(pins[i]);
     delay(dt);
   }
-  
 }
 
-void toggle_0_7(int i) {
-  delay(dt);
-  pcf.setLeftBitUp(i);
-  delay(dt);
-  pcf.setLeftBitDown(i);
-}
 
-void toggle_8_15(int i) {
+void toggle(int i) {
   delay(dt);
-  pcf.setRightBitUp(i);
+  pcf.setBitUp(i);
   delay(dt);
-  pcf.setRightBitDown(i);
+  pcf.setBitDown(i);
 }
