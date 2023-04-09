@@ -72,7 +72,7 @@ float LC1_Slope = 0.0001181;
 float LC2_Offset = 10.663;
 float LC2_Slope = 0.0001181;
 
-#define LC_3 26
+#define LC3 26
 float LC3_Offset = 10.663;
 float LC3_Slope = 0.0001181;
 
@@ -133,7 +133,7 @@ HX711 scale_LC3;
 //HEADERLESS BOARD {0x7C, 0x87, 0xCE, 0xF0 0x69, 0xAC}
 //NEWEST COM BOARD IN EVA {0x24, 0x62, 0xAB, 0xD2, 0x85, 0xDC}
 // uint8_t broadcastAddress[] = {0x24, 0x62, 0xAB, 0xD2, 0x85, 0xDC};
-uint8_t broadcastAddress[] ={0x08, 0x3A, 0xF2, 0xB7, 0x0E, 0x4A};
+uint8_t broadcastAddress[] ={0xC8, 0xF0, 0x9E, 0x50, 0x23, 0x34};
 // {0x7C, 0x87, 0xCE, 0xF0, 0x69, 0xAC};
 //{0x3C, 0x61, 0x05, 0x4A, 0xD5, 0xE0};
 // {0xC4, 0xDD, 0x57, 0x9E, 0x96, 0x34}
@@ -228,11 +228,12 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
 
 
 
-
+    
 
 // Initialize all sensors and parameters
 void setup() {
   // pinMode(ONBOARD_LED,OUTPUT);
+  
   Serial.begin(115200);
 
   while (!Serial) delay(1); // wait for Serial on Leonardo/Zero, etc
@@ -268,9 +269,12 @@ void setup() {
   //set gains for pt pins
   scale_PT_O1.begin(PT_O1, CLK); scale_PT_O1.set_gain(64);
   scale_PT_O2.begin(PT_O2, CLK); scale_PT_O2.set_gain(64);
-  scale_PT_E1.begin(PT_E1, CLK); scale_PT_E1.set_gain(64);
+  // scale_PT_E1.begin(PT_E1, CLK); scale_PT_E1.set_gain(64);
   scale_PT_E2.begin(PT_E2, CLK); scale_PT_E2.set_gain(64);
-  scale_PT_C1.begin(PT_C1, CLK); scale_PT_C1.set_gain(64);
+  // scale_PT_C1.begin(PT_C1, CLK); scale_PT_C1.set_gain(64);
+   scale_LC1.begin(LC1, CLK); scale_LC1.set_gain(64);
+    scale_LC2.begin(LC2, CLK); scale_LC2.set_gain(64);
+     scale_LC3.begin(LC3, CLK); scale_LC3.set_gain(64);
   
 
   pinMode(TC1_CS, INPUT);
@@ -316,7 +320,9 @@ void setup() {
 
 // Implementation of State Machine
 void loop() {
-  if(Serial.available() > 1){if(Serial.parseInt() == 99){state = DEBUG;}}
+  if(Serial.available() > 1){if(Serial.parseInt() == 99){Serial.println("bruh");state = DEBUG;}}
+  Serial.println(state);
+ 
 
   switch (state) {
     
@@ -394,7 +400,7 @@ void loop() {
 /// STATE FUNCTION DEFINITIONS ///
 
 void idle() {
-  sendData();
+  Serial.println(sendData());
 }
 
 void armed() {
@@ -402,6 +408,7 @@ void armed() {
 }
 
 bool press() {
+
   sendDelay = 25;
   oxComplete = (reading_PT_O1 >= pressureOx);
   ethComplete = (reading_PT_E1 >= pressureFuel);
@@ -521,17 +528,20 @@ bool press() {
 
 
 void ignition() {
+
   pcf.setLeftBitUp(MOSFET_IGNITER);
   sendData();  
 }
 
 void hotfire() {
+ 
   pcf.setLeftBitDown(MOSFET_LOX_MAIN);
   pcf.setLeftBitDown(MOSFET_ETH_MAIN);
   sendData();
 }
 
 void quick_disconnect() {
+   
     if (!sendData()) {
       getReadings();
     }
@@ -539,6 +549,7 @@ void quick_disconnect() {
 
 
 void abort_sequence() {
+
   getReadings();
   // Waits for LOX pressure to decrease before venting Eth through pyro
   pcf.setLeftBitDown(MOSFET_VENT_LOX);
@@ -577,8 +588,10 @@ void debug() {
   //just a mini state machine]
   //debug = 99, debug_states = 90+state
   //to return to idle , input 0
+  Serial.println("Entering debug mode...");
+  
   while(currDAQState == DEBUG){
-    debug_state = Serial.parseInt();
+    if(Serial.available() > 1){debug_state = Serial.parseInt();}
   switch (debug_state) {
     case (DEBUG_IDLE):
       sendDelay = IDLE_DELAY;
@@ -633,7 +646,9 @@ void debug() {
 
 bool sendData() {
   if ((millis()-sendTime)>sendDelay) { 
+    
     addReadingsToQueue();
+    
     sendQueue();
     return true;
   }
@@ -641,7 +656,10 @@ bool sendData() {
 }
 
 void addReadingsToQueue() {
+  
   getReadings();
+  
+  
   if (queueLength<40) {
     queueLength+=1;
     ReadingsQueue[queueLength].messageTime=millis();
@@ -664,19 +682,13 @@ void addReadingsToQueue() {
 }
 
 void getReadings(){
-    scale_PT_O1.set_gain(64);
-    scale_PT_O2.set_gain(64);
-    scale_PT_E1.set_gain(64);
-    scale_PT_E2.set_gain(64);
-    scale_PT_C1.set_gain(64);
-    scale_LC1.set_gain(64);
-    scale_LC2.set_gain(64);
-    scale_LC3.set_gain(64);
+
+   Serial.println("bruh");
     reading_PT_O1 = PT_O1_Offset + PT_O1_Slope * scale_PT_O1.read(); 
     reading_PT_O2 = PT_O2_Offset + PT_O2_Slope * scale_PT_O2.read(); 
-    reading_PT_E1 = PT_E1_Offset + PT_E1_Slope * scale_PT_E1.read();
+    //reading_PT_E1 = PT_E1_Offset + PT_E1_Slope * scale_PT_E1.read();
     reading_PT_E2 = PT_E2_Offset + PT_E2_Slope * scale_PT_E2.read();
-    reading_PT_C1 = PT_C1_Offset + PT_C1_Slope * scale_PT_C1.read(); 
+    //reading_PT_C1 = PT_C1_Offset + PT_C1_Slope * scale_PT_C1.read(); 
     reading_LC1 = LC1_Offset + LC1_Slope * scale_LC1.read(); 
     reading_LC2 = LC2_Offset +LC2_Slope *scale_LC2.read();
     reading_LC3 = LC3_Offset + LC3_Slope *scale_LC3.read();
