@@ -95,12 +95,17 @@ float LC3_Slope = 0.0001181;
 
 #define MOSFET_IGNITER 0
 #define MOSFET_ETH_MAIN 1
-#define MOSFET_LOX_MAIN2 2
-#define MOSFET_LOX_MAIN1 3
+#define MOSFET_EXTRA 2
+#define MOSFET_LOX_MAIN 3
 #define MOSFET_ETH_PRESS 4
 #define MOSFET_LOX_PRESS 5
-#define MOSFET_ETH_VENT 6 
-#define MOSFET_LOX_VENT 7
+#define MOSFET_VENT_ETH 6
+#define MOSFET_VENT_LOX 7
+
+
+bool sendData();
+void getReadings();
+
 
 // MOSFET pinouts //
 
@@ -526,11 +531,18 @@ void hotfire() {
   sendData();
 }
 
+void quick_disconnect() {
+    if (!sendData()) {
+      getReadings();
+    }
+}
+
+
 void abort_sequence() {
   getReadings();
   // Waits for LOX pressure to decrease before venting Eth through pyro
   pcf.setLeftBitDown(MOSFET_VENT_LOX);
-  currtime = millis();
+  int currtime = millis();
   while(millis() - currtime < 10000){
   getReadings();
   }
@@ -538,12 +550,12 @@ void abort_sequence() {
 
   if (reading_PT_O1 > 5) {
     pcf.setLeftBitDown(MOSFET_VENT_LOX);
-  else
+  } else {
     pcf.setLeftBitUp(MOSFET_VENT_LOX); 
   }
   if (reading_PT_E1 > 5) {
     pcf.setLeftBitDown(MOSFET_VENT_ETH);
-  else
+  } else {
     pcf.setLeftBitUp(MOSFET_VENT_ETH); 
   }
 }
@@ -568,45 +580,46 @@ void debug() {
   while(currDAQState == DEBUG){
     debug_state = Serial.parseInt();
   switch (debug_state) {
-  case (DEBUG_IDLE):
-    sendDelay = IDLE_DELAY;
-    idle();
- 
+    case (DEBUG_IDLE):
+      sendDelay = IDLE_DELAY;
+      idle();
+  
 
-  case (DEBUG_ARMED): //NEED TO ADD TO CASE OPTIONS //ALLOWS OTHER CASES TO TRIGGER //INITIATE TANK PRESS LIVE READINGS
-    sendDelay = GEN_DELAY;
-    armed();
+    case (DEBUG_ARMED): //NEED TO ADD TO CASE OPTIONS //ALLOWS OTHER CASES TO TRIGGER //INITIATE TANK PRESS LIVE READINGS
+      sendDelay = GEN_DELAY;
+      armed();
+      
+
+
+    case (DEBUG_PRESS):
+      sendDelay = GEN_DELAY;
+      pressComplete = press();
+      
+
+
+    case (DEBUG_QD):
+      sendDelay = GEN_DELAY;
+      getReadings();
+
+    case (DEBUG_IGNITION): 
+      sendDelay = GEN_DELAY;
+      ignition();
+
+
+    case (DEBUG_HOTFIRE): 
+      sendDelay = GEN_DELAY;
+      hotfire();
+
+
+    case (DEBUG_ABORT):
+      sendDelay = GEN_DELAY;
+      abort_sequence();
+
     
-
-
-  case (DEBUG_PRESS):
-    sendDelay = GEN_DELAY;
-    pressComplete = press();
-    
-
-
-  case (DEBUG_QD):
-    sendDelay = GEN_DELAY;
-    getReadings();
-
-  case (DEBUG_IGNITION): 
-    sendDelay = GEN_DELAY;
-    ignition();
-
-
-  case (DEBUG_HOTFIRE): 
-    sendDelay = GEN_DELAY;
-    hotfire();
-
-
-  case (DEBUG_ABORT):
-    sendDelay = GEN_DELAY;
-    abort_sequence();
-
-  }
-  default : 
-  currDAQstate = IDLE;
-    break;
+    default : 
+    currDAQState = IDLE;
+      break;
+    }
   }
 
   
@@ -659,16 +672,16 @@ void getReadings(){
     scale_LC1.set_gain(64);
     scale_LC2.set_gain(64);
     scale_LC3.set_gain(64);
-    reading_PT_O1 = PT_Tanks_Offset_LOX + PT_Tanks_Slope_LOX * scale_PT_O1.read(); 
-    reading_PT_O2 = PT_Down_Offset_LOX + PT_Down_Slope_LOX * scale_PT_O2.read(); 
-    reading_PT_E1 = PT_Chamber_Offset + PT_Chamber_Slope * scale_PT_E1.read();
-    reading_PT_E2 = LoadCell2_Offset + LoadCell2_Offset * scale_PT_E2.read();
-    reading_PT_C1 = PT_Tanks_Offset_ETH + PT_Tanks_Slope_ETH * scale_PT_C1.read(); 
-    reading_LC1 = PT_Down_Offset_ETH + PT_Down_Slope_ETH * scale_LC1.read(); 
-    reading_LC2 = LoadCell1_Offset + LoadCell2_Offset*scale_LC2.read();
-    reading_LC3 = LoadCell1_Offset + LoadCell2_Offset*scale_LC3.read();
-    reading_TC1 = analogRead(TC1);
-    reading_TC2 = analogRead(TC2);
+    reading_PT_O1 = PT_O1_Offset + PT_O1_Slope * scale_PT_O1.read(); 
+    reading_PT_O2 = PT_O2_Offset + PT_O2_Slope * scale_PT_O2.read(); 
+    reading_PT_E1 = PT_E1_Offset + PT_E1_Slope * scale_PT_E1.read();
+    reading_PT_E2 = PT_E2_Offset + PT_E2_Slope * scale_PT_E2.read();
+    reading_PT_C1 = PT_C1_Offset + PT_C1_Slope * scale_PT_C1.read(); 
+    reading_LC1 = LC1_Offset + LC1_Slope * scale_LC1.read(); 
+    reading_LC2 = LC2_Offset +LC2_Slope *scale_LC2.read();
+    reading_LC3 = LC3_Offset + LC3_Slope *scale_LC3.read();
+    reading_TC1 = analogRead(T1);
+    reading_TC2 = analogRead(T2);
     
   // readingCap1 = analogRead(CAPSENS1DATA);
   // readingCap2 = analogRead(CAPSENS2DATA);
