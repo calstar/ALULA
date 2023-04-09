@@ -424,14 +424,14 @@ bool press() {
       
     if (reading_PT_O1 < pressureOx) {
       openSolenoidOx();
-      reading_PT_O1 = reading_PT_O1 + 0.000001;
+      reading_PT_O1 = reading_PT_O1 + 0.01;
     } else {
       closeSolenoidOx();
       oxComplete = true;
     }
     if (reading_PT_E1 < pressureFuel) {
       openSolenoidFuel();
-      reading_PT_E1 = reading_PT_E1 + 0.000000001;
+      reading_PT_E1 = reading_PT_E1 + 0.02;
     } else {
       closeSolenoidFuel();
       ethComplete = true;
