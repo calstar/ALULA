@@ -417,21 +417,21 @@ bool press() {
     getReadings();
   }
   
-  while (reading_PT_O1 < pressureOx && reading_PT_E1 < pressureFuel) {
+  while (reading_PT_O1 <= pressureOx || reading_PT_E1 <= pressureFuel) {
     if (!sendData()) {
       getReadings();
     }
       
     if (reading_PT_O1 < pressureOx) {
       openSolenoidOx();
-      reading_PT_O1 = reading_PT_O1 + 0.01;
+      reading_PT_O1 = reading_PT_O1 + 0.1;
     } else {
       closeSolenoidOx();
       oxComplete = true;
     }
     if (reading_PT_E1 < pressureFuel) {
       openSolenoidFuel();
-      reading_PT_E1 = reading_PT_E1 + 0.02;
+      reading_PT_E1 = reading_PT_E1 + 0.2;
     } else {
       closeSolenoidFuel();
       ethComplete = true;
