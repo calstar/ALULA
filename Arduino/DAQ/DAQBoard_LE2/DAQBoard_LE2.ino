@@ -165,9 +165,9 @@ float sendTime;
 
 // Define variables to store readings to be sent
 int debug_state = 0;
-int reading_PT_O1=1;
+float reading_PT_O1=1;
 int reading_PT_O2=1;
-int reading_PT_E1=1;
+float reading_PT_E1=1;
 int reading_PT_E2=1;
 int reading_PT_C1=1;
 int reading_LC1=1;
@@ -424,14 +424,14 @@ bool press() {
       
     if (reading_PT_O1 < pressureOx) {
       openSolenoidOx();
-      reading_PT_O1 = reading_PT_O1 + 1;
+      reading_PT_O1 = reading_PT_O1 + 0.000001;
     } else {
       closeSolenoidOx();
       oxComplete = true;
     }
     if (reading_PT_E1 < pressureFuel) {
       openSolenoidFuel();
-      reading_PT_E1 = reading_PT_E1 + 1;
+      reading_PT_E1 = reading_PT_E1 + 0.000000001;
     } else {
       closeSolenoidFuel();
       ethComplete = true;
