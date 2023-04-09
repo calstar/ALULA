@@ -1,0 +1,5 @@
+(sym_lib_table
+  (lib (name "CSD25402Q3AT")(type "KiCad")(uri "${KIPRJMOD}/../CSD25402Q3AT/CSD25402Q3AT.kicad_sym")(options "")(descr ""))
+  (lib (name "star-common-lib")(type "KiCad")(uri "${KIPRJMOD}/../../hardware-sch-blocks/star-common-lib.kicad_sym")(options "")(descr ""))
+  (lib (name "PCF87575Breakout")(type "KiCad")(uri "${KIPRJMOD}/../../hardware-sch-blocks/LE2/PCF8575_Breakout/PCF8575_Breakout.kicad_sym")(options "")(descr ""))
+)

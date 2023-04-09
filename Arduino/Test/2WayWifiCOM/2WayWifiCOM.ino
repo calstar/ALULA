@@ -7,6 +7,12 @@
   
   The above copyright notice and this permission notice shall be included in all
   copies or substantial portions of the Software.
+
+
+
+  CODE FOR COMMUNICATION TESTING 
+
+  THIS TEST IS FOR THE DAQ BOARD (RECEIVER)
 */
 
 #include <esp_now.h>
@@ -25,7 +31,7 @@ bool is_perceive;
 float pt1;
 
 // REPLACE WITH THE MAC Address of your receiver 
-uint8_t broadcastAddress[] = {0x08, 0x3A, 0xF2, 0xB7, 0x29, 0xBC};
+uint8_t broadcastAddress[] = {0x08, 0x3A, 0xF2, 0xB7, 0x1C, 0XDC}; //current address is for: ESP 1
 
 
 //Structure example to send data
