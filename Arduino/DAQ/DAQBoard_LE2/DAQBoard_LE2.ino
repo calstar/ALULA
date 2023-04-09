@@ -95,11 +95,11 @@ float LC3_Slope = 0.0001181;
 
 #define MOSFET_IGNITER 0
 #define MOSFET_ETH_MAIN 1
-#define MOSFET_LOX_MAIN2 2
-#define MOSFET_LOX_MAIN1 3
+#define MOSFET_EXTRA 2
+#define MOSFET_LOX_MAIN 3
 #define MOSFET_ETH_PRESS 4
 #define MOSFET_LOX_PRESS 5
-#define MOSFET_ETH_VENT 6 
+#define MOSFET_ETH_VENT 6
 #define MOSFET_LOX_VENT 7
 
 // MOSFET pinouts //
@@ -525,6 +525,13 @@ void hotfire() {
   pcf.setLeftBitDown(MOSFET_ETH_MAIN);
   sendData();
 }
+
+void quick_disconnect() {
+    if (!sendData()) {
+      getReadings();
+    }
+}
+
 
 void abort_sequence() {
   getReadings();
