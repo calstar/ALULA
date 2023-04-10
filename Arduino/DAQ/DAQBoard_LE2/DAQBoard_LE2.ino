@@ -417,7 +417,7 @@ bool press() {
     getReadings();
   }
   
-  while (reading_PT_O1 < pressureOx && reading_PT_E1 < pressureFuel) {
+  while (reading_PT_O1 < pressureOx || reading_PT_E1 < pressureFuel) {
     if (!sendData()) {
       getReadings();
     }
