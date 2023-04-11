@@ -555,8 +555,10 @@ if (!sendData()) {
       getReadings();
     }
   // Waits for LOX pressure to decrease before venting Eth through pyro
+ closeSolenoidOx();
+ closeSolenoidFuel();
  
-  int currtime = millis();
+ int currtime = millis();
 
   while(!oxVentComplete || !ethVentComplete){
     getReadings();
