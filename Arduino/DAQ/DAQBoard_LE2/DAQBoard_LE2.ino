@@ -368,8 +368,7 @@ SerialRead();
     sendDelay = GEN_DELAY;
     quick_disconnect();
     if (DEBUG ==1){
-      Serial.print("Stby");
-    }
+      Serial.print("Stby");}
     if (commandedState==IDLE) {state=IDLE; currDAQState=IDLE;}
     if (commandedState==ABORT) {state=ABORT; currDAQState=ABORT;}
     if (commandedState==IGNITION) {state=IGNITION; currDAQState=IGNITION;}
@@ -443,6 +442,11 @@ void idle() {
   pcf.setLeftBitUp(MOSFET_LOX_MAIN);
   pcf.setLeftBitUp(MOSFET_ETH_MAIN);
   pcf.setLeftBitUp(MOSFET_IGNITER);
+  closeSolenoidOx();
+  closeSolenoidFuel();
+  pcf.setLeftBitUp(MOSFET_VENT_LOX);
+  pcf.setLeftBitUp(MOSFET_VENT_ETH);
+  
 }
 
 void armed() {
@@ -450,7 +454,6 @@ void armed() {
   getReadings();
 }
 }
-
 
 
 void press() {
@@ -463,6 +466,7 @@ void press() {
   if (reading_PT_O1 < pressureOx*threshold || reading_PT_E1 < pressureFuel*threshold) {
     oxComplete = false;
     ethComplete = false;
+    
     while (!oxComplete || !ethComplete) {
   
       if (!sendData()) {
@@ -491,6 +495,8 @@ void press() {
     
     //ABORT CASES
     CheckAbort();
+    if (commandedState==ABORT) {state=ABORT; currDAQState=ABORT; break;}
+    if (commandedState==QD) {state=QD; currDAQState=QD; break;}
     }
   }
   CheckAbort();
@@ -508,13 +514,13 @@ void CheckAbort() {
       closeSolenoidOx();
       closeSolenoidFuel();
       state = ABORT;
+      currDAQState=ABORT;
     }
     if (!sendData()) {
       getReadings();
     } 
     if (commandedState==IDLE) {state=IDLE; currDAQState=IDLE;}
     if (commandedState==ABORT) {state=ABORT; currDAQState=ABORT;}
-    if (commandedState==QD) {state=QD; currDAQState=QD;}
   }
 
 void ignition() {
@@ -533,10 +539,12 @@ void hotfire() {
 }
 
 void quick_disconnect() {
-   
+    closeSolenoidOx();
+    closeSolenoidFuel();
     if (!sendData()) {
       getReadings();
     }
+    //QD code here
   CheckAbort();
 }
 
@@ -575,6 +583,8 @@ if (!sendData()) {
 if (!sendData()) {
       getReadings();
     }
+if (commandedState==IDLE) {
+  state=IDLE; currDAQState=IDLE; break;}
   }
 }
 
