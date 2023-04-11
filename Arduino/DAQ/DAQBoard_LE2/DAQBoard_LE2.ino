@@ -19,12 +19,14 @@ EasyPCF8575 pcf;
 #define IDLE_DELAY 250
 #define GEN_DELAY 25
 
+//DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE
+int DEBUG = 1;
+
 
 // MODEL DEFINED PARAMETERS FOR TEST/HOTFIRE //
-#define BangBangPressFuel 425 //Indicates transition from normal fill to bang-bang
-#define pressureFuel 450    //In units of psi. Defines set pressure for fuel
-#define BangBangPressOx 425 //Indicates transition from normal fill to bang-bang
-#define pressureOx 450    //In units of psi. Defines set pressure for ox
+float pressureFuel=450;    //In units of psi. Defines set pressure for fuel
+float pressureOx=450;    //In units of psi. Defines set pressure for ox
+float threshold = 0.925; //re-pressurrization threshold (/1x)
 #define abortPressure 525 //Cutoff pressure to automatically trigger abort
 #define period 0.5   //Sets period for bang-bang control
 float sendDelay = 250; //Sets frequency of data collection. 1/(sendDelay*10^-3) is frequency in Hz
@@ -138,16 +140,11 @@ uint8_t broadcastAddress[] ={0xC8, 0xF0, 0x9E, 0x50, 0x23, 0x34};
 //{0x3C, 0x61, 0x05, 0x4A, 0xD5, 0xE0};
 // {0xC4, 0xDD, 0x57, 0x9E, 0x96, 0x34}
 
+
+
 //STATEFLOW VARIABLES
 enum STATES {IDLE, ARMED, PRESS, QD, IGNITION, HOTFIRE, ABORT};
-#define DEBUG 99
-#define DEBUG_IDLE 90
-#define DEBUG_ARMED 91
-#define DEBUG_PRESS 92
-#define DEBUG_QD 93
-#define DEBUG_IGNITION 94
-#define DEBUG_HOTFIRE 95
-#define DEBUG_ABORT 96
+
 int state;
 
 short int queueLength=0;
@@ -224,9 +221,6 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   memcpy(&Commands, incomingData, sizeof(Commands));
   commandedState = Commands.commandedState;
 }
-
-
-
 
     
 
@@ -318,11 +312,20 @@ void setup() {
   currDAQState = IDLE;
 }
 
+
+
+
+
+
 // Implementation of State Machine
 void loop() {
-  if(Serial.available() > 1){if(Serial.parseInt() == 99){Serial.println("bruh");state = DEBUG;}}
-  Serial.println(state);
  
+ SerialRead();
+ //Serial.println(state);
+ if (DEBUG == 1) {
+Serial.println(state);
+CheckDebug();
+ }
 
   switch (state) {
     
@@ -338,6 +341,9 @@ void loop() {
 
   case (ARMED): //NEED TO ADD TO CASE OPTIONS //ALLOWS OTHER CASES TO TRIGGER //INITIATE TANK PRESS LIVE READINGS
     sendDelay = GEN_DELAY;
+    //debug stuff
+    if (DEBUG ==1) {
+    Serial.print("arm");}
     armed();
     if (commandedState==IDLE) {state=IDLE; currDAQState=IDLE;}
     if (commandedState==ABORT) {state=ABORT; currDAQState=ABORT;}
@@ -347,11 +353,11 @@ void loop() {
 
   case (PRESS):
     sendDelay = GEN_DELAY;
-    pressComplete = press();
+    press();
     if (commandedState==IDLE) {state=IDLE; currDAQState=IDLE;}
     if (commandedState==ABORT) {state=ABORT; currDAQState=ABORT;}
-    if (pressComplete && commandedState==QD) {state=QD; currDAQState=QD;}
-    if (pressComplete && commandedState==IGNITION) {state=IGNITION; currDAQState=IGNITION;}
+    if (commandedState==QD) {state=QD; currDAQState=QD;}
+    if (commandedState==IGNITION) {state=IGNITION; currDAQState=IGNITION;}
     
     break;
 
@@ -377,6 +383,8 @@ void loop() {
 
   case (HOTFIRE): 
     sendDelay = GEN_DELAY;
+    if (DEBUG ==1) {
+    Serial.print("HOTFIRE");}
     hotfire();
     if (commandedState==IDLE) {state=IDLE; currDAQState=IDLE;}
     if (commandedState==ABORT) {state=ABORT; currDAQState=ABORT;}
@@ -388,148 +396,114 @@ void loop() {
     if (commandedState==IDLE) {state=IDLE; currDAQState=IDLE;}
     break;
 
-  case (DEBUG):
-    sendDelay = GEN_DELAY;
-    debug();
-    if (commandedState==IDLE) {state=IDLE; currDAQState=IDLE;}
-    break;
   }
 }
 
 
+
+
+
+
+
+
 /// STATE FUNCTION DEFINITIONS ///
 
+
+void SerialRead() {
+    if (Serial.available() > 0) {
+ commandedState=Serial.read()-48;
+ delay(50);
+ Serial.println(commandedState);
+  }
+}
+
+void CheckDebug() {
+  if (commandedState==IDLE) {state=IDLE; currDAQState=IDLE;}
+  if (commandedState==ARMED) {state=ARMED; currDAQState=ARMED;}
+  if (commandedState==PRESS) {state=PRESS; currDAQState=PRESS;}
+  if (commandedState==QD) {state=QD; currDAQState=QD;}
+  if (commandedState==IGNITION) {state=IGNITION; currDAQState=IGNITION;}
+  if (commandedState==ABORT) {state=ABORT; currDAQState=ABORT;}
+  if (commandedState==HOTFIRE) {state=HOTFIRE; currDAQState=HOTFIRE;}
+}
+
+
+
 void idle() {
-  Serial.println(sendData());
+  //Serial.println(sendData());
 }
 
 void armed() {
   sendData();
 }
 
-bool press() {
 
+
+void press() {
   sendDelay = 25;
-
 
   if (!sendData()) {
     getReadings();
   }
   
-
-  while (!oxComplete|| !ethComplete) {
-
-    if (!sendData()) {
-      getReadings();
+if (DEBUG != 1) {
+  if (reading_PT_O1 < pressureOx*threshold || reading_PT_E1 < pressureFuel*threshold) {
+    oxComplete = false;
+    ethComplete = false;
+    while (!oxComplete || !ethComplete) {
+  
+      if (!sendData()) {
+        getReadings();
+      }
+        
+      if (reading_PT_O1 < pressureOx) {
+        openSolenoidOx();
+        reading_PT_O1 = reading_PT_O1 + 0.1;
+      } else {
+        closeSolenoidOx();
+        oxComplete = true;
+      }
+      if (reading_PT_E1 < pressureFuel) {
+        openSolenoidFuel();
+        reading_PT_E1 = reading_PT_E1 + 0.2;
+      } else {
+        closeSolenoidFuel();
+        ethComplete = true;
+      }
+    
+    //ABORT CASES
+    CheckAbort();
     }
-      
-    if (reading_PT_O1 < pressureOx) {
-      openSolenoidOx();
-      reading_PT_O1 = reading_PT_O1 + 0.1;
-    } else {
-      closeSolenoidOx();
-      oxComplete = true;
-    }
-    if (reading_PT_E1 < pressureFuel) {
-      openSolenoidFuel();
-      reading_PT_E1 = reading_PT_E1 + 0.2;
-    } else {
-      closeSolenoidFuel();
-      ethComplete = true;
-    }
+  }
+  CheckAbort();
+  }
+else {
+  CheckAbort();
+  SerialRead();
+  CheckDebug();
+}
 
+} //End of Void Press
 
-//ABORT CASES
-  if (reading_PT_O1 >= abortPressure || reading_PT_E1 >= abortPressure) {
+void CheckAbort() {
+    if (reading_PT_O1 >= abortPressure || reading_PT_E1 >= abortPressure) {
       closeSolenoidFuel();
       closeSolenoidOx();
       state = ABORT;
-      return false;
     }
     
     if (commandedState == ABORT) {
       closeSolenoidOx();
       closeSolenoidFuel();
       state = ABORT;
-      return false;
     }
     if (!sendData()) {
       getReadings();
-    }    
-  
+    } 
+    if (commandedState==IDLE) {state=IDLE; currDAQState=IDLE;}
+    if (commandedState==ABORT) {state=ABORT; currDAQState=ABORT;}
+    if (pressComplete && commandedState==QD) {state=QD; currDAQState=QD;}
   }
-
-//:::BANGBANG CODE::://
-//  if (reading_PT_O1 < BangBangPressOx && reading_PT_E1 > BangBangPressFuel) {
-//    closeSolenoidFuel();
-//    while (reading_PT_O1 < BangBangPressOx && reading_PT_E1 < pressureFuel) {
-//      openSolenoidOx();
-//      if (commandedState == ABORT) {
-//        closeSolenoidOx();
-//        state = ABORT;
-//        return false;
-//      }
-//      if (!sendData()) {
-//        getReadings();
-//      }
-//    }
-//  }
-//  if (reading_PT_O1 > BangBangPressOx && reading_PT_E1 < BangBangPressFuel) {
-//    closeSolenoidOx();
-//    while (reading_PT_E1 < BangBangPressFuel && reading_PT_O1 < pressureOx) {
-//      openSolenoidFuel();
-//      if (commandedState == ABORT) {
-//        closeSolenoidFuel();
-//        state = ABORT;
-//        return false;
-//      }
-//      if (!sendData()) {
-//        getReadings();
-//      }
-//    }    
-//  }
-//
-//  while (reading_PT_O1 < pressureOx || reading_PT_E1 < pressureFuel) {
-//    if (reading_PT_O1 >= abortPressure || reading_PT_E1 >= abortPressure) {
-//      closeSolenoidFuel();
-//      closeSolenoidOx();
-//      state = ABORT;
-//      return false;
-//    }
-//    if (reading_PT_O1 >= pressureOx) {
-//      closeSolenoidOx();
-//      oxComplete = true;
-//    }
-//    if (reading_PT_E1 >= pressureFuel) {
-//      closeSolenoidFuel();
-//      ethComplete = true;
-//    }
-//    if (commandedState == ABORT) {
-//      closeSolenoidOx();
-//      closeSolenoidFuel();
-//      state = ABORT;
-//      return false;      
-//    }
-//    if (!oxComplete) {
-//      openSolenoidOx();
-//    }
-//    if (!ethComplete) {
-//      openSolenoidFuel();
-//    }
-//    
-//    delay(period * 500);
-//    closeSolenoidOx();
-//    closeSolenoidFuel();
-//    delay((1-period) * 500);
-//    if (!sendData()) {
-//      getReadings();
-//    }
-//  }
- 
-  return true;
-}
-
-
 
 void ignition() {
 
@@ -588,59 +562,6 @@ void openSolenoidOx(){
   pcf.setLeftBitDown(MOSFET_LOX_PRESS);
 }
 
-void debug() {
-  //just a mini state machine]
-  //debug = 99, debug_states = 90+state
-  //to return to idle , input 0
-  Serial.println("Entering debug mode...");
-  
-  while(currDAQState == DEBUG){
-    if(Serial.available() > 1){debug_state = Serial.parseInt();}
-  switch (debug_state) {
-    case (DEBUG_IDLE):
-      sendDelay = IDLE_DELAY;
-      idle();
-  
-
-    case (DEBUG_ARMED): //NEED TO ADD TO CASE OPTIONS //ALLOWS OTHER CASES TO TRIGGER //INITIATE TANK PRESS LIVE READINGS
-      sendDelay = GEN_DELAY;
-      armed();
-      
-
-
-    case (DEBUG_PRESS):
-      sendDelay = GEN_DELAY;
-      pressComplete = press();
-      
-
-
-    case (DEBUG_QD):
-      sendDelay = GEN_DELAY;
-      getReadings();
-
-    case (DEBUG_IGNITION): 
-      sendDelay = GEN_DELAY;
-      ignition();
-
-
-    case (DEBUG_HOTFIRE): 
-      sendDelay = GEN_DELAY;
-      hotfire();
-
-
-    case (DEBUG_ABORT):
-      sendDelay = GEN_DELAY;
-      abort_sequence();
-
-    
-    default : 
-    currDAQState = IDLE;
-      break;
-    }
-  }
-
-  
-}
 
 
 /// END OF STATE FUNCTION DEFINITIONS ///
@@ -662,7 +583,6 @@ bool sendData() {
 void addReadingsToQueue() {
   
   getReadings();
-  
   
   if (queueLength<40) {
     queueLength+=1;
@@ -687,7 +607,6 @@ void addReadingsToQueue() {
 
 void getReadings(){
 
-   Serial.println("bruh");
     // reading_PT_O1 = PT_O1_Offset + PT_O1_Slope * scale_PT_O1.read(); 
     // reading_PT_O2 = PT_O2_Offset + PT_O2_Slope * scale_PT_O2.read(); 
     // //reading_PT_E1 = PT_E1_Offset + PT_E1_Slope * scale_PT_E1.read();
@@ -730,13 +649,13 @@ void printSensorReadings() {
  serialMessage.concat(" ");
  serialMessage.concat(reading_TC2);
  serialMessage.concat(" ");
- serialMessage.concat(debug_state);
+ serialMessage.concat(commandedState);
 //  serialMessage.concat(readingCap1);
 //  serialMessage.concat(" ");
 //  serialMessage.concat(readingCap2);
  serialMessage.concat(" Queue Length: ");
  serialMessage.concat(queueLength);
- Serial.println(serialMessage);
+//Serial.println(serialMessage);
 }
 
 void sendQueue() {
@@ -763,6 +682,7 @@ void dataSend() {
   Readings.oxComplete = ReadingsQueue[queueLength].oxComplete;
   Readings.ethComplete = ReadingsQueue[queueLength].ethComplete;
 
+if (DEBUG != 1) {
   // Send message via ESP-NOW
   esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &Readings, sizeof(Readings));
 
@@ -774,4 +694,5 @@ void dataSend() {
   else {
      Serial.println("Error sending the data");
   }
+}
 }
