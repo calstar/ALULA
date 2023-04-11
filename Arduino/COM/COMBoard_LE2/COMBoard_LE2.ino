@@ -197,7 +197,9 @@ void loop(){
   SWITCH_IGNITION.poll();
   SWITCH_HOTFIRE.poll();
   SWITCH_ABORT.poll();
-  Serial.println(state);
+  Serial.print("COM State: ");
+  Serial.print(state);
+  Serial.print(";      DAQ State: ");
   Serial.println(DAQState);
   if(!SWITCH_PRESS.on() && !SWITCH_ARMED.on() && !SWITCH_ABORT.on() && !SWITCH_QD.on() && !SWITCH_IGNITION.on() && !SWITCH_HOTFIRE.on()) {serialState=IDLE;}
 
@@ -270,7 +272,7 @@ void loop(){
   
   case (ABORT):
     if (DAQState == ABORT) {digitalWrite(LED_ABORT, HIGH);} 
-   digitalWrite(LED_ABORT, HIGH);
+    digitalWrite(LED_ABORT, HIGH);
     digitalWrite(LED_IGNITION,LOW);
     digitalWrite(LED_QD, LOW);
     digitalWrite(LED_ARMED, LOW);
@@ -280,6 +282,8 @@ void loop(){
     digitalWrite(LED_HOTFIRE, LOW);
     state = ABORT;
     abort_sequence();
+    if(!SWITCH_QD.on() && !SWITCH_PRESS.on() && !SWITCH_ARMED.on() && !SWITCH_IGNITION.on() && !SWITCH_HOTFIRE.on() && !SWITCH_ABORT.on()) {serialState=IDLE;}
+    state = serialState;     
     break;
 
   case (DEBUG):
@@ -292,9 +296,20 @@ void loop(){
     
   }
  
+ void turnoffLEDs() {
+    digitalWrite(LED_ARMED, LOW);
+    digitalWrite(LED_PRESS, LOW);
+    digitalWrite(LED_PRESSETH, LOW);
+    digitalWrite(LED_PRESSLOX, LOW);
+    digitalWrite(LED_QD, LOW);
+    digitalWrite(LED_IGNITION, LOW);
+    digitalWrite(LED_HOTFIRE, LOW);
+    digitalWrite(LED_ABORT, LOW);
+ }
 
 void idle() {
   dataSendCheck();
+  turnoffLEDs();
 }
 
 void armed() {
