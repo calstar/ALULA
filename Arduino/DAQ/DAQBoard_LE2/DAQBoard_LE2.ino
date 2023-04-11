@@ -21,12 +21,13 @@ EasyPCF8575 pcf;
 
 //DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE
 int DEBUG = 1;
-
+int WIFIDEBUG = 0;
 
 // MODEL DEFINED PARAMETERS FOR TEST/HOTFIRE //
 float pressureFuel=450;    //In units of psi. Defines set pressure for fuel
 float pressureOx=450;    //In units of psi. Defines set pressure for ox
 float threshold = 0.925; //re-pressurrization threshold (/1x)
+float ventTo = 5;
 #define abortPressure 525 //Cutoff pressure to automatically trigger abort
 #define period 0.5   //Sets period for bang-bang control
 float sendDelay = 250; //Sets frequency of data collection. 1/(sendDelay*10^-3) is frequency in Hz
@@ -153,6 +154,8 @@ int currDAQState;
 bool ethComplete = false;
 bool oxComplete = false;
 bool pressComplete = false ;
+bool oxVentComplete = false;
+bool ethVentComplete = false;
 
 
 
@@ -320,10 +323,11 @@ void setup() {
 // Implementation of State Machine
 void loop() {
  
- SerialRead();
+SerialRead();
  //Serial.println(state);
  if (DEBUG == 1) {
 Serial.println(state);
+//Serial.println(commandedState);
 CheckDebug();
  }
 
@@ -336,7 +340,6 @@ CheckDebug();
     idle();
     if (commandedState==ABORT) {state=ABORT; currDAQState=ABORT;}
     if (commandedState==ARMED) {state=ARMED; currDAQState=ARMED;}
-    
     break;
 
   case (ARMED): //NEED TO ADD TO CASE OPTIONS //ALLOWS OTHER CASES TO TRIGGER //INITIATE TANK PRESS LIVE READINGS
@@ -363,17 +366,21 @@ CheckDebug();
 
   case (QD):
     sendDelay = GEN_DELAY;
-    //quick_disconnect();
+    quick_disconnect();
+    if (DEBUG ==1){
+      Serial.print("Stby");
+    }
     if (commandedState==IDLE) {state=IDLE; currDAQState=IDLE;}
     if (commandedState==ABORT) {state=ABORT; currDAQState=ABORT;}
     if (commandedState==IGNITION) {state=IGNITION; currDAQState=IGNITION;}
-    
-    
     break;
 
   case (IGNITION): 
     sendDelay = GEN_DELAY;
     ignition();
+    if (DEBUG ==1){
+    Serial.print("  Ign");
+    }
     if (commandedState==IDLE) {state=IDLE; currDAQState=IDLE;}
     if (commandedState==ABORT) {state=ABORT; currDAQState=ABORT;}
     if (commandedState==HOTFIRE) {state=HOTFIRE; currDAQState=HOTFIRE;}
@@ -395,7 +402,6 @@ CheckDebug();
     abort_sequence();
     if (commandedState==IDLE) {state=IDLE; currDAQState=IDLE;}
     break;
-
   }
 }
 
@@ -431,10 +437,18 @@ void CheckDebug() {
 
 void idle() {
   //Serial.println(sendData());
+  if (!sendData()) {
+  getReadings();
+}
+  pcf.setLeftBitUp(MOSFET_LOX_MAIN);
+  pcf.setLeftBitUp(MOSFET_ETH_MAIN);
+  pcf.setLeftBitUp(MOSFET_IGNITER);
 }
 
 void armed() {
-  sendData();
+  if (!sendData()) {
+  getReadings();
+}
 }
 
 
@@ -446,7 +460,6 @@ void press() {
     getReadings();
   }
   
-if (DEBUG != 1) {
   if (reading_PT_O1 < pressureOx*threshold || reading_PT_E1 < pressureFuel*threshold) {
     oxComplete = false;
     ethComplete = false;
@@ -458,14 +471,19 @@ if (DEBUG != 1) {
         
       if (reading_PT_O1 < pressureOx) {
         openSolenoidOx();
+        if (DEBUG == 1) {
         reading_PT_O1 = reading_PT_O1 + 0.1;
-      } else {
+        }
+      } 
+      else {
         closeSolenoidOx();
         oxComplete = true;
       }
       if (reading_PT_E1 < pressureFuel) {
         openSolenoidFuel();
+        if (DEBUG == 1) {
         reading_PT_E1 = reading_PT_E1 + 0.2;
+        }
       } else {
         closeSolenoidFuel();
         ethComplete = true;
@@ -477,13 +495,7 @@ if (DEBUG != 1) {
   }
   CheckAbort();
   }
-else {
-  CheckAbort();
-  SerialRead();
-  CheckDebug();
-}
-
-} //End of Void Press
+ //End of Void Press
 
 void CheckAbort() {
     if (reading_PT_O1 >= abortPressure || reading_PT_E1 >= abortPressure) {
@@ -502,20 +514,22 @@ void CheckAbort() {
     } 
     if (commandedState==IDLE) {state=IDLE; currDAQState=IDLE;}
     if (commandedState==ABORT) {state=ABORT; currDAQState=ABORT;}
-    if (pressComplete && commandedState==QD) {state=QD; currDAQState=QD;}
+    if (commandedState==QD) {state=QD; currDAQState=QD;}
   }
 
 void ignition() {
-
-  pcf.setLeftBitUp(MOSFET_IGNITER);
-  sendData();  
+    if (!sendData()) {
+  getReadings();
+}
+  pcf.setLeftBitDown(MOSFET_IGNITER);  
 }
 
 void hotfire() {
- 
+    if (!sendData()) {
+  getReadings();
+}
   pcf.setLeftBitDown(MOSFET_LOX_MAIN);
   pcf.setLeftBitDown(MOSFET_ETH_MAIN);
-  sendData();
 }
 
 void quick_disconnect() {
@@ -523,29 +537,43 @@ void quick_disconnect() {
     if (!sendData()) {
       getReadings();
     }
+  CheckAbort();
 }
 
 
 void abort_sequence() {
 
-  getReadings();
+if (!sendData()) {
+      getReadings();
+    }
   // Waits for LOX pressure to decrease before venting Eth through pyro
-  pcf.setLeftBitDown(MOSFET_VENT_LOX);
+ 
   int currtime = millis();
-  while(millis() - currtime < 10000){
-  getReadings();
-  }
-  pcf.setLeftBitDown(MOSFET_VENT_ETH);
 
-  if (reading_PT_O1 > 5) {
+
+  while(!oxVentComplete || !ethVentComplete){
+    getReadings();
+  if (reading_PT_O1 > ventTo) {
     pcf.setLeftBitDown(MOSFET_VENT_LOX);
+    if (DEBUG == 1) {
+        reading_PT_O1 = reading_PT_O1 - 0.25;
+        }
   } else {
     pcf.setLeftBitUp(MOSFET_VENT_LOX); 
+    oxVentComplete = true;
   }
-  if (reading_PT_E1 > 5) {
+ if (reading_PT_O1 < 50) {
+  if (reading_PT_E1 > ventTo) {
     pcf.setLeftBitDown(MOSFET_VENT_ETH);
+    if (DEBUG == 1) {
+        reading_PT_E1 = reading_PT_E1 - 0.2;
+        }
   } else {
     pcf.setLeftBitUp(MOSFET_VENT_ETH); 
+    ethVentComplete = true;
+  }
+ }
+ 
   }
 }
 
@@ -599,7 +627,6 @@ void addReadingsToQueue() {
     ReadingsQueue[queueLength].tc2=reading_TC2;
     ReadingsQueue[queueLength].queueSize=queueLength;
     ReadingsQueue[queueLength].DAQState=currDAQState;
-    ReadingsQueue[queueLength].pressComplete=pressComplete;
     ReadingsQueue[queueLength].oxComplete=oxComplete;
     ReadingsQueue[queueLength].ethComplete=ethComplete;
   }
@@ -682,7 +709,7 @@ void dataSend() {
   Readings.oxComplete = ReadingsQueue[queueLength].oxComplete;
   Readings.ethComplete = ReadingsQueue[queueLength].ethComplete;
 
-if (DEBUG != 1) {
+if (WIFIDEBUG != 1) {
   // Send message via ESP-NOW
   esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &Readings, sizeof(Readings));
 
