@@ -20,7 +20,7 @@ EasyPCF8575 pcf;
 #define GEN_DELAY 25
 
 //DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE
-int DEBUG = 1;
+int DEBUG = 0;
 int WIFIDEBUG = 0;
 
 // MODEL DEFINED PARAMETERS FOR TEST/HOTFIRE //
@@ -215,9 +215,9 @@ struct_message Commands;
 esp_now_peer_info_t peerInfo;
 
 // Callback when data is sent
-void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
-  sendTime = millis();
-}
+//void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
+//  sendTime = millis();
+//}
 
 // Callback when data is received
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
@@ -264,23 +264,24 @@ void setup() {
   pcf.setAllBitsUp();
 
   //set gains for pt pins
-  // scale_PT_O1.begin(PT_O1, CLK); scale_PT_O1.set_gain(64);
-  // scale_PT_O2.begin(PT_O2, CLK); scale_PT_O2.set_gain(64);
-  // // scale_PT_E1.begin(PT_E1, CLK); scale_PT_E1.set_gain(64);
-  // scale_PT_E2.begin(PT_E2, CLK); scale_PT_E2.set_gain(64);
-  // // scale_PT_C1.begin(PT_C1, CLK); scale_PT_C1.set_gain(64);
-  //  scale_LC1.begin(LC1, CLK); scale_LC1.set_gain(64);
-  //   scale_LC2.begin(LC2, CLK); scale_LC2.set_gain(64);
-  //    scale_LC3.begin(LC3, CLK); scale_LC3.set_gain(64);
-  
-
-  pinMode(TC1_CS, INPUT);
-  pinMode(TC2_CS, INPUT);
+if (DEBUG != 1) {
+   scale_PT_O1.begin(PT_O1, CLK); scale_PT_O1.set_gain(64);
+   scale_PT_O2.begin(PT_O2, CLK); scale_PT_O2.set_gain(64);
+   scale_PT_E1.begin(PT_E1, CLK); scale_PT_E1.set_gain(64);
+   scale_PT_E2.begin(PT_E2, CLK); scale_PT_E2.set_gain(64);
+   scale_PT_C1.begin(PT_C1, CLK); scale_PT_C1.set_gain(64);
+   scale_LC1.begin(LC1, CLK); scale_LC1.set_gain(64);
+   scale_LC2.begin(LC2, CLK); scale_LC2.set_gain(64);
+   scale_LC3.begin(LC3, CLK); scale_LC3.set_gain(64);
+   pinMode(TC1_CS, INPUT);
+   pinMode(TC2_CS, INPUT);
 
   // pinMode(CAPSENS1DATA, INPUT);
   // pinMode(CAPSENS1CLK, OUTPUT);
   // pinMode(CAPSENS2DATA, INPUT);
   // pinMode(CAPSENS2CLK, OUTPUT);
+}
+
 
   // Set device as a Wi-Fi Station
   WiFi.mode(WIFI_STA);
@@ -295,7 +296,7 @@ void setup() {
 
   // Once ESPNow is successfully Init, we will register for Send CB to
   // get the status of Trasnmitted packet
-  esp_now_register_send_cb(OnDataSent);
+//  esp_now_register_send_cb(OnDataSent);
 
   // Register peer
   memcpy(peerInfo.peer_addr, broadcastAddress, 6);
@@ -326,9 +327,9 @@ void loop() {
 SerialRead();
  //Serial.println(state);
  if (DEBUG == 1) {
-Serial.println(state);
-//Serial.println(commandedState);
-CheckDebug();
+  Serial.println(state);
+  //Serial.println(commandedState);
+  CheckDebug();
  }
 
   switch (state) {
@@ -361,7 +362,6 @@ CheckDebug();
     if (commandedState==ABORT) {state=ABORT; currDAQState=ABORT;}
     if (commandedState==QD) {state=QD; currDAQState=QD;}
     if (commandedState==IGNITION) {state=IGNITION; currDAQState=IGNITION;}
-    
     break;
 
   case (QD):
@@ -550,7 +550,6 @@ if (!sendData()) {
  
   int currtime = millis();
 
-
   while(!oxVentComplete || !ethVentComplete){
     getReadings();
   if (reading_PT_O1 > ventTo) {
@@ -573,7 +572,9 @@ if (!sendData()) {
     ethVentComplete = true;
   }
  }
- 
+if (!sendData()) {
+      getReadings();
+    }
   }
 }
 
@@ -634,20 +635,20 @@ void addReadingsToQueue() {
 
 void getReadings(){
 
-    // reading_PT_O1 = PT_O1_Offset + PT_O1_Slope * scale_PT_O1.read(); 
-    // reading_PT_O2 = PT_O2_Offset + PT_O2_Slope * scale_PT_O2.read(); 
-    // //reading_PT_E1 = PT_E1_Offset + PT_E1_Slope * scale_PT_E1.read();
-    // reading_PT_E2 = PT_E2_Offset + PT_E2_Slope * scale_PT_E2.read();
-    // //reading_PT_C1 = PT_C1_Offset + PT_C1_Slope * scale_PT_C1.read(); 
-    // reading_LC1 = LC1_Offset + LC1_Slope * scale_LC1.read(); 
-    // reading_LC2 = LC2_Offset +LC2_Slope *scale_LC2.read();
-    // reading_LC3 = LC3_Offset + LC3_Slope *scale_LC3.read();
-    reading_TC1 = analogRead(T1);
-    reading_TC2 = analogRead(T2);
-    
-  // readingCap1 = analogRead(CAPSENS1DATA);
-  // readingCap2 = analogRead(CAPSENS2DATA);
-
+if (DEBUG != 1) {
+     reading_PT_O1 = PT_O1_Offset + PT_O1_Slope * scale_PT_O1.read(); 
+     reading_PT_O2 = PT_O2_Offset + PT_O2_Slope * scale_PT_O2.read(); 
+     reading_PT_E1 = PT_E1_Offset + PT_E1_Slope * scale_PT_E1.read();
+     reading_PT_E2 = PT_E2_Offset + PT_E2_Slope * scale_PT_E2.read();
+     reading_PT_C1 = PT_C1_Offset + PT_C1_Slope * scale_PT_C1.read(); 
+     reading_LC1 = LC1_Offset + LC1_Slope * scale_LC1.read(); 
+     reading_LC2 = LC2_Offset +LC2_Slope *scale_LC2.read();
+     reading_LC3 = LC3_Offset + LC3_Slope *scale_LC3.read();
+     reading_TC1 = analogRead(T1);
+     reading_TC2 = analogRead(T2);
+//     readingCap1 = analogRead(CAPSENS1DATA);
+//     readingCap2 = analogRead(CAPSENS2DATA);
+}
   printSensorReadings();
 }
 
@@ -676,13 +677,13 @@ void printSensorReadings() {
  serialMessage.concat(" ");
  serialMessage.concat(reading_TC2);
  serialMessage.concat(" ");
- serialMessage.concat(commandedState);
+ serialMessage.concat(state);
 //  serialMessage.concat(readingCap1);
 //  serialMessage.concat(" ");
 //  serialMessage.concat(readingCap2);
  serialMessage.concat(" Queue Length: ");
  serialMessage.concat(queueLength);
-//Serial.println(serialMessage);
+Serial.println(serialMessage);
 }
 
 void sendQueue() {
@@ -717,6 +718,7 @@ if (WIFIDEBUG != 1) {
      Serial.println("Sent with success Data Send");
    //  ReadingsQueue[queueLength].pt1val=0;
      queueLength-=1;
+     sendTime = millis();
   }
   else {
      Serial.println("Error sending the data");
