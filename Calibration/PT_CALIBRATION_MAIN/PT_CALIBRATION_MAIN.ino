@@ -16,20 +16,22 @@ This code runs on the DAQ ESP32 and has a couple of main functions.
 
 //define pins to use for the various sensors and connections. define takes up less space on the chip
 #define ONBOARD_LED  13
-#define PTDOUT1 36
-#define CLKPT1 27
-#define PTDOUT2 15
-#define CLKPT2 2
-#define PTDOUT3 22
-#define CLKPT3 23
-#define PTDOUT4 19
-#define CLKPT4 21
-#define PTDOUT5 35
-#define CLKPT5 25
-#define PTDOUT6 5
-#define CLKPT6 26
-#define PTDOUT7 39
-#define CLKPT7 33
+#define PTDOUT1 36 //PT-O1
+#define CLKPT1 27 
+#define PTDOUT2 39 //PT-O2
+#define CLKPT2 27 
+#define PTDOUT3 34 //PT-E1
+#define CLKPT3 27
+#define PTDOUT4 35 //PT-E2
+#define CLKPT4 27
+#define PTDOUT5 32 //PT-C1
+#define CLKPT5 27
+
+
+#define PTDOUT6 33
+#define CLKPT6 27
+#define PTDOUT7 25
+#define CLKPT7 27
 
 
 
@@ -128,13 +130,14 @@ void getReadings(){
   pt4 = scale4.read();
        // Serial.print(" pt4: ");
 
-  pt5 = scale5.read()*-3.0272e-04-0.1535;
+  pt5 = scale5.read();
        // Serial.print(" pt5: ");
 
-  pt6 = scale6.read()*-3.4136e-04+0.8333;
+
+  pt6 = scale6.read();
        // Serial.print(" pt6: ");
 
-  pt7 = scale7.read()*-2.4978e-04+1.6369;
+  pt7 = scale7.read();
        // Serial.print(" pt7: ");
 
   serialMessage = "";
