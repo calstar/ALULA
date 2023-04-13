@@ -384,7 +384,6 @@ SerialRead();
     if (commandedState==ABORT) {state=ABORT; currDAQState=ABORT;}
     if (commandedState==HOTFIRE) {state=HOTFIRE; currDAQState=HOTFIRE;}
     
-
     break;
 
   case (HOTFIRE): 
@@ -421,6 +420,7 @@ void SerialRead() {
  Serial.println(commandedState);
   }
 }
+
 
 void CheckDebug() {
   if (commandedState==IDLE) {state=IDLE; currDAQState=IDLE;}
@@ -612,7 +612,7 @@ void openSolenoidOx(){
 
 bool sendData() {
   if ((millis()-sendTime)>sendDelay) { 
-    
+    sendTime = millis();
     addReadingsToQueue();
     
     sendQueue();
@@ -646,21 +646,18 @@ void addReadingsToQueue() {
 }
 
 void getReadings(){
-
-if (DEBUG != 1) {
-     reading_PT_O1 = PT_O1_Offset + PT_O1_Slope * scale_PT_O1.read(); 
-     reading_PT_O2 = PT_O2_Offset + PT_O2_Slope * scale_PT_O2.read(); 
-     reading_PT_E1 = PT_E1_Offset + PT_E1_Slope * scale_PT_E1.read();
-     reading_PT_E2 = PT_E2_Offset + PT_E2_Slope * scale_PT_E2.read();
-     reading_PT_C1 = PT_C1_Offset + PT_C1_Slope * scale_PT_C1.read(); 
-     reading_LC1 = LC1_Offset + LC1_Slope * scale_LC1.read(); 
-     reading_LC2 = LC2_Offset +LC2_Slope *scale_LC2.read();
-     reading_LC3 = LC3_Offset + LC3_Slope *scale_LC3.read();
+     reading_PT_O1 = -PT_O1_Offset + PT_O1_Slope * scale_PT_O1.read(); 
+     reading_PT_O2 = -PT_O2_Offset + PT_O2_Slope * scale_PT_O2.read(); 
+     reading_PT_E1 = -PT_E1_Offset + PT_E1_Slope * scale_PT_E1.read();
+     reading_PT_E2 = -PT_E2_Offset + PT_E2_Slope * scale_PT_E2.read();
+     reading_PT_C1 = -PT_C1_Offset + PT_C1_Slope * scale_PT_C1.read(); 
+     reading_LC1 = -LC1_Offset + LC1_Slope * scale_LC1.read(); 
+     reading_LC2 = -LC2_Offset +LC2_Slope *scale_LC2.read();
+     reading_LC3 = -LC3_Offset + LC3_Slope *scale_LC3.read();
      reading_TC1 = analogRead(T1);
      reading_TC2 = analogRead(T2);
 //     readingCap1 = analogRead(CAPSENS1DATA);
 //     readingCap2 = analogRead(CAPSENS2DATA);
-}
   printSensorReadings();
 }
 
@@ -730,7 +727,7 @@ if (WIFIDEBUG != 1) {
      Serial.println("Sent with success Data Send");
    //  ReadingsQueue[queueLength].pt1val=0;
      queueLength-=1;
-     sendTime = millis();
+     
   }
   else {
      Serial.println("Error sending the data");

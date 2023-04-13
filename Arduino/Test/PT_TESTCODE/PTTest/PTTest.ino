@@ -1,17 +1,17 @@
 /*
-This code runs on the DAQ ESP32 and has a couple of main functions.
+TE
 1. Read sensor data
 2. Send sensor data to COM ESP32
 3. Recieve servo commands from COM ESP32
 4. Send PWM signals to servos
 */
-
 #include <esp_now.h>
 #include <WiFi.h>
-#include <ESP32Servo.h>
 #include <Wire.h>
 #include <Arduino.h>
 #include "HX711.h"
+#include <SPI.h>
+#include "Adafruit_MAX31855.h"
 
 
 //define pins to use for the various sensors and connections. define takes up less space on the chip
@@ -57,13 +57,6 @@ HX711 scale1;
 //HX711 scale6;
 //HX711 scale7;
 
-
-//Initialize the servo objects
-Servo servo1;
-Servo servo2;
-
-//define servo necessary values
-int ADC_Max = 4096;
 
 
 void setup() {
