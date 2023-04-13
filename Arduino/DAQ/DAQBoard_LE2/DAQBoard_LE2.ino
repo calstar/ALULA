@@ -20,14 +20,14 @@ EasyPCF8575 pcf;
 #define GEN_DELAY 25
 
 //DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE
-int DEBUG = 0;
+int DEBUG = 1;
 int WIFIDEBUG = 0;
 
 // MODEL DEFINED PARAMETERS FOR TEST/HOTFIRE //
 float pressureFuel=450;    //In units of psi. Defines set pressure for fuel
 float pressureOx=450;    //In units of psi. Defines set pressure for ox
 float threshold = 0.925; //re-pressurrization threshold (/1x)
-float ventTo = 5;
+float ventTo = 7;
 #define abortPressure 525 //Cutoff pressure to automatically trigger abort
 #define period 0.5   //Sets period for bang-bang control
 float sendDelay = 250; //Sets frequency of data collection. 1/(sendDelay*10^-3) is frequency in Hz
@@ -103,7 +103,7 @@ float LC3_Slope = 0.0001181;
 #define MOSFET_ETH_PRESS 4
 #define MOSFET_LOX_PRESS 5
 #define MOSFET_VENT_ETH 6
-#define MOSFET_VENT_LOX 7
+#define MOSFET_VENT_LOX 10
 
 
 bool sendData();
@@ -225,12 +225,10 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   commandedState = Commands.commandedState;
 }
 
-    
 
 // Initialize all sensors and parameters
 void setup() {
   // pinMode(ONBOARD_LED,OUTPUT);
-  
   Serial.begin(115200);
 
   while (!Serial) delay(1); // wait for Serial on Leonardo/Zero, etc
@@ -264,7 +262,6 @@ void setup() {
   pcf.setAllBitsUp();
 
   //set gains for pt pins
-if (DEBUG != 1) {
    scale_PT_O1.begin(PT_O1, CLK); scale_PT_O1.set_gain(64);
    scale_PT_O2.begin(PT_O2, CLK); scale_PT_O2.set_gain(64);
    scale_PT_E1.begin(PT_E1, CLK); scale_PT_E1.set_gain(64);
@@ -280,7 +277,6 @@ if (DEBUG != 1) {
   // pinMode(CAPSENS1CLK, OUTPUT);
   // pinMode(CAPSENS2DATA, INPUT);
   // pinMode(CAPSENS2CLK, OUTPUT);
-}
 
 
   // Set device as a Wi-Fi Station
@@ -339,6 +335,10 @@ SerialRead();
     sendDelay = IDLE_DELAY;
     if (commandedState==IDLE) {state=IDLE; currDAQState=IDLE;}
     idle();
+    if (DEBUG ==1) {
+    Serial.print("idle");
+    CheckDebug();
+    }
     if (commandedState==ABORT) {state=ABORT; currDAQState=ABORT;}
     if (commandedState==ARMED) {state=ARMED; currDAQState=ARMED;}
     break;
@@ -347,7 +347,9 @@ SerialRead();
     sendDelay = GEN_DELAY;
     //debug stuff
     if (DEBUG ==1) {
-    Serial.print("arm");}
+    Serial.print("arm");
+    CheckDebug();
+    }
     armed();
     if (commandedState==IDLE) {state=IDLE; currDAQState=IDLE;}
     if (commandedState==ABORT) {state=ABORT; currDAQState=ABORT;}
@@ -358,6 +360,10 @@ SerialRead();
   case (PRESS):
     sendDelay = GEN_DELAY;
     press();
+    if (DEBUG ==1) {
+    Serial.print("press");
+    CheckDebug();
+    }    
     if (commandedState==IDLE) {state=IDLE; currDAQState=IDLE;}
     if (commandedState==ABORT) {state=ABORT; currDAQState=ABORT;}
     if (commandedState==QD) {state=QD; currDAQState=QD;}
@@ -368,7 +374,9 @@ SerialRead();
     sendDelay = GEN_DELAY;
     quick_disconnect();
     if (DEBUG ==1){
-      Serial.print("Stby");}
+      Serial.print("Stby");
+      CheckDebug();
+      }
     if (commandedState==IDLE) {state=IDLE; currDAQState=IDLE;}
     if (commandedState==ABORT) {state=ABORT; currDAQState=ABORT;}
     if (commandedState==IGNITION) {state=IGNITION; currDAQState=IGNITION;}
@@ -378,7 +386,8 @@ SerialRead();
     sendDelay = GEN_DELAY;
     ignition();
     if (DEBUG ==1){
-    Serial.print("  Ign");
+    Serial.print("Ign");
+    CheckDebug();
     }
     if (commandedState==IDLE) {state=IDLE; currDAQState=IDLE;}
     if (commandedState==ABORT) {state=ABORT; currDAQState=ABORT;}
@@ -389,7 +398,8 @@ SerialRead();
   case (HOTFIRE): 
     sendDelay = GEN_DELAY;
     if (DEBUG ==1) {
-    Serial.print("HOTFIRE");}
+    Serial.print("HOTFIRE");
+    CheckDebug();}
     hotfire();
     if (commandedState==IDLE) {state=IDLE; currDAQState=IDLE;}
     if (commandedState==ABORT) {state=ABORT; currDAQState=ABORT;}
@@ -646,14 +656,14 @@ void addReadingsToQueue() {
 }
 
 void getReadings(){
-     reading_PT_O1 = -PT_O1_Offset + PT_O1_Slope * scale_PT_O1.read(); 
-     reading_PT_O2 = -PT_O2_Offset + PT_O2_Slope * scale_PT_O2.read(); 
-     reading_PT_E1 = -PT_E1_Offset + PT_E1_Slope * scale_PT_E1.read();
-     reading_PT_E2 = -PT_E2_Offset + PT_E2_Slope * scale_PT_E2.read();
-     reading_PT_C1 = -PT_C1_Offset + PT_C1_Slope * scale_PT_C1.read(); 
-     reading_LC1 = -LC1_Offset + LC1_Slope * scale_LC1.read(); 
-     reading_LC2 = -LC2_Offset +LC2_Slope *scale_LC2.read();
-     reading_LC3 = -LC3_Offset + LC3_Slope *scale_LC3.read();
+     reading_PT_O1 = PT_O1_Offset + PT_O1_Slope * scale_PT_O1.read(); 
+     reading_PT_O2 = PT_O2_Offset + PT_O2_Slope * scale_PT_O2.read(); 
+     reading_PT_E1 = PT_E1_Offset + PT_E1_Slope * scale_PT_E1.read();
+     reading_PT_E2 = PT_E2_Offset + PT_E2_Slope * scale_PT_E2.read();
+     reading_PT_C1 = PT_C1_Offset + PT_C1_Slope * scale_PT_C1.read(); 
+     reading_LC1 = LC1_Offset + LC1_Slope * scale_LC1.read(); 
+     reading_LC2 = LC2_Offset +LC2_Slope *scale_LC2.read();
+     reading_LC3 = LC3_Offset + LC3_Slope *scale_LC3.read();
      reading_TC1 = analogRead(T1);
      reading_TC2 = analogRead(T2);
 //     readingCap1 = analogRead(CAPSENS1DATA);
