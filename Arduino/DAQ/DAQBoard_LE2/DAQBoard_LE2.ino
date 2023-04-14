@@ -20,7 +20,7 @@ EasyPCF8575 pcf;
 #define GEN_DELAY 25
 
 //DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE
-int DEBUG = 1;
+int DEBUG = 0;
 int WIFIDEBUG = 0;
 
 // MODEL DEFINED PARAMETERS FOR TEST/HOTFIRE //
@@ -305,7 +305,8 @@ void setup() {
     return;
   }
   // Register for a callback function that will be called when data is received
-  esp_now_register_recv_cb(OnDataRecv);
+ if (WIFIDEBUG !=1) {
+  esp_now_register_recv_cb(OnDataRecv);}
 
   sendTime = millis();
   state = IDLE;
@@ -656,6 +657,7 @@ void addReadingsToQueue() {
 }
 
 void getReadings(){
+    if (DEBUG != 1) {
      reading_PT_O1 = PT_O1_Offset + PT_O1_Slope * scale_PT_O1.read(); 
      reading_PT_O2 = PT_O2_Offset + PT_O2_Slope * scale_PT_O2.read(); 
      reading_PT_E1 = PT_E1_Offset + PT_E1_Slope * scale_PT_E1.read();
@@ -668,6 +670,7 @@ void getReadings(){
      reading_TC2 = analogRead(T2);
 //     readingCap1 = analogRead(CAPSENS1DATA);
 //     readingCap2 = analogRead(CAPSENS2DATA);
+    }
   printSensorReadings();
 }
 

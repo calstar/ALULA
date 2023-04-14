@@ -15,7 +15,7 @@ This code runs on the COM ESP32 and has a couple of main tasks.
 #include "freertos/Task.h"
 
 //IF YOU WANT TO DEBUG, SET THIS TO 1. IF NOT SET ZERO
-int DEBUG = 1;
+int DEBUG = 0;
 
 Switch SWITCH_ARMED = Switch(14);  //correct
 Switch SWITCH_PRESS = Switch(12);  //correct
