@@ -35,49 +35,47 @@ while isfile(file_base + f"_test{test_num}" + file_ext):
 filename = file_base + f"_test{test_num}" + file_ext
 
 port_num = "/dev/cu.usbserial-0001"
-esp32 = Serial(port=port_num, baudrate=115200, timeout=0.1)
+esp32 = Serial(port=port_num, baudrate=115200, timeout= 0.1)
 
 def collection():
-    while True:
-        data = esp32.readline()
-        try:
-            decoded_bytes = data[:len(data)-2].decode("utf-8")
-            global values
-            values = decoded_bytes.split(",")
 
-            with open(filename, "a", newline='') as f:
-                writer = csv.writer(f, delimiter= ",")
+    with open(filename, "a", newline='') as f:
+        writer = csv.writer(f, delimiter= ",")
+        while True:
+            data = esp32.readline()
+            try:
+                decoded_bytes = data[:len(data)-2].decode("utf-8")
+                global values
+                values = decoded_bytes.split(",")
+
                 time_ms = time.time_ns() // (10**6)
                 millisecs = str(time_ms % (10**3)).zfill(3)
                 writer.writerow([time.strftime("%H:%M:%S", time.gmtime(time_ms // (10**3))) + ":" + millisecs] + values)
 
-            if len(values) == 13:
-                x.append(float(values[0])/1000)
-                PT_01.append(float(values[1]))
-                PT_02.append(float(values[2]))
-                PT_E1.append(float(values[3]))
-                PT_E2.append(float(values[4]))
-                PT_C1.append(float(values[5]))
-                LC1.append(float(values[6]) + float(values[7]) + float(values[8]))
-                LC2.append(float(values[7]))
-                LC3.append(float(values[8]))
-                TC1.append(float(values[9]))
-                TC2.append(float(values[10]))
-            else:
-                print("Weird data: " + values)
-        
-        except:
-            continue
+                if len(values) == 13:
+                    x.append(float(values[0])/1000)
+                    PT_01.append(float(values[1]))
+                    PT_02.append(float(values[2]))
+                    PT_E1.append(float(values[3]))
+                    PT_E2.append(float(values[4]))
+                    PT_C1.append(float(values[5]))
+                    LC1.append(float(values[6]) + float(values[7]) + float(values[8]))
+                    LC2.append(float(values[7]))
+                    LC3.append(float(values[8]))
+                    TC1.append(float(values[9]))
+                    TC2.append(float(values[10]))
+            
+            except:
+                continue
 
 t1 = Thread(target=collection)
 t1.start()
 
 
 def animate(i):
-    fig.suptitle(f"TIME ELAPSED {list(x)[-1:]}s", fontsize=12)
+    fig.suptitle(f"TIME ELAPSED {list(x)[-1]}s", fontsize=12)
 
     for j, ax in enumerate(axs_list):
-        
         line = lines[j]
         line.set_data(x, deque_list[j+1])
         ax.set_title(f"{plot_titles[j]}: {deque_list[j+1][-1]:.2f}", fontsize=12)
