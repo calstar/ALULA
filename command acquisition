@@ -63,6 +63,8 @@ def collection():
                 LC3.append(float(values[8]))
                 TC1.append(float(values[9]))
                 TC2.append(float(values[10]))
+            else:
+                print("Weird data: " + values)
         
         except:
             continue
@@ -72,7 +74,7 @@ t1.start()
 
 
 def animate(i):
-    fig.suptitle(f"TIME ELAPSED {float(values[0])/1000}s", fontsize=12)
+    fig.suptitle(f"TIME ELAPSED {list(x)[-1:]}s", fontsize=12)
 
     for j, ax in enumerate(axs_list):
         
