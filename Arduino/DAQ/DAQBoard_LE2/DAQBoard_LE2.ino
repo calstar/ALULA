@@ -24,12 +24,12 @@ int DEBUG = 0;
 int WIFIDEBUG = 0;
 
 // MODEL DEFINED PARAMETERS FOR TEST/HOTFIRE //
-float pressureFuel=450;    //In units of psi. Defines set pressure for fuel
-float pressureOx=450;    //In units of psi. Defines set pressure for ox
+float pressureFuel=120;    //In units of psi. Defines set pressure for fuel
+float pressureOx=100;    //In units of psi. Defines set pressure for ox
 float threshold = 0.925; //re-pressurrization threshold (/1x)
-float ventTo = 7;
+float ventTo = 10;
 #define abortPressure 525 //Cutoff pressure to automatically trigger abort
-#define period 0.5   //Sets period for bang-bang control
+#define period 0.5   //Sets   period for bang-bang control
 float sendDelay = 250; //Sets frequency of data collection. 1/(sendDelay*10^-3) is frequency in Hz
 // END OF USER DEFINED PARAMETERS //
 //refer to https://docs.google.com/spreadsheets/d/17NrJWC0AR4Gjejme-EYuIJ5uvEJ98FuyQfYVWI3Qlio/edit#gid=1185803967 for all pinouts
@@ -42,27 +42,27 @@ float sendDelay = 250; //Sets frequency of data collection. 1/(sendDelay*10^-3) 
 //::SET SENSOR PINOUTS:://
 
 // LOX System
-#define PT_O1 39 //LOX Tank PT
-#define PT_O2 36 //LOX Injector PT
-float PT_O1_Offset = 10.663;
-float PT_O1_Slope = 0.0001181;
-float PT_O2_Offset = 10.663;
-float PT_O2_Slope = 0.0001181;
+#define PT_O1 36 //LOX Tank PT
+#define PT_O2 39 //LOX Injector PT
+float PT_O1_Offset = 4.40;
+float PT_O1_Slope = .0000404;
+float PT_O2_Offset = 7.25;
+float PT_O2_Slope = 0.000102;
+// ETH Systemlope = 0.0001024;
 
 
-// ETH System
 #define PT_E1 34 //ETH tank PT
-float PT_E1_Offset = 10.663;
-float PT_E1_Slope = 0.0001181;
+float PT_E1_Offset = 5.522;
+float PT_E1_Slope = 0.000103;
 
 #define PT_E2 35 //ETH Injector PT
 float PT_E2_Offset = 10.663;
-float PT_E2_Slope = 0.0001181;
+float PT_E2_Slope = 0.0001013;
 
 
 // Combustion Chamber
 #define PT_C1 32
-float PT_C1_Offset = 10.663;
+float PT_C1_Offset = 2.97;
 float PT_C1_Slope = 0.0001181;
 
 
@@ -340,6 +340,8 @@ SerialRead();
     Serial.print("idle");
     CheckDebug();
     }
+    closeSolenoidOx();
+    closeSolenoidFuel();
     if (commandedState==ABORT) {state=ABORT; currDAQState=ABORT;}
     if (commandedState==ARMED) {state=ARMED; currDAQState=ARMED;}
     break;
@@ -479,7 +481,7 @@ void press() {
     ethComplete = false;
     
     while (!oxComplete || !ethComplete) {
-  
+      Serial.print("IN press WHILE LOOP");
       if (!sendData()) {
         getReadings();
       }
@@ -506,6 +508,7 @@ void press() {
     
     //ABORT CASES
     CheckAbort();
+    if (commandedState==IDLE) {state=IDLE; currDAQState=IDLE; break;}
     if (commandedState==ABORT) {state=ABORT; currDAQState=ABORT; break;}
     if (commandedState==QD) {state=QD; currDAQState=QD; break;}
     }
@@ -582,7 +585,7 @@ if (!sendData()) {
     pcf.setLeftBitUp(MOSFET_VENT_LOX); 
     oxVentComplete = true;
   }
- if (reading_PT_O1 < 50) {
+ if (reading_PT_O1 < 10) {
   if (reading_PT_E1 > ventTo) {
     pcf.setLeftBitDown(MOSFET_VENT_ETH);
     if (DEBUG == 1) {
@@ -661,6 +664,7 @@ void getReadings(){
      reading_PT_O1 = PT_O1_Offset + PT_O1_Slope * scale_PT_O1.read(); 
      reading_PT_O2 = PT_O2_Offset + PT_O2_Slope * scale_PT_O2.read(); 
      reading_PT_E1 = PT_E1_Offset + PT_E1_Slope * scale_PT_E1.read();
+     //Serial.println(reading_PT_E1);
      reading_PT_E2 = PT_E2_Offset + PT_E2_Slope * scale_PT_E2.read();
      reading_PT_C1 = PT_C1_Offset + PT_C1_Slope * scale_PT_C1.read(); 
      reading_LC1 = LC1_Offset + LC1_Slope * scale_LC1.read(); 

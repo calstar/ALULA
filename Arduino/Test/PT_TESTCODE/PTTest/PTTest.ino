@@ -16,7 +16,7 @@ TE
 
 //define pins to use for the various sensors and connections. define takes up less space on the chip
 #define ONBOARD_LED  13
-#define PTDOUT1 36
+#define PTDOUT1 34
 #define CLKPT1 27
 //#define PTDOUT2 15
 //#define CLKPT2 2
