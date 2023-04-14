@@ -14,7 +14,8 @@ This code runs on the COM ESP32 and has a couple of main tasks.
 #include "freertos/FreeRTOS.h"
 #include "freertos/Task.h"
 
-
+//IF YOU WANT TO DEBUG, SET THIS TO 1. IF NOT SET ZERO
+int DEBUG = 1;
 
 Switch SWITCH_ARMED = Switch(14);  //correct
 Switch SWITCH_PRESS = Switch(12);  //correct
@@ -65,14 +66,13 @@ int serialState;
  int loopStartTime;
 int sendDelay = 50;   //Measured in ms
 enum STATES {IDLE, ARMED, PRESS, QD, IGNITION, HOTFIRE, ABORT};
-#define DEBUG 99
-#define DEBUG_IDLE 90
-#define DEBUG_ARMED 91
-#define DEBUG_PRESS 92
-#define DEBUG_QD 93
-#define DEBUG_IGNITION 94
-#define DEBUG_HOTFIRE 95
-#define DEBUG_ABORT 96
+//#define DEBUG_IDLE 90
+//#define DEBUG_ARMED 91
+//#define DEBUG_PRESS 92
+//#define DEBUG_QD 93
+//#define DEBUG_IGNITION 94
+//#define DEBUG_HOTFIRE 95
+//#define DEBUG_ABORT 96
 double lastPrintTime = 0;
 int debug_state = 0;
 
@@ -120,13 +120,10 @@ struct_message incomingReadings;
 struct_message Commands;
 
 
-
-
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(115200);
-   // Serial.println("Start of Setup");
-
+  Serial.println("Start of Setup");
 
   // setup LEDs and set to LOW
   pinMode(LED_ARMED, OUTPUT);
@@ -197,16 +194,20 @@ void loop(){
   SWITCH_IGNITION.poll();
   SWITCH_HOTFIRE.poll();
   SWITCH_ABORT.poll();
+  if (DEBUG ==1) {
   Serial.print("COM State: ");
   Serial.print(state);
   Serial.print(";      DAQ State: ");
   Serial.println(DAQState);
   if(!SWITCH_PRESS.on() && !SWITCH_ARMED.on() && !SWITCH_ABORT.on() && !SWITCH_QD.on() && !SWITCH_IGNITION.on() && !SWITCH_HOTFIRE.on()) {serialState=IDLE;}
-
+  }
 
   switch (state) {
-  Serial.println(state);
 
+ if (DEBUG ==1) {
+  Serial.println(state);
+ }
+ 
   case (IDLE): //Includes polling
     idle();
     if (SWITCH_ABORT.on()) {serialState=ABORT;}
@@ -286,12 +287,12 @@ void loop(){
     state = serialState;     
     break;
 
-  case (DEBUG):
-   // debug();
-    serialState=IDLE;
-    state = serialState;
-    debug();
-    break;
+//  case (DEBUG):
+//   // debug();
+//    serialState=IDLE;
+//    state = serialState;
+//    debug();
+//    break;
   }
     
   }
@@ -340,69 +341,69 @@ void hotfire() {
 void abort_sequence() {
   dataSendCheck();
 }
-
-void debug() {
-  while(state == DEBUG){
-    debug_state = Serial.parseInt();
-  switch (debug_state) {
-  
-  case (DEBUG_IDLE): //Includes polling
-    //idle();
-  break;    
-    
-    
-
-  case (DEBUG_ARMED):
-    digitalWrite(LED_ARMED, HIGH);
-    break;    
-
-  case (DEBUG_PRESS): 
-  
-    digitalWrite(LED_PRESS, HIGH);
-    digitalWrite(LED_PRESSETH, HIGH);
-    digitalWrite(LED_PRESSLOX, HIGH);
-    
-    
-    
-  case (DEBUG_QD):
-    digitalWrite(LED_QD, HIGH);
-
-    break;
-
-
-  case (DEBUG_IGNITION):
-    
-   digitalWrite(LED_IGNITION, HIGH);
-   
-    break;
-
-  case (DEBUG_HOTFIRE):
-    // hotfire();
-
-    digitalWrite(LED_HOTFIRE, HIGH);
-  
-    break;
-  
-  case (DEBUG_ABORT):
-   digitalWrite(LED_ABORT, HIGH);
-    digitalWrite(LED_IGNITION,LOW);
-    digitalWrite(LED_QD, LOW);
-    digitalWrite(LED_ARMED, LOW);
-    digitalWrite(LED_PRESS, LOW);
-    digitalWrite(LED_PRESSETH, LOW);
-    digitalWrite(LED_PRESSLOX, LOW);
-    digitalWrite(LED_HOTFIRE, LOW);
-  
-    break;
-  default :
-  state = IDLE;    
-
-  }
-
-   
-  }
-  
-}
+//
+//void debug() {
+//  while(state == DEBUG){
+//    debug_state = Serial.parseInt();
+//  switch (debug_state) {
+//  
+//  case (DEBUG_IDLE): //Includes polling
+//    //idle();
+//  break;    
+//    
+//    
+//
+//  case (DEBUG_ARMED):
+//    digitalWrite(LED_ARMED, HIGH);
+//    break;    
+//
+//  case (DEBUG_PRESS): 
+//  
+//    digitalWrite(LED_PRESS, HIGH);
+//    digitalWrite(LED_PRESSETH, HIGH);
+//    digitalWrite(LED_PRESSLOX, HIGH);
+//    
+//    
+//    
+//  case (DEBUG_QD):
+//    digitalWrite(LED_QD, HIGH);
+//
+//    break;
+//
+//
+//  case (DEBUG_IGNITION):
+//    
+//   digitalWrite(LED_IGNITION, HIGH);
+//   
+//    break;
+//
+//  case (DEBUG_HOTFIRE):
+//    // hotfire();
+//
+//    digitalWrite(LED_HOTFIRE, HIGH);
+//  
+//    break;
+//  
+//  case (DEBUG_ABORT):
+//   digitalWrite(LED_ABORT, HIGH);
+//    digitalWrite(LED_IGNITION,LOW);
+//    digitalWrite(LED_QD, LOW);
+//    digitalWrite(LED_ARMED, LOW);
+//    digitalWrite(LED_PRESS, LOW);
+//    digitalWrite(LED_PRESSETH, LOW);
+//    digitalWrite(LED_PRESSLOX, LOW);
+//    digitalWrite(LED_HOTFIRE, LOW);
+//  
+//    break;
+//  default :
+//  state = IDLE;    
+//
+//  }
+//
+//   
+//  }
+//  
+//}
 
 void dataSendCheck() {
  
@@ -422,15 +423,15 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   Serial.print("Bytes received: ");
   Serial.println(len);
   DAQState = incomingReadings.DAQState;
-  incomingPT1 = incomingReadings.pt1;
-  incomingPT2 = incomingReadings.pt2;
-  incomingPT3 = incomingReadings.pt3;
-  incomingPT4 = incomingReadings.pt4;
-  incomingPT5 = incomingReadings.pt5;
-  incomingLC1 = incomingReadings.lc1;
+  incomingPT1 = incomingReadings.pt1; //LOX Tank PT
+  incomingPT2 = incomingReadings.pt2; //LOX Injector PT
+  incomingPT3 = incomingReadings.pt3; //ETH Tank PT
+  incomingPT4 = incomingReadings.pt4; //ETH Injector PT
+  incomingPT5 = incomingReadings.pt5; //COMBUSTION CHAMBER PT
+  incomingLC1 = incomingReadings.lc1; 
   incomingLC2 = incomingReadings.lc2;
   incomingLC3 = incomingReadings.lc3;
-  incomingTC1 = incomingReadings.tc1;
+  incomingTC1 = incomingReadings.tc1; //Phenolic-Interface Thermocouple
   incomingTC2 = incomingReadings.tc2;
   pressComplete = incomingReadings.pressComplete;
   oxComplete = incomingReadings.oxComplete;
@@ -444,6 +445,8 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   Serial.print(incomingPT3);
   Serial.print("   PT4: "); 
   Serial.print(incomingPT4);
+  Serial.print("   PT5: "); 
+  Serial.println(incomingPT5);
   Serial.print("   PT5: "); 
   Serial.println(incomingPT5);
   
@@ -497,4 +500,3 @@ void receiveDataPrint() {
 
   Serial.println(message);
 }
-
