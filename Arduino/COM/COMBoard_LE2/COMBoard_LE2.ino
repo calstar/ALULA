@@ -203,10 +203,10 @@ void loop(){
   }
 
   switch (state) {
-
- if (DEBUG ==1) {
-  Serial.println(state);
- }
+//
+// if (DEBUG ==1) {
+//  Serial.println(state);
+// }
  
   case (IDLE): //Includes polling
     idle();
@@ -216,15 +216,13 @@ void loop(){
     break;
 
   case (ARMED):
-    armed();
+    dataSendCheck();
     if (DAQState == ARMED) {digitalWrite(LED_ARMED, HIGH);}
     if (SWITCH_ABORT.on()) {serialState=ABORT;}
     if (SWITCH_PRESS.on()) {serialState=PRESS;}
     if(!SWITCH_ARMED.on()) {serialState=IDLE;}
    
     state = serialState;
-    armed();
-
     break;
 
   case (PRESS): 
@@ -234,10 +232,11 @@ void loop(){
     if (ethComplete) {digitalWrite(LED_PRESSETH, HIGH);}
     if (oxComplete) {digitalWrite(LED_PRESSLOX, HIGH);}
     if (SWITCH_QD.on()) {serialState=QD;}  //add pressComplete && later
+    //add return to idle functionality hyer
+    dataSendCheck();
     state = serialState;
-    press();
-    
-    
+    if(!SWITCH_PRESS.on() && !SWITCH_ARMED.on()) {serialState=IDLE;}
+    break;
 
   case (QD):
     //quick_disconnect();
@@ -246,7 +245,7 @@ void loop(){
     if (SWITCH_IGNITION.on()) {serialState=IGNITION;}
     state = serialState;
     if(!SWITCH_QD.on() && !SWITCH_PRESS.on() && !SWITCH_ARMED.on()) {serialState=IDLE;}
-        quick_disconnect();
+    dataSendCheck();
     break;
 
 
@@ -255,9 +254,9 @@ void loop(){
     if (SWITCH_ABORT.on()) {serialState=ABORT;}
     if (DAQState == IGNITION) {digitalWrite(LED_IGNITION, HIGH);}
     if (SWITCH_HOTFIRE.on()) {serialState=HOTFIRE;}
-    state = serialState;
     if(!SWITCH_QD.on() && !SWITCH_PRESS.on() && !SWITCH_ARMED.on() && !SWITCH_IGNITION.on()) {serialState=IDLE;}
-    ignition();
+    dataSendCheck();
+    state = serialState;
     break;
 
   case (HOTFIRE):
@@ -265,9 +264,8 @@ void loop(){
 
     if (SWITCH_ABORT.on()) {serialState=ABORT;}
     if (DAQState == HOTFIRE) {digitalWrite(LED_HOTFIRE, HIGH);}
-    hotfire();
+    dataSendCheck();
    
-    
     state = serialState;
     break;
   
@@ -282,7 +280,7 @@ void loop(){
     digitalWrite(LED_PRESSLOX, LOW);
     digitalWrite(LED_HOTFIRE, LOW);
     state = ABORT;
-    abort_sequence();
+    dataSendCheck();
     if(!SWITCH_QD.on() && !SWITCH_PRESS.on() && !SWITCH_ARMED.on() && !SWITCH_IGNITION.on() && !SWITCH_HOTFIRE.on() && !SWITCH_ABORT.on()) {serialState=IDLE;}
     state = serialState;     
     break;
@@ -313,97 +311,7 @@ void idle() {
   turnoffLEDs();
 }
 
-void armed() {
- 
-  dataSendCheck();
-}
 
-void press() {
-
-  dataSendCheck();
-}
-
-void quick_disconnect() {
-
-  dataSendCheck();
-}
-
-void ignition() {
-  
-  dataSendCheck();
-}
-
-void hotfire() {
- 
-  dataSendCheck();
-}
-
-void abort_sequence() {
-  dataSendCheck();
-}
-//
-//void debug() {
-//  while(state == DEBUG){
-//    debug_state = Serial.parseInt();
-//  switch (debug_state) {
-//  
-//  case (DEBUG_IDLE): //Includes polling
-//    //idle();
-//  break;    
-//    
-//    
-//
-//  case (DEBUG_ARMED):
-//    digitalWrite(LED_ARMED, HIGH);
-//    break;    
-//
-//  case (DEBUG_PRESS): 
-//  
-//    digitalWrite(LED_PRESS, HIGH);
-//    digitalWrite(LED_PRESSETH, HIGH);
-//    digitalWrite(LED_PRESSLOX, HIGH);
-//    
-//    
-//    
-//  case (DEBUG_QD):
-//    digitalWrite(LED_QD, HIGH);
-//
-//    break;
-//
-//
-//  case (DEBUG_IGNITION):
-//    
-//   digitalWrite(LED_IGNITION, HIGH);
-//   
-//    break;
-//
-//  case (DEBUG_HOTFIRE):
-//    // hotfire();
-//
-//    digitalWrite(LED_HOTFIRE, HIGH);
-//  
-//    break;
-//  
-//  case (DEBUG_ABORT):
-//   digitalWrite(LED_ABORT, HIGH);
-//    digitalWrite(LED_IGNITION,LOW);
-//    digitalWrite(LED_QD, LOW);
-//    digitalWrite(LED_ARMED, LOW);
-//    digitalWrite(LED_PRESS, LOW);
-//    digitalWrite(LED_PRESSETH, LOW);
-//    digitalWrite(LED_PRESSLOX, LOW);
-//    digitalWrite(LED_HOTFIRE, LOW);
-//  
-//    break;
-//  default :
-//  state = IDLE;    
-//
-//  }
-//
-//   
-//  }
-//  
-//}
 
 void dataSendCheck() {
  
@@ -418,6 +326,7 @@ void dataSend() {
   // Send message via ESP-NOW
   esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &Commands, sizeof(Commands));
 }
+
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   memcpy(&incomingReadings, incomingData, sizeof(incomingReadings));
   Serial.print("Bytes received: ");
@@ -484,6 +393,8 @@ void receiveDataPrint() {
   // message.concat(incomingCap2);
   // message.concat(" ");
   message.concat(Commands.commandedState);
+  message.concat(" ");
+  message.concat(DAQState);
   message.concat(" ");
   message.concat(queueSize);
 
