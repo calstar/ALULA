@@ -437,18 +437,7 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   oxComplete = incomingReadings.oxComplete;
   ethComplete = incomingReadings.ethComplete;
   queueSize = incomingReadings.queueSize;
-  Serial.print("PT1: "); 
-  Serial.print(incomingPT1);
-  Serial.print("   PT2: "); 
-  Serial.print(incomingPT2);
-  Serial.print("   PT3: "); 
-  Serial.print(incomingPT3);
-  Serial.print("   PT4: "); 
-  Serial.print(incomingPT4);
-  Serial.print("   PT5: "); 
-  Serial.println(incomingPT5);
-  Serial.print("   PT5: "); 
-  Serial.println(incomingPT5);
+  receiveDataPrint();
   
 
   
