@@ -43,7 +43,7 @@ float sendDelay = 250; //Sets frequency of data collection. 1/(sendDelay*10^-3) 
 
 // LOX System
 #define PT_O1 36 //LOX Tank PT
-#define PT_O2 39 //LOX Injector PT
+#define PT_O2 34 //LOX Injector PT
 float PT_O1_Offset = 4.40;
 float PT_O1_Slope = .0000404;
 float PT_O2_Offset = 7.25;
@@ -51,9 +51,9 @@ float PT_O2_Slope = 0.000102;
 // ETH Systemlope = 0.0001024;
 
 
-#define PT_E1 34 //ETH tank PT
-float PT_E1_Offset = 5.522;
-float PT_E1_Slope = 0.000103;
+#define PT_E1 39 //ETH tank PT SWAPPED FROM PINO2
+float PT_E1_Offset = 7.25;
+float PT_E1_Slope = 0.000102;
 
 #define PT_E2 35 //ETH Injector PT
 float PT_E2_Offset = 10.663;
@@ -98,12 +98,12 @@ float LC3_Slope = 0.0001181;
 
 #define MOSFET_IGNITER 0
 #define MOSFET_ETH_MAIN 1
-#define MOSFET_EXTRA 2
+#define MOSFET_EXTRA 10
 #define MOSFET_LOX_MAIN 3
 #define MOSFET_ETH_PRESS 4
 #define MOSFET_LOX_PRESS 5
 #define MOSFET_VENT_ETH 6
-#define MOSFET_VENT_LOX 10
+#define MOSFET_VENT_LOX 2
 
 
 bool sendData();
@@ -258,7 +258,7 @@ void setup() {
   delay(500); // startup time to make sure its good for personal testing
 
 
-  //EVERYTHING SHOULD BE WRITTEN HIGH EXCEPT QDs, WHICH SHOULD BE LOW
+  //EVERYTHING SHOULD BE WRITTEN HIGH 
   pcf.setAllBitsUp();
 
   //set gains for pt pins
@@ -333,6 +333,7 @@ SerialRead();
     
 
   case (IDLE):
+    
     sendDelay = IDLE_DELAY;
     if (commandedState==IDLE) {state=IDLE; currDAQState=IDLE;}
     idle();
@@ -481,7 +482,7 @@ void press() {
     ethComplete = false;
     
     while (!oxComplete || !ethComplete) {
-      Serial.print("IN press WHILE LOOP");
+      //Serial.print("IN press WHILE LOOP");
       if (!sendData()) {
         getReadings();
       }
@@ -564,7 +565,8 @@ void quick_disconnect() {
 
 
 void abort_sequence() {
-
+ pcf.setLeftBitDown(MOSFET_VENT_LOX);
+ pcf.setLeftBitDown(MOSFET_VENT_ETH);
 if (!sendData()) {
       getReadings();
     }
