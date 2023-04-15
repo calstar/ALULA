@@ -20,7 +20,7 @@ EasyPCF8575 pcf;
 #define GEN_DELAY 25
 
 //DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE
-int DEBUG = 0;
+int DEBUG = 1;
 int WIFIDEBUG = 0;
 
 // MODEL DEFINED PARAMETERS FOR TEST/HOTFIRE //
@@ -165,9 +165,9 @@ float sendTime;
 
 // Define variables to store readings to be sent
 int debug_state = 0;
-float reading_PT_O1=1;
+int reading_PT_O1=1;
 int reading_PT_O2=1;
-float reading_PT_E1=1;
+int reading_PT_E1=1;
 int reading_PT_E2=1;
 int reading_PT_C1=1;
 int reading_LC1=1;
@@ -183,16 +183,16 @@ short int queueSize=0;
 //Must match the receiver structure
 typedef struct struct_message {
     int messageTime;
-    int pt1;  //PTO1
-    int pt2;  //PTO2
-    int pt3;  //PTE1
-    int pt4;  //PTE2
-    int pt5;  //PTC1
-    int lc1; 
-    int lc2;
-    int lc3;
-    int tc1;
-    int tc2;
+    float pt1;  //PTO1
+    float pt2;  //PTO2
+    float pt3;  //PTE1
+    float pt4;  //PTE2
+    float pt5;  //PTC1
+    float lc1; 
+    float lc2;
+    float lc3;
+    float tc1;
+    float tc2;
     int commandedState;
     int DAQState;
     short int queueSize;
