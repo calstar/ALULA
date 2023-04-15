@@ -20,8 +20,8 @@ EasyPCF8575 pcf;
 #define GEN_DELAY 25
 
 //DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE
-int DEBUG = 1;
-int WIFIDEBUG = 1;
+int DEBUG = 0;
+int WIFIDEBUG = 0;
 
 // MODEL DEFINED PARAMETERS FOR TEST/HOTFIRE. Pressures in psi //
 float pressureFuel=400;    //Set pressure for fuel: 412
@@ -52,9 +52,9 @@ float PT_O2_Slope = 0.000102;
 // ETH Systemlope = 0.0001024;
 
 
-#define PT_E1 32 //ETH tank PT SWAPPED FROM PINO2
-float PT_E1_Offset = 2.97;
-float PT_E1_Slope = 0.0001181;
+#define PT_E1 34 //ETH tank PT SWAPPED FROM PINO2
+float PT_E1_Offset = 5.522;
+float PT_E1_Slope = 0.000103;
 
 #define PT_E2 35 //ETH Injector PT
 float PT_E2_Offset = 10.663;
@@ -63,7 +63,7 @@ float PT_E2_Slope = 0.0001013;
 
 // Combustion Chamber should be 32, swapped atm
 //#define PT_C1 32
-#define PT_C1 34
+#define PT_C1 32
 float PT_C1_Offset = 2.97;
 float PT_C1_Slope = 0.0001181;
 
