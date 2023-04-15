@@ -7,7 +7,7 @@ import csv
 from os.path import isfile
 import time
 
-data_len = 3000
+data_len = 500
 num_plots = 6
 
 deque_list = [deque(maxlen=data_len) for _ in range(num_plots + 1)]
