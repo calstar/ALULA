@@ -13,7 +13,6 @@ num_plots = 10
 deque_list = [deque(maxlen=data_len) for _ in range(num_plots + 1)]
 x, PT_01, PT_02, PT_E1, PT_E2, PT_C1, LC1, LC2, LC3, TC1, TC2  = deque_list
 
-
 plot_titles = ["PT_01", "PT_02", "PT_E1", "PT_E2", "PT_C1", "LC1", "LC2", "LC3", "TC1", "TC2"]
 
 fig, axs = plt.subplots(2, 5) # plot arrangement
@@ -45,14 +44,13 @@ def collection():
             data = esp32.readline()
             try:
                 decoded_bytes = data[:len(data)-2].decode("utf-8")
-                global values
-                values = decoded_bytes.split(",")
+                values = decoded_bytes.split(" ")
 
                 time_ms = time.time_ns() // (10**6)
                 millisecs = str(time_ms % (10**3)).zfill(3)
                 writer.writerow([time.strftime("%H:%M:%S", time.gmtime(time_ms // (10**3))) + ":" + millisecs] + values)
 
-                if len(values) == 13:
+                if len(values) == 14:
                     x.append(float(values[0])/1000)
                     PT_01.append(float(values[1]))
                     PT_02.append(float(values[2]))
