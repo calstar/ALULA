@@ -329,8 +329,8 @@ void dataSend() {
 
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   memcpy(&incomingReadings, incomingData, sizeof(incomingReadings));
-  Serial.print("Bytes received: ");
-  Serial.println(len);
+// Serial.print("Bytes received: ");
+//  Serial.println(len);
   DAQState = incomingReadings.DAQState;
   incomingPT1 = incomingReadings.pt1; //LOX Tank PT
   incomingPT2 = incomingReadings.pt2; //LOX Injector PT
