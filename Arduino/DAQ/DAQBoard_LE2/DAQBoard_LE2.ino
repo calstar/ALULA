@@ -27,7 +27,8 @@ int WIFIDEBUG = 0;
 float pressureFuel=120;    //In units of psi. Defines set pressure for fuel
 float pressureOx=100;    //In units of psi. Defines set pressure for ox
 float threshold = 0.925; //re-pressurrization threshold (/1x)
-float ventTo = 10;
+float ventTo = 10; //close solenoids at this pressure to preserve lifetime.
+float LOXventing = 30; //pressure at which ethanol begins venting
 #define abortPressure 525 //Cutoff pressure to automatically trigger abort
 #define period 0.5   //Sets   period for bang-bang control
 float sendDelay = 250; //Sets frequency of data collection. 1/(sendDelay*10^-3) is frequency in Hz
@@ -165,16 +166,16 @@ float sendTime;
 
 // Define variables to store readings to be sent
 int debug_state = 0;
-int reading_PT_O1=1;
-int reading_PT_O2=1;
-int reading_PT_E1=1;
-int reading_PT_E2=1;
-int reading_PT_C1=1;
-int reading_LC1=1;
-int reading_LC2=1;
-int reading_LC3=1;
-int reading_TC1=1;
-int reading_TC2=1;
+float reading_PT_O1=1;
+float reading_PT_O2=1;
+float reading_PT_E1=1;
+float reading_PT_E2=1;
+float reading_PT_C1=1;
+float reading_LC1=1;
+float reading_LC2=1;
+float reading_LC3=1;
+float reading_TC1=1;
+float reading_TC2=1;
 float readingCap1=0;
 float readingCap2=0;
 short int queueSize=0;
@@ -575,29 +576,40 @@ if (!sendData()) {
  closeSolenoidFuel();
  
  int currtime = millis();
-
+ oxVentComplete = false;
+ ethVentComplete = false;
   while(!oxVentComplete || !ethVentComplete){
     getReadings();
-  if (reading_PT_O1 > ventTo) {
+  if (reading_PT_O1 > LOXventing) { //vent only lox down to loxventing pressure
     pcf.setLeftBitDown(MOSFET_VENT_LOX);
     if (DEBUG == 1) {
         reading_PT_O1 = reading_PT_O1 - 0.25;
         }
-  } else {
-    pcf.setLeftBitUp(MOSFET_VENT_LOX); 
-    oxVentComplete = true;
-  }
- if (reading_PT_O1 < 10) {
-  if (reading_PT_E1 > ventTo) {
-    pcf.setLeftBitDown(MOSFET_VENT_ETH);
-    if (DEBUG == 1) {
-        reading_PT_E1 = reading_PT_E1 - 0.2;
-        }
-  } else {
-    pcf.setLeftBitUp(MOSFET_VENT_ETH); 
-    ethVentComplete = true;
-  }
- }
+  } 
+  else {
+      if (reading_PT_E1 > ventTo) {
+      pcf.setLeftBitDown(MOSFET_VENT_ETH); //vent ethanol
+      if (DEBUG == 1) {
+          reading_PT_E1 = reading_PT_E1 - 0.2;
+          }
+    } else {
+      pcf.setLeftBitUp(MOSFET_VENT_ETH); 
+      ethVentComplete = true;
+    }
+    
+    if (reading_PT_O1 > ventTo) {
+    pcf.setLeftBitUp(MOSFET_VENT_LOX); //vent lox
+        if (DEBUG == 1) {
+          reading_PT_O1 = reading_PT_O1 - 0.1;
+          }
+    }
+    else { //lox vented to acceptable hold pressure
+     pcf.setLeftBitUp(MOSFET_VENT_LOX); // close lox
+     oxVentComplete = true;
+    }
+  
+ } 
+ 
 if (!sendData()) {
       getReadings();
     }

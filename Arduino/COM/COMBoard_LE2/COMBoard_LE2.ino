@@ -94,7 +94,7 @@ uint8_t broadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x4F, 0xAF, 0x40};
 //Structure example to send data
 //Must match the receiver structure
 typedef struct struct_message {
-     float messageTime;
+     int messageTime;
      float pt1;
      float pt2;
      float pt3;
@@ -231,6 +231,8 @@ void loop(){
     if (DAQState == PRESS) {digitalWrite(LED_PRESS, HIGH);}
     if (ethComplete) {digitalWrite(LED_PRESSETH, HIGH);}
     if (oxComplete) {digitalWrite(LED_PRESSLOX, HIGH);}
+    if (!ethComplete) {digitalWrite(LED_PRESSETH, LOW);}
+    if (!oxComplete) {digitalWrite(LED_PRESSLOX, LOW);}   
     if (SWITCH_QD.on()) {serialState=QD;}  //add pressComplete && later
     //add return to idle functionality hyer
     dataSendCheck();
