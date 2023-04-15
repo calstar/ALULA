@@ -7,7 +7,7 @@ EasyPCF8575 pcf;
 int dt = 50;
 
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(115200);
   pcf.startI2C(21, 22, SEARCH); //Only SEARCH, if using normal pins in Arduino
   if (!pcf.check(SEARCH)) {
     Serial.println("Device not found. Try to specify the address");
