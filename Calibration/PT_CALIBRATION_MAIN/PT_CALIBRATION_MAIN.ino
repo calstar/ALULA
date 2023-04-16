@@ -8,7 +8,7 @@ This code runs on the DAQ ESP32 and has a couple of main functions.
 
 #include <esp_now.h>
 #include <WiFi.h>
-#include <ESP32Servo.h>
+// #include <ESP32Servo.h>
 #include <Wire.h>
 #include <Arduino.h>
 #include "HX711.h"
@@ -18,9 +18,9 @@ This code runs on the DAQ ESP32 and has a couple of main functions.
 #define ONBOARD_LED  13
 #define PTDOUT1 36 //PT-O1
 #define CLKPT1 27 
-#define PTDOUT2 39 //PT-O2
-#define CLKPT2 27 
-#define PTDOUT3 34 //PT-E1
+// #define PTDOUT2 34 //PT-O2
+// #define CLKPT2 27 
+#define PTDOUT3 39 //PT-E1
 #define CLKPT3 27
 #define PTDOUT4 35 //PT-E2
 #define CLKPT4 27
@@ -28,10 +28,10 @@ This code runs on the DAQ ESP32 and has a couple of main functions.
 #define CLKPT5 27
 
 
-#define PTDOUT6 33
-#define CLKPT6 27
-#define PTDOUT7 25
-#define CLKPT7 27
+// #define PTDOUT6 33
+// #define CLKPT6 27
+// #define PTDOUT7 25
+// #define CLKPT7 27
 
 
 
@@ -49,8 +49,8 @@ float pt7=-1;
 String serialMessage = "";
 
 //define servo min and max values
-#define SERVO_MIN_USEC (900)
-#define SERVO_MAX_USEC (2100)
+// #define SERVO_MIN_USEC (900)
+// #define SERVO_MAX_USEC (2100)
 
 //Initialize the PT and LC sensor objects which use the HX711 breakout board
 HX711 scale1;
@@ -62,8 +62,8 @@ HX711 scale6;
 HX711 scale7;
 
 //Initialize the servo objects
-Servo servo1;
-Servo servo2;
+// Servo servo1;
+// Servo servo2;
 
 //define servo necessary values
 int ADC_Max = 4096;
@@ -72,33 +72,33 @@ int ADC_Max = 4096;
 void setup() {
 
 //set gains for pt pins
-  scale1.begin(PTDOUT1, CLKPT1);
-  scale1.set_gain(32, false);
+  scale1.begin(PTDOUT1, CLKPT1); //LOX tank
+  scale1.set_gain(64);
      //Sets the pin as an input
 
 //set gains for pt pins
-  scale2.begin(PTDOUT2, CLKPT2);
-  scale2.set_gain(64);
+  // scale2.begin(PTDOUT2, CLKPT2);
+  // scale2.set_gain(64);
 
   //set gains for pt pins
-  scale3.begin(PTDOUT3, CLKPT3);
+  scale3.begin(PTDOUT3, CLKPT3); //ethanol tank
   scale3.set_gain(64);
 
   //set gains for pt pins
-  scale4.begin(PTDOUT4, CLKPT4);
+  scale4.begin(PTDOUT4, CLKPT4); //ethanol injector
   scale4.set_gain(64);
 
   //set gains for pt pins
-  scale5.begin(PTDOUT5, CLKPT5);
+  scale5.begin(PTDOUT5, CLKPT5); //chamber
   scale5.set_gain(64);
 
   //set gains for pt pins
-  scale6.begin(PTDOUT6, CLKPT6);
-  scale6.set_gain(64);
+//   scale6.begin(PTDOUT6, CLKPT6);
+//   scale6.set_gain(64);
 
-//set gains for pt pins
-  scale7.begin(PTDOUT7, CLKPT7);
-  scale7.set_gain(64);
+// //set gains for pt pins
+//   scale7.begin(PTDOUT7, CLKPT7);
+//   scale7.set_gain(64);
 
 
   Serial.begin(115200);
@@ -119,7 +119,7 @@ void getReadings(){
  pt1 = scale1.read();
        // Serial.print("pt1: ");
 
-  pt2 = scale2.read();
+  //
        // Serial.print(" p2: ");
 
 
@@ -134,10 +134,10 @@ void getReadings(){
        // Serial.print(" pt5: ");
 
 
-  pt6 = scale6.read();
-       // Serial.print(" pt6: ");
+  // pt6 = scale6.read();
+  //      // Serial.print(" pt6: ");
 
-  pt7 = scale7.read();
+  // pt7 = scale7.read();
        // Serial.print(" pt7: ");
 
   serialMessage = "";

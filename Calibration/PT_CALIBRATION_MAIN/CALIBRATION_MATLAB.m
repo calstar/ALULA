@@ -16,16 +16,16 @@ cleanupObj = onCleanup(@cleanMeUp);
 % The code will read from the previous data, or establish a new file if no
 % data present.
 % MUST CHANGE NAME OR DELETE PREVIOUS FILE IF DIFFERENT NUMBER OF SENSORS REPORT DATA
-fileName = 'PTCal_201';
+fileName = 'PTCal_test';
 
 % NAME THE FOLDER YOU WANT THE TEST TO BE IN
-folderName = 'PTCal_201_test';
+folderName = 'PTCal_FAR';
 
 % Name the sensors (will be used in data logging and graph titles)
 testDevice = 'PT ';
 
 % How many sensors are you reporting each time? (match with Arduino output)
-dataLength = 7;
+dataLength = 8;
 
 % How many data points do you want to use to calculate (if use 5,only the last 5 data points will be kept upon stopping the
 % program)
@@ -73,7 +73,7 @@ reading = [];
 
 % set up serial object
 %serialPortName = '/dev/cu.SLAB_USBtoUART'
- serialPortName = 'COM14'; % on Windows would be COM#
+ serialPortName = '/dev/cu.usbserial-0001'; % on Windows would be COM#
 %s = serialport(serialPortName,115200);
 s = serial(serialPortName,'BaudRate',115200);
 
