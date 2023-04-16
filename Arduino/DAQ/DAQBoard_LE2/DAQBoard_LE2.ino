@@ -134,6 +134,11 @@ HX711 scale_LC3;
 #define MAXCLK  18
 Adafruit_MAX31855 thermocouple1(MAXCLK, MAXCS1, MAXDO);
 Adafruit_MAX31855 thermocouple2(MAXCLK, MAXCS2, MAXDO);
+
+//Adafruit_MAX31855 thermocouple1(MAXCLK, MAXCS1, MAXDO);
+//Adafruit_MAX31855 thermocouple2(MAXCLK, MAXCS2, MAXDO);
+
+
 //////////////
 //IMPORTANT//
 /////////////
@@ -693,8 +698,8 @@ void getReadings(){
      reading_LC1 = LC1_Offset + LC1_Slope * scale_LC1.read(); 
      reading_LC2 = LC2_Offset +LC2_Slope *scale_LC2.read();
      reading_LC3 = LC3_Offset + LC3_Slope *scale_LC3.read();
-     reading_TC1 = thermocouple1.readCelsius();
-     reading_TC2 = thermocouple2.readCelsius();
+     //reading_TC1 = thermocouple1.readCelsius();
+     //reading_TC2 = thermocouple2.readCelsius();
 //     readingCap1 = analogRead(CAPSENS1DATA);
 //     readingCap2 = analogRead(CAPSENS2DATA);
     }
