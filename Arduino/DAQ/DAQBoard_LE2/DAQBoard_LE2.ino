@@ -343,8 +343,6 @@ SerialRead();
     Serial.print("idle");
     CheckDebug();
     }
-    closeSolenoidOx();
-    closeSolenoidFuel();
     if (commandedState==ABORT) {state=ABORT; currDAQState=ABORT;}
     if (commandedState==ARMED) {state=ARMED; currDAQState=ARMED;}
     break;
@@ -388,7 +386,7 @@ SerialRead();
     if (commandedState==IGNITION) {state=IGNITION; currDAQState=IGNITION;}
     break;
 
-  case (IGNITION): 
+  case (IGNITION): //maybe add checkabort here or in function
     sendDelay = GEN_DELAY;
     ignition();
     if (DEBUG ==1){
@@ -468,7 +466,7 @@ void idle() {
 void armed() {
   if (!sendData()) {
   getReadings();
-}
+} // consider closing all MOSFETS here just as a safety precaution
 }
 
 
@@ -480,7 +478,7 @@ void press() {
   }
   
   if (reading_PT_O1 < pressureOx*threshold || reading_PT_E1 < pressureFuel*threshold) {
-    oxComplete = false;
+    oxComplete = false;   //add reassignment in other states "oxComplete = reading_PT_O1 < pressureOx*threshold " this should fix the light issue
     ethComplete = false;
     
     while (!oxComplete || !ethComplete) {
@@ -511,12 +509,12 @@ void press() {
     
     //ABORT CASES
     CheckAbort();
-    if (commandedState==IDLE) {state=IDLE; currDAQState=IDLE; break;}
-    if (commandedState==ABORT) {state=ABORT; currDAQState=ABORT; break;}
-    if (commandedState==QD) {state=QD; currDAQState=QD; break;}
+    if (commandedState==IDLE) {state=IDLE; currDAQState=IDLE; break;}  //no need if check abort
+    if (commandedState==ABORT) {state=ABORT; currDAQState=ABORT; break;}  //no need this if checkabort is here
+    if (commandedState==QD) {state=QD; currDAQState=QD; break;}. //why???
     }
   }
-  CheckAbort();
+  CheckAbort();  
   }
  //End of Void Press
 
@@ -544,7 +542,7 @@ void ignition() {
     if (!sendData()) {
   getReadings();
 }
-  pcf.setLeftBitDown(MOSFET_IGNITER);  
+  pcf.setLeftBitDown(MOSFET_IGNITER);  //add checkabort
 }
 
 void hotfire() {
