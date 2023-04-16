@@ -129,11 +129,11 @@ HX711 scale_LC3;
 // End of HX711 initialization
 #define MAXDO   5
 #define MAXD1 17
-#define MAXCS0   16
-#define MAXCS1   4
+#define MAXCS1   16
+#define MAXCS2   4
 #define MAXCLK  18
-Adafruit_MAX31855 thermocouple1(MAXCLK, MAXCS, MAXDO);
-Adafruit_MAX31855 thermocouple2(MAXCLK, MAXCS, MAXDO);
+Adafruit_MAX31855 thermocouple1(MAXCLK, MAXCS1, MAXDO);
+Adafruit_MAX31855 thermocouple2(MAXCLK, MAXCS2, MAXDO);
 //////////////
 //IMPORTANT//
 /////////////
