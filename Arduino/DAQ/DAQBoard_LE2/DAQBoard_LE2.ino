@@ -20,8 +20,8 @@ EasyPCF8575 pcf;
 #define GEN_DELAY 25
 
 //DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE
-int DEBUG = 0;
-int WIFIDEBUG = 0;
+int DEBUG = 1;
+int WIFIDEBUG = 1;
 
 // MODEL DEFINED PARAMETERS FOR TEST/HOTFIRE. Pressures in psi //
 float pressureFuel=400;    //Set pressure for fuel: 412
@@ -127,7 +127,13 @@ HX711 scale_LC1;
 HX711 scale_LC2;
 HX711 scale_LC3;
 // End of HX711 initialization
-
+#define MAXDO   5
+#define MAXD1 17
+#define MAXCS0   16
+#define MAXCS1   4
+#define MAXCLK  18
+Adafruit_MAX31855 thermocouple1(MAXCLK, MAXCS, MAXDO);
+Adafruit_MAX31855 thermocouple2(MAXCLK, MAXCS, MAXDO);
 //////////////
 //IMPORTANT//
 /////////////
@@ -357,6 +363,8 @@ SerialRead();
     CheckDebug();
     }
     armed();
+    closeSolenoidOx();
+    closeSolenoidFuel();
     if (commandedState==IDLE) {state=IDLE; currDAQState=IDLE;}
     if (commandedState==ABORT) {state=ABORT; currDAQState=ABORT;}
     if (commandedState==PRESS) {state=PRESS; currDAQState=PRESS;}
@@ -577,8 +585,8 @@ if (!sendData()) {
  closeSolenoidFuel();
  
  int currtime = millis();
- oxVentComplete = false;
- ethVentComplete = false;
+ oxVentComplete = !(reading_PT_O1 > 1.3*ventTo);
+ ethVentComplete = !(reading_PT_E1 > 1.3*ventTo);
   while(!oxVentComplete || !ethVentComplete){
     getReadings();
   if (reading_PT_O1 > LOXventing) { //vent only lox down to loxventing pressure
@@ -652,7 +660,7 @@ bool sendData() {
 
 void addReadingsToQueue() {
   
-  getReadings();
+  //getReadings();
   
   if (queueLength<40) {
     queueLength+=1;
@@ -685,8 +693,8 @@ void getReadings(){
      reading_LC1 = LC1_Offset + LC1_Slope * scale_LC1.read(); 
      reading_LC2 = LC2_Offset +LC2_Slope *scale_LC2.read();
      reading_LC3 = LC3_Offset + LC3_Slope *scale_LC3.read();
-     reading_TC1 = analogRead(T1);
-     reading_TC2 = analogRead(T2);
+     reading_TC1 = thermocouple1.readCelsius();
+     reading_TC2 = thermocouple2.readCelsius();
 //     readingCap1 = analogRead(CAPSENS1DATA);
 //     readingCap2 = analogRead(CAPSENS2DATA);
     }
