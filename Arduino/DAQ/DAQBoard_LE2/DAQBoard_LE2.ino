@@ -45,41 +45,41 @@ float sendDelay = 250; //Sets frequency of data collection. 1/(sendDelay*10^-3) 
 // LOX System
 #define PT_O1 36 //LOX Tank PT
 #define PT_O2 39 //LOX Injector PT
-float PT_O1_Offset = 4.40;
-float PT_O1_Slope = .0000404;
-float PT_O2_Offset = 7.25;
-float PT_O2_Slope = 0.000102;
-// ETH Systemlope = 0.0001024;
+float PT_O1_Offset = -1.166;
+float PT_O1_Slope = 0.00004255;
+// float PT_O2_Offset = 7.25;
+// float PT_O2_Slope = 0.000102;
+// // ETH Systemlope = 0.0001024;
 
 
-#define PT_E1 34 //ETH tank PT SWAPPED FROM PINO2
-float PT_E1_Offset = 5.522;
-float PT_E1_Slope = 0.000103;
+#define PT_E1 35 //ETH tank PT SWAPPED FROM PINO2
+float PT_E1_Offset = 295;
+float PT_E1_Slope = -1.423;
 
-#define PT_E2 35 //ETH Injector PT
-float PT_E2_Offset = 10.663;
-float PT_E2_Slope = 0.0001013;
+// #define PT_E2 35 //ETH Injector PT
+// float PT_E2_Offset = 2954;
+// float PT_E2_Slope = -1.423;
 
 
 // Combustion Chamber should be 32, swapped atm
 //#define PT_C1 32
 #define PT_C1 32
-float PT_C1_Offset = 2.97;
-float PT_C1_Slope = 0.0001181;
+float PT_C1_Offset = -4.763;
+float PT_C1_Slope = 0.0001055;
 
 
 // LOADCELLS
 #define LC1 33
 float LC1_Offset = 10.663;
-float LC1_Slope = 0.0001181;
+float LC1_Slope = 0.0007518;
 
 #define LC2 25
 float LC2_Offset = 10.663;
-float LC2_Slope = 0.0001181;
+float LC2_Slope = 0.0007687;
 
 #define LC3 26
 float LC3_Offset = 10.663;
-float LC3_Slope = 0.0001181;
+float LC3_Slope = 0.0007951;
 
 
 //DEFINE THERMOCOUPLE PINS
@@ -119,9 +119,9 @@ String serialMessage;
 
 // Initialize the PT and LC sensor objects which use the HX711 breakout board
 HX711 scale_PT_O1;
-HX711 scale_PT_O2;
+// HX711 scale_PT_O2;
 HX711 scale_PT_E1;
-HX711 scale_PT_E2;
+// HX711 scale_PT_E2;
 HX711 scale_PT_C1;
 HX711 scale_LC1;
 HX711 scale_LC2;
@@ -276,9 +276,9 @@ void setup() {
 
   //set gains for pt pins
    scale_PT_O1.begin(PT_O1, CLK); scale_PT_O1.set_gain(64);
-   scale_PT_O2.begin(PT_O2, CLK); scale_PT_O2.set_gain(64);
+  //  scale_PT_O2.begin(PT_O2, CLK); scale_PT_O2.set_gain(64);
    scale_PT_E1.begin(PT_E1, CLK); scale_PT_E1.set_gain(64);
-   scale_PT_E2.begin(PT_E2, CLK); scale_PT_E2.set_gain(64);
+  //  scale_PT_E2.begin(PT_E2, CLK); scale_PT_E2.set_gain(64);
    scale_PT_C1.begin(PT_C1, CLK); scale_PT_C1.set_gain(64);
    scale_LC1.begin(LC1, CLK); scale_LC1.set_gain(64);
    scale_LC2.begin(LC2, CLK); scale_LC2.set_gain(64);
