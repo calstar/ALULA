@@ -20,14 +20,14 @@ EasyPCF8575 pcf;
 #define GEN_DELAY 25
 
 //DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE
-int DEBUG = 1;
-int WIFIDEBUG = 1;
+int DEBUG = 0;
+int WIFIDEBUG = 0;
 
 // MODEL DEFINED PARAMETERS FOR TEST/HOTFIRE. Pressures in psi //
-float pressureFuel=400;    //Set pressure for fuel: 412
-float pressureOx=100;    //Set pressure for lox: 445
-float threshold = 0.925; //re-pressurrization threshold (/1x)
-float ventTo = 10; //close solenoids at this pressure to preserve lifetime.
+float pressureFuel=412;    //Set pressure for fuel: 412
+float pressureOx=445;    //Set pressure for lox: 445
+float threshold = 0.97; //re-pressurrization threshold (/1x)
+float ventTo = 10; //c2se solenoids at this pressure to preserve lifetime.
 float LOXventing = 30; //pressure at which ethanol begins venting
 #define abortPressure 525 //Cutoff pressure to automatically trigger abort
 #define period 0.5   //Sets   period for bang-bang control
@@ -45,16 +45,16 @@ float sendDelay = 250; //Sets frequency of data collection. 1/(sendDelay*10^-3) 
 // LOX System
 #define PT_O1 36 //LOX Tank PT
 #define PT_O2 39 //LOX Injector PT
-float PT_O1_Offset = -1.166;
-float PT_O1_Slope = 0.00004255;
+float PT_O1_Offset = 1.32;
+float PT_O1_Slope = 0.0000412;
 // float PT_O2_Offset = 7.25;
 // float PT_O2_Slope = 0.000102;
-// // ETH Systemlope = 0.0001024;
+// // ETH Systemlope = 0.0001024; 
 
 
 #define PT_E1 35 //ETH tank PT SWAPPED FROM PINO2
-float PT_E1_Offset = 295;
-float PT_E1_Slope = -1.423;
+float PT_E1_Offset = -  28.97;
+float PT_E1_Slope = .0051;
 
 // #define PT_E2 35 //ETH Injector PT
 // float PT_E2_Offset = 2954;
