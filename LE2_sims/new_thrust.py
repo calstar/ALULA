@@ -63,6 +63,7 @@ ETH_tank_volume = 0.006926
 G2M3 = 0.00378541
 f1 = 0.255*G2M3*798
 f3 = 0.023*G2M3*1141
+print(f1+f3)
 rho_lox = 1141
 rho_eth = 798
 psi_to_Pa = 6894.76
@@ -88,7 +89,7 @@ for i in range(n):
 
 
     #diffeq part for lox
-    pressure_ox = pressure_ox + h*(-pressure_ox)*mdot_LOX*1.5 /(rho_lox*(LOX_tank_volume - LOX_volume))
+    pressure_ox = pressure_ox + h*(-pressure_ox)*mdot_LOX*1.4 /(rho_lox*(LOX_tank_volume - LOX_volume))
     LOX_volume = LOX_volume - h*mdot_LOX/rho_lox
 
 
@@ -101,8 +102,8 @@ for i in range(n):
     pressure_ox = pressure_ox /6894.76
     pressure_eth = pressure_eth /6894.76
     P_chamber = P_chamber/6894.76
-    thrust = chamber.estimate_Ambient_Isp(P_chamber,mdot_LOX/mdot_Eth,eps=4.35)[0]
-    thrust = 10*thrust*(mdot_Eth+mdot_LOX)/2.7
+    thrust = chamber.estimate_Ambient_Isp(P_chamber,mdot_LOX/mdot_Eth,eps=1)[0]
+    thrust = 10*thrust*(mdot_Eth+mdot_LOX)
     output.append(thrust)
     mdot.append(mdot_Eth+mdot_LOX)
     
@@ -118,20 +119,5 @@ plt.plot(time_array,output)
 #print(output[0])
 #print([output[0],output[1000],output[2000],output[3000],output[4000],output[5000],output[6000],output[7000],output[8000],output[9000]])
 plt.show()
-
-
-
-
-
-
-
-
-
-
-
-
-
- 
-
 
 
