@@ -23,28 +23,89 @@ class propellant:
 
 
 #adjust thrust calculation using hotfire attempt
-# fO = lambda x : x >= 164
-# fE = lambda x : x >= 191
-# fC = lambda x : x >= 100
-# data = pd.read_excel(r"hotfire2_2023-04-16.xlsx")
-
-# exp_thrust = np.array(data["total LCs"])
+ox_pres = [346.93,346.93,
+                    346.93,
+                    346.93,
+                    346.93,
+                    346.93,
+                    335.3,
+                    321.62,
+                    308.77,
+                    296.94,
+                    289.71,
+                    282.74,
+                    276.07,
+                    269.65,
+                    263.48,
+                    254.71,
+                    243.83,
+                    236.36,
+                    229.26,
+                    222.58,
+                    216.2,
+                    207.92,
+                    201.01]
 # ox_FR = np.array(data["FlowrateOx(Gal/s)"])
 # eth_FR = np.array(data["FlowrateEth(Gal/s)"])
-# ox_pres = (data["PT_01 (psi)"])
-# ox_pres = np.array(ox_pres) 
-# # ox_pres = list(filter(fO,ox_pres))
-# print(ox_pres)
-# eth_pres = list(filter(fE,(data["PT_E1 (psi)"])))
-# eth_pres = np.array(eth_pres) - min(eth_pres)
-# chamber_pres = list(filter(fC,(data["PT_C1 (psi)"])))
-# chamber_press = np.array(chamber_pres) - min(chamber_pres)
-# #implement simple grad descent(using scipy.optimize for now) to learn the best linear function of tank pressures to get chamber pressure
 
-# f = lambda a: a[0]*ox_pres + a[1]*eth_pres + a[2]
-# loss = lambda a: (np.linalg.norm((f(a) - chamber_pres)))**2
-# a_star = scipy.optimize.minimize(loss,[0,0,0])
-a_star = [1/6,1/6,1/3]
+ox_pres = np.array(ox_pres) 
+
+eth_pres = [422.23,
+            422.06,
+            397.65,
+            376.08,
+            355.84,
+            337.49,
+            321.29,
+            307.5,
+            295.36,
+            287.68,
+            280.47,
+            274.38,
+            268.39,
+            262.33,
+            257.1,
+            249.09,
+            239.81,
+            233,
+            227.43,
+            221.49,
+            216.04,
+            211.31,
+            205.93]
+eth_pres = np.array(eth_pres) - 27
+chamber_pres = [-2.34,
+-2.01,
+187.49,
+223.75,
+229.11,
+223.41,
+212.39,
+200.05,
+187.49,
+179.65,
+171.88,
+164.55,
+157.74,
+151.51,
+145.46,
+137.35,
+127.78,
+121.42,
+115.82,
+110.19,
+101.59,
+28.34,
+10.1]
+chamber_press = np.array(chamber_pres) + 4
+#implement simple grad descent(using scipy.optimize for now) to learn the best linear function of tank pressures to get chamber pressure
+
+f = lambda a: a[0]*ox_pres + a[1]*eth_pres + a[2]
+loss = lambda a: (np.linalg.norm((f(a) - chamber_pres)))**2
+a_star = scipy.optimize.minimize(loss,[0,0,0])
+a_star = a_star.x
+
+
 
 
 
