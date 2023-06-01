@@ -24,10 +24,10 @@ int DEBUG = 0;
 int WIFIDEBUG = 0;
 
 // MODEL DEFINED PARAMETERS FOR TEST/HOTFIRE. Pressures in psi //
-float pressureFuel=400;    //Set pressure for fuel: 412
-float pressureOx=100;    //Set pressure for lox: 445
-float threshold = 0.925; //re-pressurrization threshold (/1x)
-float ventTo = 10; //close solenoids at this pressure to preserve lifetime.
+float pressureFuel=412;    //Set pressure for fuel: 412
+float pressureOx=445;    //Set pressure for lox: 445
+float threshold = 0.97; //re-pressurrization threshold (/1x)
+float ventTo = 10; //c2se solenoids at this pressure to preserve lifetime.
 float LOXventing = 30; //pressure at which ethanol begins venting
 #define abortPressure 525 //Cutoff pressure to automatically trigger abort
 #define period 0.5   //Sets   period for bang-bang control
@@ -45,41 +45,41 @@ float sendDelay = 250; //Sets frequency of data collection. 1/(sendDelay*10^-3) 
 // LOX System
 #define PT_O1 36 //LOX Tank PT
 #define PT_O2 39 //LOX Injector PT
-float PT_O1_Offset = 4.40;
-float PT_O1_Slope = .0000404;
-float PT_O2_Offset = 7.25;
-float PT_O2_Slope = 0.000102;
-// ETH Systemlope = 0.0001024;
+float PT_O1_Offset = 1.32;
+float PT_O1_Slope = 0.0000412;
+// float PT_O2_Offset = 7.25;
+// float PT_O2_Slope = 0.000102;
+// // ETH Systemlope = 0.0001024; 
 
 
-#define PT_E1 34 //ETH tank PT SWAPPED FROM PINO2
-float PT_E1_Offset = 5.522;
-float PT_E1_Slope = 0.000103;
+#define PT_E1 35 //ETH tank PT SWAPPED FROM PINO2
+float PT_E1_Offset = -  28.97;
+float PT_E1_Slope = .0051;
 
-#define PT_E2 35 //ETH Injector PT
-float PT_E2_Offset = 10.663;
-float PT_E2_Slope = 0.0001013;
+// #define PT_E2 35 //ETH Injector PT
+// float PT_E2_Offset = 2954;
+// float PT_E2_Slope = -1.423;
 
 
 // Combustion Chamber should be 32, swapped atm
 //#define PT_C1 32
 #define PT_C1 32
-float PT_C1_Offset = 2.97;
-float PT_C1_Slope = 0.0001181;
+float PT_C1_Offset = -4.763;
+float PT_C1_Slope = 0.0001055;
 
 
 // LOADCELLS
 #define LC1 33
 float LC1_Offset = 10.663;
-float LC1_Slope = 0.0001181;
+float LC1_Slope = 0.0007518;
 
 #define LC2 25
 float LC2_Offset = 10.663;
-float LC2_Slope = 0.0001181;
+float LC2_Slope = 0.0007687;
 
 #define LC3 26
 float LC3_Offset = 10.663;
-float LC3_Slope = 0.0001181;
+float LC3_Slope = 0.0007951;
 
 
 //DEFINE THERMOCOUPLE PINS
@@ -119,14 +119,25 @@ String serialMessage;
 
 // Initialize the PT and LC sensor objects which use the HX711 breakout board
 HX711 scale_PT_O1;
-HX711 scale_PT_O2;
+// HX711 scale_PT_O2;
 HX711 scale_PT_E1;
-HX711 scale_PT_E2;
+// HX711 scale_PT_E2;
 HX711 scale_PT_C1;
 HX711 scale_LC1;
 HX711 scale_LC2;
 HX711 scale_LC3;
 // End of HX711 initialization
+#define MAXDO   5
+#define MAXD1 17
+#define MAXCS1   16
+#define MAXCS2   4
+#define MAXCLK  18
+Adafruit_MAX31855 thermocouple1(MAXCLK, MAXCS1, MAXDO);
+Adafruit_MAX31855 thermocouple2(MAXCLK, MAXCS2, MAXDO);
+
+//Adafruit_MAX31855 thermocouple1(MAXCLK, MAXCS1, MAXDO);
+//Adafruit_MAX31855 thermocouple2(MAXCLK, MAXCS2, MAXDO);
+
 
 //////////////
 //IMPORTANT//
@@ -265,9 +276,9 @@ void setup() {
 
   //set gains for pt pins
    scale_PT_O1.begin(PT_O1, CLK); scale_PT_O1.set_gain(64);
-   scale_PT_O2.begin(PT_O2, CLK); scale_PT_O2.set_gain(64);
+  //  scale_PT_O2.begin(PT_O2, CLK); scale_PT_O2.set_gain(64);
    scale_PT_E1.begin(PT_E1, CLK); scale_PT_E1.set_gain(64);
-   scale_PT_E2.begin(PT_E2, CLK); scale_PT_E2.set_gain(64);
+  //  scale_PT_E2.begin(PT_E2, CLK); scale_PT_E2.set_gain(64);
    scale_PT_C1.begin(PT_C1, CLK); scale_PT_C1.set_gain(64);
    scale_LC1.begin(LC1, CLK); scale_LC1.set_gain(64);
    scale_LC2.begin(LC2, CLK); scale_LC2.set_gain(64);
@@ -343,6 +354,8 @@ SerialRead();
     Serial.print("idle");
     CheckDebug();
     }
+    closeSolenoidOx();
+    closeSolenoidFuel();
     if (commandedState==ABORT) {state=ABORT; currDAQState=ABORT;}
     if (commandedState==ARMED) {state=ARMED; currDAQState=ARMED;}
     break;
@@ -355,6 +368,8 @@ SerialRead();
     CheckDebug();
     }
     armed();
+    closeSolenoidOx();
+    closeSolenoidFuel();
     if (commandedState==IDLE) {state=IDLE; currDAQState=IDLE;}
     if (commandedState==ABORT) {state=ABORT; currDAQState=ABORT;}
     if (commandedState==PRESS) {state=PRESS; currDAQState=PRESS;}
@@ -386,7 +401,7 @@ SerialRead();
     if (commandedState==IGNITION) {state=IGNITION; currDAQState=IGNITION;}
     break;
 
-  case (IGNITION): //maybe add checkabort here or in function
+  case (IGNITION): 
     sendDelay = GEN_DELAY;
     ignition();
     if (DEBUG ==1){
@@ -466,7 +481,7 @@ void idle() {
 void armed() {
   if (!sendData()) {
   getReadings();
-} // consider closing all MOSFETS here just as a safety precaution
+}
 }
 
 
@@ -478,7 +493,7 @@ void press() {
   }
   
   if (reading_PT_O1 < pressureOx*threshold || reading_PT_E1 < pressureFuel*threshold) {
-    oxComplete = false;   //add reassignment in other states "oxComplete = reading_PT_O1 < pressureOx*threshold " this should fix the light issue
+    oxComplete = false;
     ethComplete = false;
     
     while (!oxComplete || !ethComplete) {
@@ -509,12 +524,12 @@ void press() {
     
     //ABORT CASES
     CheckAbort();
-    if (commandedState==IDLE) {state=IDLE; currDAQState=IDLE; break;}  //no need if check abort
-    if (commandedState==ABORT) {state=ABORT; currDAQState=ABORT; break;}  //no need this if checkabort is here
-    if (commandedState==QD) {state=QD; currDAQState=QD; break;}. //why???
+    if (commandedState==IDLE) {state=IDLE; currDAQState=IDLE; break;}
+    if (commandedState==ABORT) {state=ABORT; currDAQState=ABORT; break;}
+    if (commandedState==QD) {state=QD; currDAQState=QD; break;}
     }
   }
-  CheckAbort();  
+  CheckAbort();
   }
  //End of Void Press
 
@@ -542,7 +557,7 @@ void ignition() {
     if (!sendData()) {
   getReadings();
 }
-  pcf.setLeftBitDown(MOSFET_IGNITER);  //add checkabort
+  pcf.setLeftBitDown(MOSFET_IGNITER);  
 }
 
 void hotfire() {
@@ -575,8 +590,8 @@ if (!sendData()) {
  closeSolenoidFuel();
  
  int currtime = millis();
- oxVentComplete = false;
- ethVentComplete = false;
+ oxVentComplete = !(reading_PT_O1 > 1.3*ventTo);
+ ethVentComplete = !(reading_PT_E1 > 1.3*ventTo);
   while(!oxVentComplete || !ethVentComplete){
     getReadings();
   if (reading_PT_O1 > LOXventing) { //vent only lox down to loxventing pressure
@@ -650,7 +665,7 @@ bool sendData() {
 
 void addReadingsToQueue() {
   
-  getReadings();
+  //getReadings();
   
   if (queueLength<40) {
     queueLength+=1;
@@ -675,16 +690,16 @@ void addReadingsToQueue() {
 void getReadings(){
     if (DEBUG != 1) {
      reading_PT_O1 = PT_O1_Offset + PT_O1_Slope * scale_PT_O1.read(); 
-     reading_PT_O2 = PT_O2_Offset + PT_O2_Slope * scale_PT_O2.read(); 
+    //  reading_PT_O2 = PT_O2_Offset + PT_O2_Slope * scale_PT_O2.read(); 
      reading_PT_E1 = PT_E1_Offset + PT_E1_Slope * scale_PT_E1.read();
      //Serial.println(reading_PT_E1);
-     reading_PT_E2 = PT_E2_Offset + PT_E2_Slope * scale_PT_E2.read();
+    //  reading_PT_E2 = PT_E2_Offset + PT_E2_Slope * scale_PT_E2.read();
      reading_PT_C1 = PT_C1_Offset + PT_C1_Slope * scale_PT_C1.read(); 
      reading_LC1 = LC1_Offset + LC1_Slope * scale_LC1.read(); 
      reading_LC2 = LC2_Offset +LC2_Slope *scale_LC2.read();
      reading_LC3 = LC3_Offset + LC3_Slope *scale_LC3.read();
-     reading_TC1 = analogRead(T1);
-     reading_TC2 = analogRead(T2);
+     //reading_TC1 = thermocouple1.readCelsius();
+     //reading_TC2 = thermocouple2.readCelsius();
 //     readingCap1 = analogRead(CAPSENS1DATA);
 //     readingCap2 = analogRead(CAPSENS2DATA);
     }
