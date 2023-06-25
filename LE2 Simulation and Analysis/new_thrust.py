@@ -229,10 +229,13 @@ if not os.path.exists("LE2.eng"): #change filename to include the path that you 
     f = open("LE2.eng", "w")
 else:
     f = open("LE2.eng","w") #and here
-f.write("") #add header file info here
+f.write("; Rocketvision F32" + "\n") #add header file info here. I've added the website default, change it to whatever you want
+f.write("; from NAR data sheet updated 11/2000" + "\n")
+f.write("; created by John Coker 5/2006")
+f.write("F32 24 124 5-10-15 .0377 .0695 RV")
 f.write("\n")  #add a \n whenever you need to move to the next line
 for i in range(n):
-    f.write("\s" + "\s" + "\s" + time_arr[i] + "\s" + thrust_arr[i] + "\n") 
+    f.write("%s" + "%s" + "%s" + time_arr[i] + "%s" + thrust_arr[i] + "\n") 
 plt.show()
 
 
