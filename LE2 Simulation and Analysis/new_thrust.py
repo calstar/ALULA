@@ -1,4 +1,5 @@
 import rocketcea
+import os
 import numpy as np
 import scipy
 import matplotlib.pyplot as plt
@@ -104,8 +105,8 @@ chamber_pres = [-2.34,
 10.1]
 chamber_press = np.array(chamber_pres) + 4
 #implement simple grad descent(using scipy.optimize for now) to learn the best linear function of tank pressures to get chamber pressure
-
-f = lambda a: a[0]*ox_pres + a[1]*eth_pres
+#check for local minima when we add in velocities
+f = lambda a: a[0]*ox_pres + a[1]*eth_pres 
 loss = lambda a: (np.linalg.norm((f(a) - chamber_pres)))**2
 a_star = scipy.optimize.minimize(loss,[0,0])
 a_star = a_star.x
@@ -116,8 +117,16 @@ print(a_star)
 
 #xetremely basic code that doesn't use three reservoir problem
 #first elem is feed system, second is injector
-def thrust(ETH_volume, LOX_volume,LOX_tank_volume = 0.00757,ETH_tank_volume = 0.006926,Cd_Eth = [0.0000172046,0.000010777] 
-        ,Cd_LOX = [0.0000258069,0.0000113],pressure_ox = 420,pressure_eth = 420,P_chamber = 300): 
+#first Cd is feed system
+#second is injector Cd
+
+
+#for optimization problem fix MAx press and max tank volume
+time = 3
+h = 0.001
+n = int(time/h)
+def thrust(LOX_tank_volume = 0.00757,ETH_tank_volume = 0.006926,Cd_Eth = [0.0000172046,0.000010777] 
+        ,Cd_LOX = [0.0000258069,0.0000113],pressure_ox = 100,pressure_eth = 100,P_chamber = 50): 
     chamber = CEA_Obj(propName="", oxName="LOX", fuelName="C2H5OH") #initializs CEA object
     output = []
     h = 0.001
@@ -135,8 +144,8 @@ def thrust(ETH_volume, LOX_volume,LOX_tank_volume = 0.00757,ETH_tank_volume = 0.
     rho_lox = 1141
     rho_eth = 798
     psi_to_Pa = 6894.76
-    #ETH_volume = 2.5/rho_eth #in m^3
-    #LOX_volume = 3.5/rho_lox
+    ETH_volume = 2.5/rho_eth #in m^3
+    LOX_volume = 3.5/rho_lox
     
     mdot = []
     pE = []
@@ -168,13 +177,13 @@ def thrust(ETH_volume, LOX_volume,LOX_tank_volume = 0.00757,ETH_tank_volume = 0.
         pressure_eth = pressure_eth - h*(pressure_eth)*mdot_Eth /(rho_eth*(ETH_tank_volume - ETH_volume))
         ETH_volume = ETH_volume - h*mdot_Eth/rho_eth
         mE.append(ETH_volume*rho_eth)
-        P_chamber = a_star[0]*pressure_ox + a_star[1]*pressure_eth 
+        # P_chamber = a_star[0]*pressure_ox + a_star[1]*pressure_eth 
 
         #get thrust
         pressure_ox = pressure_ox /6894.76
         pressure_eth = pressure_eth /6894.76
         P_chamber = P_chamber/6894.76
-        thrust = chamber.estimate_Ambient_Isp(P_chamber,mdot_LOX/mdot_Eth,eps=1)[0]
+        thrust = chamber.estimate_Ambient_Isp(P_chamber,mdot_LOX/mdot_Eth,eps=4.35)[0]
         thrust = 9.8*thrust*(mdot_Eth+mdot_LOX)
         output.append(thrust)
         mdot.append(mdot_Eth+mdot_LOX)
@@ -208,11 +217,23 @@ def thrust(ETH_volume, LOX_volume,LOX_tank_volume = 0.00757,ETH_tank_volume = 0.
     for i in mdot[1:len(mdot) - 1]:
         sum = sum + h*i
     print(sum)
+    return output , time_array
     # plt.plot(np.linspace(0,5,(len(ox_pres))),ox_pres)
     # plt.plot(np.linspace(0,5,(len(eth_pres))),eth_pres)
     #print(output[0])
     #print([output[0],output[1000],output[2000],output[3000],output[4000],output[5000],output[6000],output[7000],output[8000],output[9000]])
-thrust()
+thrust_arr , time_arr = thrust()
+if not os.path.exists("LE2.eng"): #change filename to include the path that you want
+    f = open("LE2.eng", "x")  #change file name here too
+    f.close()
+    f = open("LE2.eng", "w")
+else:
+    f = open("LE2.eng","w") #and here
+f.write("") #add header file info here
+f.write("\n")  #add a \n whenever you need to move to the next line
+for i in range(n):
+    f.write("\s" + "\s" + "\s" + time_arr[i] + "\s" + thrust_arr[i] + "\n") 
 plt.show()
+
 
 
