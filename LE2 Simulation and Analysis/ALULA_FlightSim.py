@@ -1,19 +1,3 @@
-get_ipython().run_line_magic('matplotlib', 'widget')
-
-
-
-pip install jsonpickle
-
-
-
-pip install windrose
-
-
-
-pip install simplekml
-
-
-
 from rocketpy import Environment, SolidMotor, Rocket, Flight, Function
 
 
