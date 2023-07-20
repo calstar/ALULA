@@ -8,91 +8,101 @@ import matplotlib
 import pandas as pd
 import math 
 
-#data from new_thrust.py
-rho_ox = 1141
-rho_eth = 798
-Cd_eth = [0.0000172046,0.000010777] #T-I, I-C
-Cd_ox = [0.0000258069,0.0000113]
-P_tank_ox = [346.93,
-            346.93,
-            346.93,
-            346.93,
-            346.93,
-            346.93,
-            335.3,
-            321.62,
-            308.77,
-            296.94,
-            289.71,
-            282.74,
-            276.07,
-            269.65,
-            263.48,
-            254.71,
-            243.83,
-            236.36,
-            229.26,
-            222.58,
-            216.2,
-            207.92,
-            201.01]
-P_tank_eth = [422.23,
-            422.06,
-            397.65,
-            376.08,
-            355.84,
-            337.49,
-            321.29,
-            307.5,
-            295.36,
-            287.68,
-            280.47,
-            274.38,
-            268.39,
-            262.33,
-            257.1,
-            249.09,
-            239.81,
-            233,
-            227.43,
-            221.49,
-            216.04,
-            211.31,
-            205.93]
-P_c_exp = [-2.34,
-                -2.01,
-                187.49,
-                223.75,
-                229.11,
-                223.41,
-                212.39,
-                200.05,
-                187.49,
-                179.65,
-                171.88,
-                164.55,
-                157.74,
-                151.51,
-                145.46,
-                137.35,
-                127.78,
-                121.42,
-                115.82,
-                110.19,
-                101.59,
-                28.34,
-                10.1]
-P_c_exp = np.array(P_c_exp) + 4
-P_tank_eth = np.array(P_tank_eth) - 27
-P_tank_ox = np.array(P_tank_ox) 
+class propellant:
+    def __init__(self,name, density, viscosity,tank_length, tank_radius, temperature):
+        self.density = density
+        self.viscosity = viscosity
+        self.temp = temperature
+        self.rad = tank_radius
+        self.length = tank_length
+        self.name = name
+        return None
+    def __str__(self) -> str:
+        return self.name
 
-#lumped resistance terms
-Cd_ox_tot = Cd_ox[0]*Cd_ox[1]/(Cd_ox[0] + Cd_ox[1])
-Cd_eth_tot = Cd_eth[0]*Cd_eth[1]/(Cd_eth[0] + Cd_eth[1])
+
+#System Test Data Results
+CdA_inj_LOX = 0.00005
+CdA_inj_ETH = 0.00004
+
+#Fluid Properties (SI units)
+rho_LOX = 1140
+rho_ETH = 798
+
+#Hydraulic Resistance Terms
+R_LOX = CdA_inj_LOX*math.sqrt((2*rho_LOX)) #mdot=R*(dP)^1/2
+R_ETH = CdA_inj_ETH*math.sqrt((2*rho_ETH)) #mdot=R*(dP)^1/2
+
+
+
+
+
+#Shotgun Test - Initial Condition Only
+
+#Initial Tank Pressures
+P_tank_LOX_psi = 450 #psia
+P_tank_LOX = P_tank_LOX_psi*6895 #Pa
+
+P_tank_ETH_psi = 475 #psia
+P_tank_ETH = P_tank_eth_psi*6895 #Pa
+
+#create Chamber Pressure Guess Array
+Pc_test_psi = np.linspace(100, 500, 50) #psia
+Pc_test = Pc_test_psi*6895 #Pa
+
+#define cstar efficiency: completeion of energy release. See RPE Pg64
+Efficiency = 0.9
+
+#define Throat Diameter, Area
+Dt = 26.04/1000 #m
+At = Dt^2/4*math.pi
+
+# Initialize Arrays
+Residual = []
+
+#solve residual for each pressure guess
+for i in range(len(Pc_test)):
+    #solve mass flow from fluid resistances
+    mdot_ox = R_LOX*math.sqrt(Pc_test[i]-P_tank_LOX)
+    mdot_eth = R_ETH*math.sqrt(Pc_test[i]-P_tank_ETH)
+    mdot_fluid = mdot_ox + mdot_eth
+    #get OF ratio
+    OF_ratio = mdot_ox/mdot_eth
+
+    #solve mass flow from CEA 
+    chamber = CEA_Obj(propName="", oxName="LOX", fuelName="C2H5OH") #initializs CEA object
+    Cstar_fps = chamber.get_Cstar(Pc=Pc_test_psi[i], MR=OF_ratio) #see RPE pg64
+    Cstar = Cstar_fps*0.3048 #m
+    mdot_CEA = Pc_test[i]*At/(Cstar*Efficiency) #kg/s
+
+    #compare residual, append to array
+    error = mdot_CEA-mdot_fluid
+    Residual.append(abs(error))
+
+
+plt.figure()
+plt.plot(Pc_test_psi, Residual)
+plt.xlabel('Chamber Pressure Guess (psia)')
+plt.ylabel('Residual Error (abs(kg/s))')
+plt.title('Chamber Pressure - Residual Solution Space')
+plt.grid(True)
+plt.show()
+
+
+
+
+
+
+
+
+
+
+
+#Bisection Method Time Curve
 
 #reference thrust curve
-time = np.linspace(0, 10, 20) #20 pts from 0 to 10 seconds
-thrust = np.linspace(5000, 200, 20)
+time = np.linspace(0, 15, 200) #200 pts from 0 to 15 seconds
+thrust = np.linspace(5000, 200, 200)
 
 #terminates either within a specified range of the zero (tol) or after a specified number of iterations (n)
 def bisection(f, a, b, tol, n = 100):
@@ -157,7 +167,7 @@ def guesstimate(thrust , time): #takes an array of thrust vs time (say like 20 d
     print(output)
     return output
 
-guesstimate(thrust , time)
+# guesstimate(thrust , time)
 #-------------------------
 
 
