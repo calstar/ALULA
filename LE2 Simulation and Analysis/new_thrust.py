@@ -183,7 +183,7 @@ def thrust(LOX_tank_volume = 0.00757,ETH_tank_volume = 0.006926,Cd_Eth = [0.0000
         pressure_ox = pressure_ox /6894.76
         pressure_eth = pressure_eth /6894.76
         P_chamber = P_chamber/6894.76
-        thrust = chamber.estimate_Ambient_Isp(P_chamber,mdot_LOX/mdot_Eth,eps=4.35)[0]
+        isp = chamber.estimate_Ambient_Isp(P_chamber,mdot_LOX/mdot_Eth,eps=4.35)[0]
         thrust = 9.8*thrust*(mdot_Eth+mdot_LOX)
         output.append(thrust)
         mdot.append(mdot_Eth+mdot_LOX)
