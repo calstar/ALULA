@@ -33,24 +33,26 @@ CdA_inj_ETH = 0.00001078 #faked for testing
 #Fluid Properties (SI units)
 rho_LOX = 1140.0
 rho_ETH = 798.0
-gamma_tanks = 1.67 #edit this stuff for tank decompression calcs
-V_oxtank = 6.92655 #L
-V_ethtank = 7.57 #L
-V_oxinit = 3.5 #OPTMIMIZE THIS
-V_ethinit = 3.5 #OPTIMIZE THIS
-V_oxgas = V_oxtank-V_oxinit
-V_ethgas = V_ethtank - V_ethinit
 
 #Hydraulic Resistance Terms
 R_ox = CdA_inj_LOX*math.sqrt((2*rho_LOX)) #mdot=R*(dP)^1/2
 R_eth = CdA_inj_ETH*math.sqrt((2*rho_ETH)) #mdot=R*(dP)^1/2
+
+#Tank Properties
+gamma_tanks = 1.41 #1.41=GN2, 1.67=GHe
+V_oxtank = 6.92655 #L
+V_ethtank = 7.57 #L
+V_oxinit = 3.65 #OPTMIMIZE THIS
+V_ethinit = 3.75 #OPTIMIZE THIS
+V_oxgas = V_oxtank-V_oxinit
+V_ethgas = V_ethtank - V_ethinit
 
 
 #Initial Tank Pressures
 P_tank_ox_psi = 485.0 #psia
 P_oxtank = P_tank_ox_psi*6895 #Pa
 
-P_tank_eth_psi = 465.0 #psia
+P_tank_eth_psi = 445.0 #psia
 P_ethtank = P_tank_eth_psi*6895 #Pa
 
 #define cstar efficiency: completeion of energy release. See RPE Pg64
