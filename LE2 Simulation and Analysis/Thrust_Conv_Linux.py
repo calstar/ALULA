@@ -24,35 +24,46 @@ class propellant:
     def __str__(self) -> str:
         return self.name
 
+#Fluid Properties (SI units)
+rho_LOX = 1140.0
+rho_ETH = 798.0
 
 #System Test Data Results
 CdA_inj_LOX = 0.00001134 #faked for testing
 CdA_inj_ETH = 0.00001078 #faked for testing
 
+CdA_feed_LOX = 0.0000305333 #faked for testing
+CdA_feed_ETH = 0.0000244267 #faked for testing
 
-#Fluid Properties (SI units)
-rho_LOX = 1140.0
-rho_ETH = 798.0
 
 #Hydraulic Resistance Terms
-R_ox = CdA_inj_LOX*math.sqrt((2*rho_LOX)) #mdot=R*(dP)^1/2
-R_eth = CdA_inj_ETH*math.sqrt((2*rho_ETH)) #mdot=R*(dP)^1/2
+R_ox_inj = 1/(2*(CdA_inj_LOX**2)) #dP=Rhyd*mdot^2/rho
+R_eth_inj = 1/(2*(CdA_inj_ETH**2)) #dP=Rhyd*mdot^2/rho
+
+R_ox_feed = 1/(2*(CdA_feed_LOX**2)) #dP=Rhyd*mdot^2/rho
+R_eth_feed = 1/(2*(CdA_feed_ETH**2)) #dP=Rhyd*mdot^2/rho
+
+R_ox = R_ox_inj + R_ox_feed #Equivalent Hydraulic System Resistance
+R_eth = R_eth_inj + R_ox_feed #Equivalent Hydraulic System Resistance
+
 
 #Tank Properties
 gamma_tanks = 1.41 #1.41=GN2, 1.67=GHe
 V_oxtank = 6.92655 #L
 V_ethtank = 7.57 #L
-V_oxinit = 3.65 #OPTMIMIZE THIS
-V_ethinit = 3.75 #OPTIMIZE THIS
+
+V_oxinit = 3.25 #OPTMIMIZE THIS
+V_ethinit = 3.0 #OPTIMIZE THIS
+
 V_oxgas = V_oxtank-V_oxinit
 V_ethgas = V_ethtank - V_ethinit
 
 
 #Initial Tank Pressures
-P_tank_ox_psi = 485.0 #psia
+P_tank_ox_psi = 475.0 #psia
 P_oxtank = P_tank_ox_psi*6895 #Pa
 
-P_tank_eth_psi = 445.0 #psia
+P_tank_eth_psi = 425.0 #psia
 P_ethtank = P_tank_eth_psi*6895 #Pa
 
 #define cstar efficiency: completeion of energy release. See RPE Pg64
@@ -77,14 +88,14 @@ Pc_test = Pc_test_psi*6895 #Pa
 for i in range(len(Pc_test)):
     
     #solve mass flow from fluid resistances
-    mdot_ox = R_ox*((P_oxtank - Pc_test[i])**(1/2))
-    mdot_eth = R_eth*((P_ethtank - Pc_test[i])**(1/2))
+    mdot_ox = ((1/R_ox)*rho_LOX*(P_oxtank - Pc_test[i]))**(1/2)
+    mdot_eth = ((1/R_eth)*rho_ETH*(P_ethtank - Pc_test[i]))**(1/2)
     mdot_fluid = mdot_ox + mdot_eth
     #get OF ratio
-    OF_ratio = mdot_ox/mdot_eth
+    OF_ratio_test = mdot_ox/mdot_eth
 
     #solve mass flow from CEA 
-    Cstar_fps = chamber.get_Cstar(Pc=Pc_test_psi[i], MR=OF_ratio) #see RPE pg64
+    Cstar_fps = chamber.get_Cstar(Pc=Pc_test_psi[i], MR=OF_ratio_test) #see RPE pg64
     Cstar = Cstar_fps*0.3048 #m
     mdot_CEA = Pc_test[i]*At/(Cstar*Efficiency) #kg/s
 
@@ -104,8 +115,8 @@ plt.show()
 
 def Calculate_Residual(Pc, P_oxtank, P_ethtank):
     #solve mass flow from fluid resistances
-    mdot_ox = R_ox*((P_oxtank - (Pc*6895))**(1/2))
-    mdot_eth = R_eth*((P_ethtank - (Pc*6895))**(1/2))
+    mdot_ox = ((1/R_ox)*rho_LOX*(P_oxtank - (Pc*6895)))**(1/2)
+    mdot_eth = ((1/R_eth)*rho_ETH*(P_ethtank - (Pc*6895)))**(1/2)
     mdot_fluid = mdot_ox + mdot_eth
     #get OF ratio
     OF_ratio = mdot_ox/mdot_eth
@@ -159,7 +170,7 @@ def GradientDescent(guess, P_oxtank, P_ethtank):
 
 
 #reference thrust curve
-time = np.linspace(0, 20, 150) #200 pts from 0 to 15 seconds
+time = np.linspace(0, 20, 200) #200 pts from 0 to 15 seconds
 dt = float(time[1]-time[0])
 print(f"TIMESTEP {dt}")
 OF_array = []
@@ -213,7 +224,7 @@ for i in range(len(time)): #perform this for every timestep in the profile
     if V_oxgas>=(V_oxtank-V_oxtank/250) or V_ethgas>=(V_ethtank-V_ethtank/250):
         oxrem = V_oxtank-V_oxgas
         ethrem = V_ethtank-V_ethgas
-        print(f"Burn finished with {oxrem}L LOX and {ethrem}L ETH")
+        print(f"Burn finished with {oxrem}L LOX and {ethrem}L ETH at Time {i*dt}s")
         break
     
 fig, axs = plt.subplots(2, 2)
@@ -240,6 +251,6 @@ axs[1, 1].plot(time[0:len(Thrust_array)], OF_array)
 axs[1, 1].set_title("OF Ratio")
 axs[1, 1].set_xlabel("Time(s)")
 axs[1, 1].set_ylabel("OF Ratio")
-axs[1, 1].set_ylim(min(OF_array), 2)  # Set y-axis limits
+#axs[1, 1].set_ylim(min(OF_array), 1.85)  # Set y-axis limits
 
 plt.show()
