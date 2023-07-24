@@ -258,19 +258,19 @@ axs[1, 1].set_ylabel("OF Ratio")
 
 #WRITE TO .ENG FILE
 if not os.path.exists("\\wsl.localhost\Debian\home\liam\python-environments\CEAcode\LE2.eng"): #change filename to include the path that you want
-    f = open("\\wsl.localhost\Debian\home\liam\python-environments\CEAcode\LE2.eng", "x")  #change file name here too
+    f = open("LE2.eng", "x")  #change file name here too
     f.close()
-    f = open("\\wsl.localhost\Debian\home\liam\python-environments\CEAcode\LE2.eng", "w")
+    f = open("LE2.eng", "w")
 else:
-    f = open("\\wsl.localhost\Debian\home\liam\python-environments\CEAcode\LE2.eng","w") #and here
+    f = open("LE2.eng","w") #and here
 f.write("; Rocketvision F32" + "\n") #add header file info here. I've added the website default, change it to whatever you want
 f.write("; from NAR data sheet updated 11/2000" + "\n")
 f.write("; created by John Coker 5/2006")
 f.write("F32 24 124 5-10-15 .0377 .0695 RV")
 f.write("\n")  #add a \n whenever you need to move to the next line
 for i in range(len(Thrust_array)):
-    print("sss")
-    f.write("%s" + "%s" + "%s" + str(time[i]) + "%s" + str(Thrust_array[i]) + "\n") 
+    f.write("%s %s \n" % (str(time[i]), str(Thrust_array[i])))
+
 
 
 plt.show()
