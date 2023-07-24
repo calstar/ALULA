@@ -170,7 +170,8 @@ def GradientDescent(guess, P_oxtank, P_ethtank):
 
 
 #reference thrust curve
-time = np.linspace(0, 20, 200) #200 pts from 0 to 15 seconds
+iterations = 200
+time = np.linspace(0, 20, iterations) #200 pts from 0 to 15 seconds
 dt = float(time[1]-time[0])
 print(f"TIMESTEP {dt}")
 OF_array = []
@@ -252,5 +253,24 @@ axs[1, 1].set_title("OF Ratio")
 axs[1, 1].set_xlabel("Time(s)")
 axs[1, 1].set_ylabel("OF Ratio")
 #axs[1, 1].set_ylim(min(OF_array), 1.85)  # Set y-axis limits
+
+
+
+#WRITE TO .ENG FILE
+if not os.path.exists("\\wsl.localhost\Debian\home\liam\python-environments\CEAcode\LE2.eng"): #change filename to include the path that you want
+    f = open("\\wsl.localhost\Debian\home\liam\python-environments\CEAcode\LE2.eng", "x")  #change file name here too
+    f.close()
+    f = open("\\wsl.localhost\Debian\home\liam\python-environments\CEAcode\LE2.eng", "w")
+else:
+    f = open("\\wsl.localhost\Debian\home\liam\python-environments\CEAcode\LE2.eng","w") #and here
+f.write("; Rocketvision F32" + "\n") #add header file info here. I've added the website default, change it to whatever you want
+f.write("; from NAR data sheet updated 11/2000" + "\n")
+f.write("; created by John Coker 5/2006")
+f.write("F32 24 124 5-10-15 .0377 .0695 RV")
+f.write("\n")  #add a \n whenever you need to move to the next line
+for i in range(len(Thrust_array)):
+    print("sss")
+    f.write("%s" + "%s" + "%s" + str(time[i]) + "%s" + str(Thrust_array[i]) + "\n") 
+
 
 plt.show()
