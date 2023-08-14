@@ -172,10 +172,11 @@ def GradientDescent(guess, P_oxtank, P_ethtank):
 
 
 #reference thrust curve
-iterations = 200
+iterations = 250
 time = np.linspace(0, 20, iterations) #200 pts from 0 to 15 seconds
 dt = float(time[1]-time[0])
 print(f"TIMESTEP {dt}")
+Impulse = 0
 OF_array = []
 Thrust_array = []
 P_chamber_array = []
@@ -184,15 +185,16 @@ fin = 0
 
 for i in range(len(time)): #perform this for every timestep in the profile
 
+    #find chamber pressures
     if i == 0:
         Pc_guess = 350
     else:
         Pc_guess = P_chamber_last-5
-    
     P_chamber, Thrust, OF, md_tot = GradientDescent(Pc_guess, P_oxtank, P_ethtank)
     md_ox = md_tot/(
         1+1/OF) 
-    md_eth = md_tot-md_ox
+    md_eth = md_tot-md_ox 
+    Impulse = Impulse + Thrust*dt #kN-s
     
     #print(f"Timestep {dt}")
     masslost_ox = md_ox*dt
@@ -228,6 +230,7 @@ for i in range(len(time)): #perform this for every timestep in the profile
         oxrem = V_oxtank-V_oxgas
         ethrem = V_ethtank-V_ethgas
         print(f"Burn finished with {oxrem}L LOX and {ethrem}L ETH at Time {i*dt}s")
+        print(f"Total Impulse: {Impulse} kN-s")
         break
     
 fig, axs = plt.subplots(2, 2)
@@ -284,6 +287,6 @@ else:
                 f.write("%s %s \n" % (str(time[i]), str(Thrust_array[i])))
         print("Overwritten LE2.eng")
     else: #N
-        print({"File not Saved."})
+        print("File not Saved.")
 
 
