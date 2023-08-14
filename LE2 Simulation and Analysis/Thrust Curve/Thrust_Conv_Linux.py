@@ -29,11 +29,11 @@ rho_LOX = 1140.0
 rho_ETH = 798.0
 
 #System Test Data Results
-CdA_inj_LOX = 0.00001134 #faked for testing
-CdA_inj_ETH = 0.00001078 #faked for testing
+CdA_inj_LOX = 0.00001134 #need data
+CdA_inj_ETH = 0.00001078 #rough data
 
-CdA_feed_LOX = 0.0000305333 #faked for testing
-CdA_feed_ETH = 0.0000244267 #faked for testing
+CdA_feed_LOX = 0.0000305333 #CdA testing
+CdA_feed_ETH = 0.0000244267 #CdA testing
 
 
 #Hydraulic Resistance Terms
@@ -52,21 +52,23 @@ gamma_tanks = 1.41 #1.41=GN2, 1.67=GHe
 V_oxtank = 6.92655 #L
 V_ethtank = 7.57 #L
 
-V_oxinit = 3.25 #OPTMIMIZE THIS
-V_ethinit = 3.0 #OPTIMIZE THIS
-
+V_oxinit = 4.250 #OPTMIMIZE THIS
+V_ethinit = 4.250 #OPTIMIZE THIS
+M_oxinit = V_oxinit*0.001*rho_LOX
+M_ethinit = V_ethinit*0.001*rho_ETH
+print(f"LOX: {M_oxinit} ... ETH: {M_ethinit}")
 V_oxgas = V_oxtank-V_oxinit
 V_ethgas = V_ethtank - V_ethinit
 
 
 #Initial Tank Pressures
-P_tank_ox_psi = 475.0 #psia
+P_tank_ox_psi = 625.0 #psia
 P_oxtank = P_tank_ox_psi*6895 #Pa
 
-P_tank_eth_psi = 425.0 #psia
+P_tank_eth_psi = 550.0 #psia
 P_ethtank = P_tank_eth_psi*6895 #Pa
 
-#define cstar efficiency: completeion of energy release. See RPE Pg64
+#define cstar efficiency: completion of energy release. See RPE Pg64
 Efficiency = 0.925
 chamber = CEA_Obj(propName="", oxName="LOX", fuelName="C2H5OH") #initializs CEA object
 
@@ -110,7 +112,7 @@ plt.xlabel('Chamber Pressure Guess (psia)')
 plt.ylabel('Residual Error (abs(kg/s))')
 plt.title('Chamber Pressure - Residual Solution Space')
 plt.grid(True)
-plt.show()
+# plt.show()
 
 
 def Calculate_Residual(Pc, P_oxtank, P_ethtank):
@@ -254,23 +256,34 @@ axs[1, 1].set_xlabel("Time(s)")
 axs[1, 1].set_ylabel("OF Ratio")
 #axs[1, 1].set_ylim(min(OF_array), 1.85)  # Set y-axis limits
 
-
+plt.show()
 
 #WRITE TO .ENG FILE
-if not os.path.exists("\\wsl.localhost\Debian\home\liam\python-environments\CEAcode\LE2.eng"): #change filename to include the path that you want
-    f = open("LE2.eng", "x")  #change file name here too
-    f.close()
-    f = open("LE2.eng", "w")
+file_path = r"\\wsl.localhost\Debian\home\liam\python-environments\CEAcode\LE2.eng"
+
+if not os.path.exists(file_path):
+    with open(file_path, "w") as f:
+        f.write("; Rocketvision F32" + "\n") #add header file info here. I've added the website default, change it to whatever you want
+        f.write("; from NAR data sheet updated 11/2000" + "\n")
+        f.write("; created by John Coker 5/2006")
+        f.write("F32 24 124 5-10-15 .0377 .0695 RV")
+        f.write("\n")  #add a \n whenever you need to move to the next line
+        for i in range(len(Thrust_array)):
+            f.write("%s %s \n" % (str(time[i]), str(Thrust_array[i])))
+            print("Saving File as LE2.eng")
 else:
-    f = open("LE2.eng","w") #and here
-f.write("; Rocketvision F32" + "\n") #add header file info here. I've added the website default, change it to whatever you want
-f.write("; from NAR data sheet updated 11/2000" + "\n")
-f.write("; created by John Coker 5/2006")
-f.write("F32 24 124 5-10-15 .0377 .0695 RV")
-f.write("\n")  #add a \n whenever you need to move to the next line
-for i in range(len(Thrust_array)):
-    f.write("%s %s \n" % (str(time[i]), str(Thrust_array[i])))
+    Act = input("LE2.eng File Exists. Overwrite? (Y/N): ")
+    if Act.upper() == "Y":
+        with open(file_path, "w") as f:
+            f.write("; Rocketvision F32" + "\n") #add header file info here. I've added the website default, change it to whatever you want
+            f.write("; from NAR data sheet updated 11/2000" + "\n")
+            f.write("; created by John Coker 5/2006")
+            f.write("F32 24 124 5-10-15 .0377 .0695 RV")
+            f.write("\n")  #add a \n whenever you need to move to the next line
+            for i in range(len(Thrust_array)):
+                f.write("%s %s \n" % (str(time[i]), str(Thrust_array[i])))
+        print("Overwritten LE2.eng")
+    else: #N
+        print({"File not Saved."})
 
 
-
-plt.show()
