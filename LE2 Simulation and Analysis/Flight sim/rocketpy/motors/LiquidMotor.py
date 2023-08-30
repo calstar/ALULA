@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-
 __author__ = "Giovani Hidalgo Ceotto, Oscar Mauricio Prada Ramirez, João Lemes Gribel Soares, Mateus Stano Junqueira, Pedro Henrique Marinho Bressan, Patrick Bales, Lakshman Peri, Gautam Yarramreddy, Curtis Hu, and William Bradford"
 __copyright__ = "Copyright 20XX, RocketPy Team"
 __license__ = "MIT"
