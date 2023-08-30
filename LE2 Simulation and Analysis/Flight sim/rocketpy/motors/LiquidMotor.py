@@ -45,7 +45,8 @@ class LiquidMotor(Motor):
         Motor.dry_mass : float
             The total mass of the motor structure, including chambers
             and tanks, when it is empty and does not contain any propellant.
-        Motor.propellant_initial_mass : float
+        Motor.
+        : float
             Total propellant initial mass in kg, includes
             fuel and oxidizer.
         Motor.total_mass : Function
@@ -305,7 +306,7 @@ class LiquidMotor(Motor):
             Calculates the total mass flow rate of the motor assuming
             constant exhaust velocity.
         """
-        mass_flow_rate = 0
+        mass_flow_rate = 0 
 
         for positioned_tank in self.positioned_tanks:
             mass_flow_rate += positioned_tank.get("tank").net_mass_flow_rate
@@ -323,16 +324,16 @@ class LiquidMotor(Motor):
         Function
             Center of mass of the motor, in meters.
         """
-        total_mass = 12.685+4.845+3.3915 ###
-        massBalance = 0
+        total_mass = 12.685+4.845+3.3915 ####################################################################Update as needed
+        mass_balance = 0
 
         for positioned_tank in self.positioned_tanks:
             tank = positioned_tank.get("tank")
-            tankPosition = positioned_tank.get("position")
+            tank_position = positioned_tank.get("position")
             total_mass += tank.fluid_mass
-            massBalance += tank.fluid_mass * (tankPosition + tank.center_of_mass)
-
-        return massBalance / total_mass
+            mass_balance += tank.fluid_mass * (tank_position + tank.center_of_mass)
+ 
+        return mass_balance / total_mass
 
     @funcify_method("Time (s)", "Inertia I_11 (kg m²)")
     def propellant_I_11(self):
@@ -359,11 +360,11 @@ class LiquidMotor(Motor):
 
         for positioned_tank in self.positioned_tanks:
             tank = positioned_tank.get("tank")
-            tankPosition = positioned_tank.get("position")
+            tank_position = positioned_tank.get("position")
             I_11 += (
                 tank.inertia
                 + tank.fluid_mass
-                * (tankPosition + tank.center_of_mass - center_of_mass) ** 2
+                * (tank_position + tank.center_of_mass - center_of_mass) ** 2
             )
 
         return I_11
