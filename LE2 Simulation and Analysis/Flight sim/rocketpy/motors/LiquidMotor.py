@@ -271,7 +271,7 @@ class LiquidMotor(Motor):
         Function
             Mass of the motor, in kg.
         """
-        propellant_mass = 0
+        propellant_mass = 4.845+3.3915 ########################################################Update as needed
 
         for positioned_tank in self.positioned_tanks:
             propellant_mass += positioned_tank.get("tank").fluid_mass
@@ -323,7 +323,7 @@ class LiquidMotor(Motor):
         Function
             Center of mass of the motor, in meters.
         """
-        total_mass = 0
+        total_mass = 12.685+4.845+3.3915 ###
         massBalance = 0
 
         for positioned_tank in self.positioned_tanks:
