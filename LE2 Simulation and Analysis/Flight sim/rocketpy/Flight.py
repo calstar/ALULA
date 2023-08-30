@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-
 __author__ = (
     "Giovani Hidalgo Ceotto, Guilherme Fernandes Alves, João Lemes Gribel Soares"
 )
