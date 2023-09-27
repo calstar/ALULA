@@ -323,7 +323,7 @@ class LiquidMotor(Motor):
         Function
             Center of mass of the motor, in meters.
         """
-        total_mass = 12.685+4.845+3.3915 ####################################################################Update as needed
+        total_mass = self.propellant_initial_mass ##Update as needed
         mass_balance = 0
 
         for positioned_tank in self.positioned_tanks:
