@@ -312,7 +312,7 @@ class Rocket:
             return False
 
         # Calculate total mass by summing up propellant and dry mass
-        self.total_mass = self.mass + self.motor.total_mass
+        self.total_mass = self.mass + self.motor.propellant_mass #################
         self.total_mass.set_outputs("Total Mass (Rocket + Propellant) (kg)")
 
         # Return total mass
