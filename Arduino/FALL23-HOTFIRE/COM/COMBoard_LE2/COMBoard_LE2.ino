@@ -19,9 +19,9 @@ int DEBUG = 0;
 
 Switch SWITCH_ARMED = Switch(14);  //correct
 Switch SWITCH_PRESS = Switch(12);  //correct
-Switch SWITCH_QD = Switch(26);   //  correct                                  
-Switch SWITCH_IGNITION = Switch(21);  
-Switch SWITCH_HOTFIRE = Switch(23);   
+Switch SWITCH_QD = Switch(26);   //  correct
+Switch SWITCH_IGNITION = Switch(21);
+Switch SWITCH_HOTFIRE = Switch(23);
 Switch SWITCH_ABORT = Switch(18);
 #define LED_ARMED 13   //correct
 #define LED_PRESSETH 25 //correct
@@ -30,13 +30,13 @@ Switch SWITCH_ABORT = Switch(18);
 #define LED_QD 27 //correct
 #define LED_IGNITION 19 //
 #define LED_HOTFIRE 22  //correct
-#define LED_ABORT 5 
+#define LED_ABORT 5
 
 float pressTime = 0;
 
  String success;
 String message;
- int commandedState;
+ int COMState;
 int incomingByte = 0;
 int incomingMessageTime;
  float incomingPT1 = 4; //PT errors when initialized to zero
@@ -95,23 +95,23 @@ uint8_t broadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x51, 0xEC, 0x94}; //Core board 
 //Must match the receiver structure
 typedef struct struct_message {
      int messageTime;
-     float pt1;
-     float pt2;
-     float pt3;
-     float pt4;
-     float pt5;
-     float lc1;
-     float lc2;
-     float lc3;
-     float tc1;
-     float tc2;
-     int commandedState;
+     float PT_O1;
+     float PT_O2;
+     float PT_E1;
+     float PT_E2;
+     float PT_C1;
+     float LC_1;
+     float LC_2;
+     float LC_3;
+     float TC_1;
+     float TC_2;
+     int COMState;
      int DAQState;
-     short int queueSize;
+     short int queueLength;
      bool pressComplete;
      bool ethComplete;
      bool oxComplete;
-} struct_message; 
+} struct_message;
 
 // Create a struct_message called Readings to recieve sensor readings remotely
 struct_message incomingReadings;
@@ -144,7 +144,7 @@ void setup() {
   digitalWrite(LED_HOTFIRE, LOW);
   digitalWrite(LED_ABORT, LOW);
 
- 
+
 
   while(SWITCH_ABORT.on()){digitalWrite(LED_ABORT, HIGH);}
 
@@ -156,7 +156,7 @@ void setup() {
     Serial.println("Error initializing ESP-NOW");
     return;
   }
-  
+
   esp_now_register_send_cb(OnDataSent);
 
   // Register peer
@@ -170,7 +170,7 @@ void setup() {
     return;
   }
 
-  
+
   // Register for a callback function that will be called when data is received
   esp_now_register_recv_cb(OnDataRecv);
 
@@ -207,7 +207,7 @@ void loop(){
 // if (DEBUG ==1) {
 //  Serial.println(state);
 // }
- 
+
   case (IDLE): //Includes polling
     idle();
     if (SWITCH_ABORT.on()) {serialState=ABORT;}
@@ -221,18 +221,18 @@ void loop(){
     if (SWITCH_ABORT.on()) {serialState=ABORT;}
     if (SWITCH_PRESS.on()) {serialState=PRESS;}
     if(!SWITCH_ARMED.on()) {serialState=IDLE;}
-   
+
     state = serialState;
     break;
 
-  case (PRESS): 
+  case (PRESS):
    // press();
     if (SWITCH_ABORT.on()) {serialState=ABORT;}
     if (DAQState == PRESS) {digitalWrite(LED_PRESS, HIGH);}
     if (ethComplete) {digitalWrite(LED_PRESSETH, HIGH);}
     if (oxComplete) {digitalWrite(LED_PRESSLOX, HIGH);}
     if (!ethComplete) {digitalWrite(LED_PRESSETH, LOW);}
-    if (!oxComplete) {digitalWrite(LED_PRESSLOX, LOW);}   
+    if (!oxComplete) {digitalWrite(LED_PRESSLOX, LOW);}
     if (SWITCH_QD.on()) {serialState=QD;}  //add pressComplete && later
     //add return to idle functionality hyer
     dataSendCheck();
@@ -267,12 +267,12 @@ void loop(){
     if (SWITCH_ABORT.on()) {serialState=ABORT;}
     if (DAQState == HOTFIRE) {digitalWrite(LED_HOTFIRE, HIGH);}
     dataSendCheck();
-   
+
     state = serialState;
     break;
-  
+
   case (ABORT):
-    if (DAQState == ABORT) {digitalWrite(LED_ABORT, HIGH);} 
+    if (DAQState == ABORT) {digitalWrite(LED_ABORT, HIGH);}
     digitalWrite(LED_ABORT, HIGH);
     digitalWrite(LED_IGNITION,LOW);
     digitalWrite(LED_QD, LOW);
@@ -284,7 +284,7 @@ void loop(){
     state = ABORT;
     dataSendCheck();
     if(!SWITCH_QD.on() && !SWITCH_PRESS.on() && !SWITCH_ARMED.on() && !SWITCH_IGNITION.on() && !SWITCH_HOTFIRE.on() && !SWITCH_ABORT.on()) {serialState=IDLE;}
-    state = serialState;     
+    state = serialState;
     break;
 
 //  case (DEBUG):
@@ -294,9 +294,9 @@ void loop(){
 //    debug();
 //    break;
   }
-    
+
   }
- 
+
  void turnoffLEDs() {
     digitalWrite(LED_ARMED, LOW);
     digitalWrite(LED_PRESS, LOW);
@@ -316,14 +316,14 @@ void idle() {
 
 
 void dataSendCheck() {
- 
-    dataSend(); 
-  
+
+    dataSend();
+
 }
 
 void dataSend() {
   // Set values to send
-  Commands.commandedState = state;
+  Commands.COMState = state;
 
   // Send message via ESP-NOW
   esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &Commands, sizeof(Commands));
@@ -334,26 +334,26 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
 // Serial.print("Bytes received: ");
 //  Serial.println(len);
   DAQState = incomingReadings.DAQState;
-  incomingPT1 = incomingReadings.pt1; //LOX Tank PT
-  incomingPT2 = incomingReadings.pt2; //LOX Injector PT
-  incomingPT3 = incomingReadings.pt3; //ETH Tank PT
-  incomingPT4 = incomingReadings.pt4; //ETH Injector PT
-  incomingPT5 = incomingReadings.pt5; //COMBUSTION CHAMBER PT
-  incomingLC1 = incomingReadings.lc1; 
-  incomingLC2 = incomingReadings.lc2;
-  incomingLC3 = incomingReadings.lc3;
-  incomingTC1 = incomingReadings.tc1; //Phenolic-Interface Thermocouple
-  incomingTC2 = incomingReadings.tc2;
+  incomingPT1 = incomingReadings.PT_O1; //LOX Tank PT
+  incomingPT2 = incomingReadings.PT_O2; //LOX Injector PT
+  incomingPT3 = incomingReadings.PT_E1; //ETH Tank PT
+  incomingPT4 = incomingReadings.PT_E2; //ETH Injector PT
+  incomingPT5 = incomingReadings.PT_C1; //COMBUSTION CHAMBER PT
+  incomingLC1 = incomingReadings.LC_1;
+  incomingLC2 = incomingReadings.LC_2;
+  incomingLC3 = incomingReadings.LC_3;
+  incomingTC1 = incomingReadings.TC_1; //Phenolic-Interface Thermocouple
+  incomingTC2 = incomingReadings.TC_2;
   pressComplete = incomingReadings.pressComplete;
   oxComplete = incomingReadings.oxComplete;
   ethComplete = incomingReadings.ethComplete;
-  queueSize = incomingReadings.queueSize;
+  queueSize = incomingReadings.queueLength;
   receiveDataPrint();
-  
 
-  
 
-  
+
+
+
 }
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
   // Serial.print("\r\nLast Packet Send Status:\t");
@@ -394,7 +394,7 @@ void receiveDataPrint() {
   // message.concat(" ");
   // message.concat(incomingCap2);
   // message.concat(" ");
-  message.concat(Commands.commandedState);
+  message.concat(Commands.COMState);
   message.concat(" ");
   message.concat(DAQState);
   message.concat(" ");
