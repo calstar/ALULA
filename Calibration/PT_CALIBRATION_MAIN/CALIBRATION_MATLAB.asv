@@ -7,7 +7,7 @@ close all; clear;
 clear;
 
 % create our clean up object for interrupt
-cleanupObj = onCleanup(@cleanMeUp(arrayMatch, SerialPortOpened));
+cleanupObj = onCleanup(@cleanMeUp);
 
 %% User Control
 % Linear least square method is used in this code. 
@@ -134,14 +134,14 @@ if serialPortOpened == 1
         end
     end
 end
-    function cleanMeUp(arrayMatch, serialPortOpened)
+    function C()
         if arrayMatch == 1 && serialPortOpened == 1
             instrreset;
 
             % saves data to file (or could save to workspace)
             fprintf('saving test data as %s.xls\n',fileName)
 
-            prompt = "What is the pressure gauge reading? (Numbers only) \n";
+            prompt = "What is the pressure gage reading? (Numbers only) \n";
             reading = input(prompt);
 
             %         str2double(reading);
