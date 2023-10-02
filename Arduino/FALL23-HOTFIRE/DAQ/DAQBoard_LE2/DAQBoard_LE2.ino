@@ -19,15 +19,15 @@ This code runs on the DAQ ESP32 and has a couple of main tasks.
 //::::::Global Variables::::::://
 
 // DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE.
-int DEBUG = 0;     // Simulate LOX and Eth fill.
+int DEBUG = 1;     // Simulate LOX and Eth fill.
 int WIFIDEBUG = 0; // Don't send data.
 
 // MODEL DEFINED PARAMETERS FOR TEST/HOTFIRE. Pressures in psi //
-float pressureFuel  = 412;  // Set pressure for fuel: 412
-float pressureOx    = 445;  // Set pressure for lox: 445
+float pressureFuel  = 450;  // Set pressure for fuel: 412
+float pressureOx    = 475;  // Set pressure for lox: 445
 float threshold     = 0.97; // re-pressurrization threshold (/1x)
-float ventTo        = 10;   // c2se solenoids at this pressure to preserve lifetime.
-float LOXventing    = 30;   // pressure at which ethanol begins venting
+float ventTo        = 25;   // c2se solenoids at this pressure to preserve lifetime.
+float LOXventing    = 40;   // pressure at which ethanol begins venting
 #define abortPressure 525   // Cutoff pressure to automatically trigger abort
 #define period        0.5   // Sets period for bang-bang control
 float sendDelay     = 250;  // Sets frequency of data collection. 1/(sendDelay*10^-3) is frequency in Hz
@@ -49,16 +49,16 @@ typedef struct struct_hx711 {
 #define HX_CLK 27
 
 // PRESSURE TRANSDUCERS
-struct_hx711 PT_O1 {{}, -1, HX_CLK, 36, 1.32, 0.0000412};
-struct_hx711 PT_O2 {{}, -1, HX_CLK, 39, 7.25, 0.000102};
-struct_hx711 PT_E1 {{}, -1, HX_CLK, 35, -28.97, 0.0051};
-// struct_hx711 PT_E2 {{}, -1, HX_CLK, 35, 2954, -1.423}; // Change GPIO PIN
-struct_hx711 PT_C1 {{}, -1, HX_CLK, 32, -4.763, 0.0001055};
+struct_hx711 PT_O1 {{}, -1, HX_CLK, 36, 0, 0.0000412};
+struct_hx711 PT_O2 {{}, -1, HX_CLK, 39, 0, 0.0000412};
+struct_hx711 PT_E1 {{}, -1, HX_CLK, 34, 0, 0.0000412};
+struct_hx711 PT_E2 {{}, -1, HX_CLK, 35, 0, 0.0000412}; // Change GPIO PIN
+struct_hx711 PT_C1 {{}, -1, HX_CLK, 32, 0, 0.0000412};
 
 // LOADCELLS
-struct_hx711 LC_1  {{}, -1, HX_CLK, 33, 10.663, 0.0007518};
-struct_hx711 LC_2  {{}, -1, HX_CLK, 25, 10.663, 0.0007687};
-struct_hx711 LC_3  {{}, -1, HX_CLK, 26, 10.663, 0.0007687};
+struct_hx711 LC_1  {{}, -1, HX_CLK, 33, 0, 0.0000412};
+struct_hx711 LC_2  {{}, -1, HX_CLK, 25, 0, 0.0000412};
+struct_hx711 LC_3  {{}, -1, HX_CLK, 26, 0, 0.0000412};
 
 // THERMOCOUPLES
 typedef struct struct_max31855 {
@@ -178,6 +178,7 @@ uint8_t broadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x50, 0x23, 0x34};
 // Callback when data is received
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   memcpy(&Commands, incomingData, sizeof(Commands));
+  COMState = Commands.COMState;
 }
 
 // Initialize all sensors and parameters.
@@ -262,9 +263,9 @@ void loop() {
   if (DEBUG || COMState == ABORT) {
     syncDAQState();
   }
-
+//  Serial.print("testing");
   logData();
-
+//  Serial.print("made it");
   sendDelay = GEN_DELAY;
   switch (DAQState) {
     case (IDLE):
@@ -279,7 +280,7 @@ void loop() {
       break;
 
     case (PRESS):
-      if (COMState == QD && oxComplete && ethComplete) {
+      if (COMState == QD && oxComplete && ethComplete || COMState == IDLE) {
         syncDAQState();
         int pressStart = millis();
       }
@@ -287,12 +288,12 @@ void loop() {
       break;
 
     case (QD):
-      if (COMState == IGNITION) { syncDAQState(); }
+      if (COMState == IGNITION || COMState == IDLE) { syncDAQState(); }
       quick_disconnect();
       break;
 
     case (IGNITION):
-      if (COMState == HOTFIRE) {
+      if (COMState == HOTFIRE || COMState == IDLE) {
         syncDAQState();
         hotfireStart = millis();
         }
@@ -320,6 +321,7 @@ void reset() {
   oxVentComplete = false;
   ethVentComplete = false;
 }
+
 
 void idle() {
   // mosfetCloseValve(MOSFET_LOX_MAIN);
@@ -443,9 +445,10 @@ void abort_sequence() {
 
 // Get commanded state from COM board.
 void fetchCOMState() {
-  COMState = Commands.COMState;
+//    Serial.print("Infetchmode");
   if (Serial.available() > 0) {
     COMState = Serial.read() - 48;
+    Serial.print("GOT NEW STATE FROM SERIAL");
     delay(50);
     // Serial.println(COMState);
   }
@@ -482,30 +485,37 @@ void mosfetOpenValve(int num){
 }
 
 
+
+
 //::::::DATA LOGGING AND COMMUNICATION::::::://
 void logData() {
+//  Serial.print("inLogData");
   getReadings();
+//  Serial.print("GotReadings");
   printSensorReadings();
   if (millis()-sendTime > sendDelay) {
     sendTime = millis();
     sendData();
+    Serial.print("SentData");
+
     // saveData();
   }
 }
 
 void getReadings(){
-  if (!DEBUG) {
+   if (!DEBUG){
     PT_O1.reading = PT_O1.slope * PT_O1.scale.read() + PT_O1.offset;
-    // rPT_O2.reading = PT_O2.slope * PT_O2.scale.read() + PT_O2.offset;
+    PT_O2.reading = PT_O2.slope * PT_O2.scale.read() + PT_O2.offset;
     PT_E1.reading = PT_E1.slope * PT_E1.scale.read() + PT_E1.offset;
-    // PT_E2.reading = PT_E2.slope * PT_E2.scale.read() + PT_E2.offset;
+    PT_E2.reading = PT_E2.slope * PT_E2.scale.read() + PT_E2.offset;
     PT_C1.reading = PT_C1.slope * PT_C1.scale.read() + PT_C1.offset;
     LC_1.reading  = LC_1.slope  * LC_1.scale.read()  + LC_1.offset;
     LC_2.reading  = LC_2.slope  * LC_2.scale.read()  + LC_2.offset;
     LC_3.reading  = LC_3.slope  * LC_3.scale.read()  + LC_3.offset;
     // TC_1.reading = TC_1.scale.readCelsius();
     // TC_2.reading = TC_2.scale.readCelsius();
-  }
+    // TC_2.reading = TC_2.scale.readCelsius();
+    }
 }
 
 void printSensorReadings() {
@@ -518,8 +528,8 @@ void printSensorReadings() {
   serialMessage.concat(" ");
   serialMessage.concat(PT_E1.reading);
   serialMessage.concat(" ");
-  // serialMessage.concat(PT_E2.reading);
-  // serialMessage.concat(" ");
+  serialMessage.concat(PT_E2.reading);
+  serialMessage.concat(" ");
   serialMessage.concat(PT_C1.reading);
   serialMessage.concat(" ");
   serialMessage.concat(LC_1.reading);
@@ -528,16 +538,18 @@ void printSensorReadings() {
   serialMessage.concat(" ");
   serialMessage.concat(LC_3.reading);
   serialMessage.concat(" ");
-  serialMessage.concat(TC_1.reading);
-  serialMessage.concat(" ");
-  serialMessage.concat(TC_2.reading);
-  serialMessage.concat(" ");
-  serialMessage.concat(DAQState);
+//  serialMessage.concat(TC_1.reading);
+//  serialMessage.concat(" ");
+//  serialMessage.concat(TC_2.reading);
+//  serialMessage.concat(" ");
+  serialMessage.concat(state_names[DAQState]);
   //  serialMessage.concat(readingCap1);
   //  serialMessage.concat(" ");
   //  serialMessage.concat(readingCap2);
   serialMessage.concat(" Queue Length: ");
   serialMessage.concat(queueLength);
+  if (DEBUG) {
+  Serial.println(serialMessage);}
 }
 
 // Send data to COM board.
@@ -560,6 +572,7 @@ void addPacketToQueue() {
     PacketQueue[queueLength].LC_3        = LC_3.reading;
     PacketQueue[queueLength].TC_1        = TC_1.reading;
     PacketQueue[queueLength].TC_2        = TC_2.reading;
+    // PacketQueue[queueLength].TC_3        = TC_3.reading; // sinc daq and com when adding tcs
     PacketQueue[queueLength].queueLength = queueLength;
     PacketQueue[queueLength].DAQState    = DAQState;
     PacketQueue[queueLength].oxComplete  = oxComplete;
