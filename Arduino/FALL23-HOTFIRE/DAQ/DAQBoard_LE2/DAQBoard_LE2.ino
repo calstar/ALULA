@@ -24,8 +24,8 @@ int DEBUG = 0;     // Simulate LOX and Eth fill.
 int WIFIDEBUG = 0; // Don't send/receive data.
 
 // MODEL DEFINED PARAMETERS FOR TEST/HOTFIRE. Pressures in psi //
-float pressureFuel  = 450;  // Set pressure for fuel: 412
-float pressureOx    = 475;  // Set pressure for lox: 445
+float pressureFuel  = 100;//450;  // Set pressure for fuel: 412
+float pressureOx    = 100;//475;  // Set pressure for lox: 445
 float threshold     = 0.97; // re-pressurrization threshold (/1x)
 float ventTo        = 25;   // c2se solenoids at this pressure to preserve lifetime.
 float LOXventing    = 40;   // pressure at which ethanol begins venting
@@ -50,11 +50,11 @@ typedef struct struct_hx711 {
 #define HX_CLK 27
 
 // PRESSURE TRANSDUCERS
-struct_hx711 PT_O1 {{}, -1, HX_CLK, 36, .offset=0, .slope=0.0000412};
-struct_hx711 PT_O2 {{}, -1, HX_CLK, 39, .offset=0, .slope=0.0000412};
-struct_hx711 PT_E1 {{}, -1, HX_CLK, 34, .offset=0, .slope=0.0000412};
-struct_hx711 PT_E2 {{}, -1, HX_CLK, 35, .offset=0, .slope=0.0000412}; // Change GPIO PIN
-struct_hx711 PT_C1 {{}, -1, HX_CLK, 32, .offset=0, .slope=0.0000412};
+struct_hx711 PT_O1 {{}, -1, HX_CLK, 36, .offset=-89.22, .slope=0.007522};
+struct_hx711 PT_O2 {{}, -1, HX_CLK, 39, .offset=-80.88, .slope=0.006633};
+struct_hx711 PT_E1 {{}, -1, HX_CLK, 34, .offset=-85.11, .slope=0.006729};
+struct_hx711 PT_E2 {{}, -1, HX_CLK, 35, .offset=-84.02, .slope=0.007220}; // Change GPIO PIN
+struct_hx711 PT_C1 {{}, -1, HX_CLK, 32, .offset=-79.94, .slope=0.006853};
 
 // LOADCELLS
 struct_hx711 LC_1  {{}, -1, HX_CLK, 33, .offset=0, .slope=0.0000412};
@@ -70,13 +70,16 @@ typedef struct struct_max31855 {
   float slope;
 } struct_max31855;
 
-#define TC_CLK 1 // fix this.
-#define TC_DO  1 // fix this.
+#define TC_CLK 14
+#define TC_DO  13
 
-struct_max31855 TC_1 {Adafruit_MAX31855(TC_CLK, 16, TC_DO), -1, 16, .offset=0, .slope=0};
-struct_max31855 TC_2 {Adafruit_MAX31855(TC_CLK, 4, TC_DO), -1, 4, .offset=0, .slope=0};
+#define SD_CLK 18
+#define SD_DO  23
+
+struct_max31855 TC_1 {Adafruit_MAX31855(TC_CLK, 17, TC_DO), -1, 17, .offset=0, .slope=0};
+struct_max31855 TC_2 {Adafruit_MAX31855(TC_CLK, 16, TC_DO), -1, 16, .offset=0, .slope=0};
 struct_max31855 TC_3 {Adafruit_MAX31855(TC_CLK, 4, TC_DO), -1, 4, .offset=0, .slope=0};
-struct_max31855 TC_4 {Adafruit_MAX31855(TC_CLK, 4, TC_DO), -1, 4, .offset=0, .slope=0};
+struct_max31855 TC_4 {Adafruit_MAX31855(TC_CLK, 15, TC_DO), -1, 15, .offset=0, .slope=0};
 
 // GPIO expander
 #define I2C_SDA 21
@@ -108,15 +111,13 @@ int COMState;
 int DAQState;
 bool ethComplete = false;
 bool oxComplete = false;
-bool pressComplete = false ;
 bool oxVentComplete = false;
 bool ethVentComplete = false;
 int hotfireStart;
-int filt_sz = 15
 
 // Delay between loops.
 #define IDLE_DELAY 250
-#define GEN_DELAY 25
+#define GEN_DELAY 20
 
 
 //::::DEFINE READOUT VARIABLES:::://
@@ -143,8 +144,6 @@ typedef struct struct_message {
   int COMState;
   int DAQState;
   short int queueLength;
-  short int memLength;
-  bool pressComplete;
   bool ethComplete;
   bool oxComplete;
   // bool oxvent;
@@ -152,41 +151,10 @@ typedef struct struct_message {
   // bool VentComplete;
 } struct_message;
 
-// Must match the receiver structure.
-typedef struct sensor_mem {
-  int messageTime[];
-  float PT_O1[];
-  float PT_O2[];
-  float PT_E1[];
-  float PT_E2[];
-  float PT_C1[];
-  float LC_1[];
-  float LC_2[];
-  float LC_3[];
-  float TC_1[];
-  float TC_2[];
-} sensor_mem;
-
-typedef struct sensor_avg {
-  int messageTime[];
-  float PT_O1;
-  float PT_O2;
-  float PT_E1;
-  float PT_E2;
-  float PT_C1;
-  float LC_1;
-  float LC_2;
-  float LC_3;
-  float TC_1;
-  float TC_2;
-} sensor_avg;
-
-
 // Create a struct_message called Packet to be sent.
 struct_message Packet;
 // Create a queue for Packet in case Packets are dropped.
 struct_message PacketQueue[120];
-struct_message MemPacket[filt_sz];
 
 // Create a struct_message to hold incoming commands
 struct_message Commands;
@@ -225,9 +193,9 @@ void setup() {
 
   // HX711.
   PT_O1.scale.begin(PT_O1.gpio, PT_O1.clk); PT_O1.scale.set_gain(64);
-  // PT_O2.scale.begin(PT_O2.gpio, PT_O2.clk); PT_O2.scale.set_gain(64);
-  PT_E1.scale.begin(PT_E1.gpio, PT_E1.clk);       PT_E1.scale.set_gain(64);
-  // PT_E2.scale.begin(PT_E2.gpio, PT_E2.clk); PT_E2.scale.set_gain(64);
+  PT_O2.scale.begin(PT_O2.gpio, PT_O2.clk); PT_O2.scale.set_gain(64);
+  PT_E1.scale.begin(PT_E1.gpio, PT_E1.clk); PT_E1.scale.set_gain(64);
+  PT_E2.scale.begin(PT_E2.gpio, PT_E2.clk); PT_E2.scale.set_gain(64);
   PT_C1.scale.begin(PT_C1.gpio, PT_C1.clk); PT_C1.scale.set_gain(64);
   LC_1.scale.begin(LC_1.gpio, LC_1.clk);    LC_1.scale.set_gain(64);
   LC_2.scale.begin(LC_2.gpio, LC_2.clk);    LC_2.scale.set_gain(64);
@@ -292,13 +260,7 @@ void setup() {
 
 // Main Structure of State Machine.
 void loop() {
-  Serial.println("Loop");
   fetchCOMState();
-  if (DEBUG) {
-    Serial.print(DAQState);
-    Serial.print(" ");
-    Serial.println(state_names[DAQState]);
-  }
   if (DEBUG || COMState == ABORT) {
     syncDAQState();
   }
@@ -356,7 +318,6 @@ void loop() {
 void reset() {
   oxComplete = false;
   ethComplete = false;
-  pressComplete = false;
   oxVentComplete = false;
   ethVentComplete = false;
   PT_O1.reading = -1;
@@ -394,42 +355,27 @@ void armed() {
 }
 
 void press() {
-  if (sensor_avg.PT_01 < pressureOx*threshold || sensor_avg.PT_E1 < pressureFuel*threshold) {
-    if (!(oxComplete && ethComplete)) {
-      if (PT_O1.reading < pressureOx*threshold) {
-        mosfetOpenValve(MOSFET_LOX_PRESS);
-        if (DEBUG) {
-          PT_O1.reading += 10;
-        }
-      } else {
-        mosfetCloseValve(MOSFET_LOX_PRESS);
-        oxComplete = true;
+  if (!(oxComplete && ethComplete)) {
+    if (PT_O1.reading < pressureOx*threshold) {
+      mosfetOpenValve(MOSFET_LOX_PRESS);
+      if (DEBUG) {
+        PT_O1.reading += 10;
       }
-      if (PT_E1.reading < pressureFuel*threshold) {
-        mosfetOpenValve(MOSFET_ETH_PRESS);
-        if (DEBUG) {
-          PT_E1.reading += 20;
-        }
-      } else {
-        mosfetCloseValve(MOSFET_ETH_PRESS);
-        ethComplete = true;
+    } else {
+      mosfetCloseValve(MOSFET_LOX_PRESS);
+      oxComplete = true;
+    }
+    if (PT_E1.reading < pressureFuel*threshold) {
+      mosfetOpenValve(MOSFET_ETH_PRESS);
+      if (DEBUG) {
+        PT_E1.reading += 20;
       }
+    } else {
+      mosfetCloseValve(MOSFET_ETH_PRESS);
+      ethComplete = true;
     }
   }
   CheckAbort();
-}
-
-void ignition() {
-  mosfetOpenValve(MOSFET_IGNITER);
-}
-
-void hotfire() {
-  mosfetOpenValve(MOSFET_ETH_MAIN);
-  if (millis() >= hotfireStart+3000) {
-    mosfetCloseValve(MOSFET_LOX_MAIN);
-  } else {
-    mosfetOpenValve(MOSFET_LOX_MAIN);
-  }
 }
 
 // Disconnect harnessings and check state of rocket.
@@ -449,6 +395,19 @@ void quick_disconnect() {
   // }
 
   CheckAbort();
+}
+
+void ignition() {
+  mosfetOpenValve(MOSFET_IGNITER);
+}
+
+void hotfire() {
+  mosfetOpenValve(MOSFET_ETH_MAIN);
+  if (millis() >= hotfireStart+3000) {
+    mosfetCloseValve(MOSFET_LOX_MAIN);
+  } else {
+    mosfetOpenValve(MOSFET_LOX_MAIN);
+  }
 }
 
 void abort_sequence() {
@@ -512,7 +471,7 @@ void syncDAQState() {
 }
 
 void CheckAbort() {
-  if (COMState == ABORT || sensor_avg.PT_01 >= abortPressure || sensor_avg.PT_E1 >= abortPressure) {
+  if (COMState == ABORT || PT_O1.reading >= abortPressure || PT_E1.reading >= abortPressure) {
     mosfetCloseValve(MOSFET_ETH_PRESS);
     mosfetCloseValve(MOSFET_LOX_PRESS);
     DAQState = ABORT;
@@ -520,18 +479,18 @@ void CheckAbort() {
 }
 
 void mosfetCloseAllValves(){
-  if (mosfet_pcf_found && !DEBUG) {
+  if (mosfet_pcf_found /*&& !DEBUG*/) {
     mosfet_pcf.setAllBitsDown();
   }
 }
 void mosfetCloseValve(int num){
   // For NMOS, LOW=OFF, and HIGH=ON.
-  if (mosfet_pcf_found && !DEBUG) {
+  if (mosfet_pcf_found/* && !DEBUG*/) {
     mosfet_pcf.setLeftBitDown(num);
   }
 }
 void mosfetOpenValve(int num){
-  if (mosfet_pcf_found && !DEBUG) {
+  if (mosfet_pcf_found /*&& !DEBUG*/) {
     mosfet_pcf.setLeftBitUp(num);
   }
 }
@@ -564,45 +523,6 @@ void getReadings(){
     // TC_2.reading = TC_2.scale.readCelsius();
     // TC_2.reading = TC_2.scale.readCelsius();
   }
-  addmem()
-}
-
-void addmem() {
-    memLength = (memLength+1)%filt_sz;
-    MemPacket[memLength].messageTime = millis();
-    MemPacket[memLength].PT_O1       = PT_O1.reading;
-    MemPacket[memLength].PT_O2       = PT_O2.reading;
-    MemPacket[memLength].PT_E1       = PT_E1.reading;
-    MemPacket[memLength].PT_E2       = PT_E2.reading;
-    MemPacket[memLength].PT_C1       = PT_C1.reading;
-    MemPacket[memLength].LC_1        = LC_1.reading;
-    MemPacket[memLength].LC_2        = LC_2.reading;
-    MemPacket[memLength].LC_3        = LC_3.reading;
-    MemPacket[memLength].TC_1        = TC_1.reading;
-    MemPacket[memLength].TC_2        = TC_2.reading;
-    
-    for (int i = 0; i < filt_sz; i++) {
-        sensor_avg.PT_01 += MemPacket[i].PT_O1;
-        sensor_avg.PT_02 += MemPacket[i].PT_O2;
-        sensor_avg.PT_E1 += MemPacket[i].PT_E1;
-        sensor_avg.PT_E2 += MemPacket[i].PT_E2;
-        sensor_avg.PT_C1 += MemPacket[i].PT_C1;
-        sensor_avg.LC_1 += MemPacket[i].LC_1;
-        sensor_avg.LC_2 += MemPacket[i].LC_2;
-        sensor_avg.LC_3 += MemPacket[i].LC_3;
-        sensor_avg.TC_1 += MemPacket[i].TC_1;
-        sensor_avg.TC_2 += MemPacket[i].TC_2;
-    }
-    sensor_avg.PT_01 /= filt_sz;
-    sensor_avg.PT_02 /= filt_sz;
-    sensor_avg.PT_E1 /= filt_sz;
-    sensor_avg.PT_E2 /= filt_sz;
-    sensor_avg.PT_C1 /= filt_sz;
-    sensor_avg.LC_1 /= filt_sz;
-    sensor_avg.LC_2 /= filt_sz;
-    sensor_avg.LC_3 /= filt_sz;
-    sensor_avg.TC_1 /= filt_sz;
-    sensor_avg.TC_2 /= filt_sz;
 }
 
 void printSensorReadings() {
@@ -629,6 +549,10 @@ void printSensorReadings() {
 //  serialMessage.concat(" ");
 //  serialMessage.concat(TC_2.reading);
 //  serialMessage.concat(" ");
+  serialMessage.concat(ethComplete);
+  serialMessage.concat(" ");
+  serialMessage.concat(oxComplete);
+  serialMessage.concat(" ");
   serialMessage.concat(state_names[DAQState]);
   //  serialMessage.concat(readingCap1);
   //  serialMessage.concat(" ");
@@ -678,7 +602,7 @@ void sendQueue() {
     esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &Packet, sizeof(Packet));
 
     if (result == ESP_OK) {
-      Serial.println("Sent with success Data Send");
+      // Serial.println("Sent with success Data Send");
       queueLength -= 1;
     } else {
       Serial.println("Error sending the data");

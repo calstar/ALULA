@@ -18,9 +18,9 @@ This code runs on the DAQ ESP32 and has a couple of main functions.
 #define ONBOARD_LED  13
 #define PTDOUT1 36 //PT-O1
 #define CLKPT1 27 
-// #define PTDOUT2 34 //PT-O2
-// #define CLKPT2 27 
-#define PTDOUT3 39 //PT-E1
+#define PTDOUT2 39 //PT-O2
+#define CLKPT2 27 
+#define PTDOUT3 34 //PT-E1
 #define CLKPT3 27
 #define PTDOUT4 35 //PT-E2
 #define CLKPT4 27
@@ -76,9 +76,9 @@ void setup() {
   scale1.set_gain(64);
      //Sets the pin as an input
 
-//set gains for pt pins
-  // scale2.begin(PTDOUT2, CLKPT2);
-  // scale2.set_gain(64);
+// set gains for pt pins
+  scale2.begin(PTDOUT2, CLKPT2);
+  scale2.set_gain(64);
 
   //set gains for pt pins
   scale3.begin(PTDOUT3, CLKPT3); //ethanol tank
@@ -122,6 +122,7 @@ void getReadings(){
   //
        // Serial.print(" p2: ");
 
+  pt2 = scale2.read();
 
   pt3 = scale3.read();
        // Serial.print(" pt3: ");

@@ -16,15 +16,15 @@ def sensor_calibrator():
     # file_name = 'PTCal_test0'
     # folder_name = 'PTCal_testfold'
     # test_device = 'PT '
-    
+
     data_point_num = 10
-   
-    
+
+
 
     # data_labels = [f'{test_device}{i}' for i in range(1, data_length + 1)]
     # data_labels.append(f'{test_device}Readings')
 
-    port_num = "/dev/cu.usbserial-0001"
+    port_num = "COM3"
     esp32 = Serial(port=port_num, baudrate=115200)
 
     # Open serial port and read data
@@ -44,13 +44,13 @@ def sensor_calibrator():
                 #     writer.writerow(str_data)
             except:
                 continue
-            
+
             if len(str_data) == 7:
                 raw_data.append([float(x) for x in str_data])
 
             if len(raw_data) > data_point_num:
                 raw_data.pop(0)
-    
+
 
     except KeyboardInterrupt:
         # User interrupted the process, now clean up
@@ -61,23 +61,23 @@ def clean_me_up(raw_data, data_length, s):
 
     reading = float(input("What is the pressure gauge reading? (Numbers only) \n"))
 
-    
+
 
     # calculate mean values
     data_array = np.array(raw_data)
     mean_array = np.mean(data_array, axis=0)
-    
+
 
     mean_vals = []
 
     [mean_vals.append([i, reading]) for i in mean_array]
-   
+
     process_array.append(mean_vals)
     print(process_array)
 
     if len(process_array) > 1:
         data_processing_graphing(process_array)
-   
+
 def data_processing_graphing(array):
     file_base = f"testing_calibration_{time.strftime('%Y-%m-%d', time.gmtime())}"
     file_ext = ".csv"
@@ -104,7 +104,7 @@ def data_processing_graphing(array):
         trend = np.polyfit(X, Y, 1)
         trendpoly = np.poly1d(trend)
         axs[row, col].plot(X, trendpoly(X), label=f"y = {trend[0]:.2f}x + {trend[1]:.2f}")
-        
+
         axs[row, col].set_title(f"Sensor {j + 1}")
         axs[row, col].legend()
 
@@ -124,7 +124,7 @@ def data_processing_graphing(array):
     plt.tight_layout()
     plt.show()
 
-    
+
 if __name__ == "__main__":
     while True:
         sensor_calibrator()

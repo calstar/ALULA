@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 import shutil
-from scipy.stats import zscore 
+from scipy.stats import zscore
 
 def sensor_calibrator():
     # Initial Reset
@@ -13,7 +13,7 @@ def sensor_calibrator():
     test_device = 'PT '
     data_length = 7
     data_point_num = 10
-    serial_port_name = 'COM14'  # on Windows would be COM#. Open device manager and check ports.
+    serial_port_name = 'COM3'  # on Windows would be COM#. Open device manager and check ports.
 
     # Check if data file exists
     data_file_exist = os.path.exists(f'{file_name}.xls')
@@ -23,7 +23,7 @@ def sensor_calibrator():
         col_length = prev_array.shape[1]
         if data_length != col_length - 1:
             raise Exception("The file you are reading from has a different number of sensor being logged, change the name of the file or delete the original file")
-    
+
     # Set up dynamic table columns
     data_labels = [f'{test_device}{i}' for i in range(1, data_length + 1)]
     data_labels.append(f'{test_device}Readings')
@@ -38,7 +38,7 @@ def sensor_calibrator():
         while True:
             str_data = s.readline().decode().strip().split()
             print("got it")
-    
+
             if len(str_data) != data_length:
                 continue
 
@@ -51,9 +51,9 @@ def sensor_calibrator():
             raw_data.append([float(x) for x in str_data[1:]])
 
             if len(raw_data) > data_point_num:
-                
+
                 raw_data.pop(0)
-           
+
     except KeyboardInterrupt:
         # User interrupted the process, now clean up
         print(raw_data)
