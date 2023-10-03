@@ -112,6 +112,7 @@ bool pressComplete = false ;
 bool oxVentComplete = false;
 bool ethVentComplete = false;
 int hotfireStart;
+int filt_sz = 15
 
 // Delay between loops.
 #define IDLE_DELAY 250
@@ -142,6 +143,7 @@ typedef struct struct_message {
   int COMState;
   int DAQState;
   short int queueLength;
+  short int memLength;
   bool pressComplete;
   bool ethComplete;
   bool oxComplete;
@@ -150,10 +152,41 @@ typedef struct struct_message {
   // bool VentComplete;
 } struct_message;
 
+// Must match the receiver structure.
+typedef struct sensor_mem {
+  int messageTime[];
+  float PT_O1[];
+  float PT_O2[];
+  float PT_E1[];
+  float PT_E2[];
+  float PT_C1[];
+  float LC_1[];
+  float LC_2[];
+  float LC_3[];
+  float TC_1[];
+  float TC_2[];
+} sensor_mem;
+
+typedef struct sensor_avg {
+  int messageTime[];
+  float PT_O1;
+  float PT_O2;
+  float PT_E1;
+  float PT_E2;
+  float PT_C1;
+  float LC_1;
+  float LC_2;
+  float LC_3;
+  float TC_1;
+  float TC_2;
+} sensor_avg;
+
+
 // Create a struct_message called Packet to be sent.
 struct_message Packet;
 // Create a queue for Packet in case Packets are dropped.
 struct_message PacketQueue[120];
+struct_message MemPacket[filt_sz];
 
 // Create a struct_message to hold incoming commands
 struct_message Commands;
@@ -361,7 +394,7 @@ void armed() {
 }
 
 void press() {
-  if (PT_O1.reading < pressureOx*threshold || PT_E1.reading < pressureFuel*threshold) {
+  if (sensor_avg.PT_01 < pressureOx*threshold || sensor_avg.PT_E1 < pressureFuel*threshold) {
     if (!(oxComplete && ethComplete)) {
       if (PT_O1.reading < pressureOx*threshold) {
         mosfetOpenValve(MOSFET_LOX_PRESS);
@@ -479,7 +512,7 @@ void syncDAQState() {
 }
 
 void CheckAbort() {
-  if (COMState == ABORT || PT_O1.reading >= abortPressure || PT_E1.reading >= abortPressure) {
+  if (COMState == ABORT || sensor_avg.PT_01 >= abortPressure || sensor_avg.PT_E1 >= abortPressure) {
     mosfetCloseValve(MOSFET_ETH_PRESS);
     mosfetCloseValve(MOSFET_LOX_PRESS);
     DAQState = ABORT;
@@ -531,6 +564,45 @@ void getReadings(){
     // TC_2.reading = TC_2.scale.readCelsius();
     // TC_2.reading = TC_2.scale.readCelsius();
   }
+  addmem()
+}
+
+void addmem() {
+    memLength = (memLength+1)%filt_sz;
+    MemPacket[memLength].messageTime = millis();
+    MemPacket[memLength].PT_O1       = PT_O1.reading;
+    MemPacket[memLength].PT_O2       = PT_O2.reading;
+    MemPacket[memLength].PT_E1       = PT_E1.reading;
+    MemPacket[memLength].PT_E2       = PT_E2.reading;
+    MemPacket[memLength].PT_C1       = PT_C1.reading;
+    MemPacket[memLength].LC_1        = LC_1.reading;
+    MemPacket[memLength].LC_2        = LC_2.reading;
+    MemPacket[memLength].LC_3        = LC_3.reading;
+    MemPacket[memLength].TC_1        = TC_1.reading;
+    MemPacket[memLength].TC_2        = TC_2.reading;
+    
+    for (int i = 0; i < filt_sz; i++) {
+        sensor_avg.PT_01 += MemPacket[i].PT_O1;
+        sensor_avg.PT_02 += MemPacket[i].PT_O2;
+        sensor_avg.PT_E1 += MemPacket[i].PT_E1;
+        sensor_avg.PT_E2 += MemPacket[i].PT_E2;
+        sensor_avg.PT_C1 += MemPacket[i].PT_C1;
+        sensor_avg.LC_1 += MemPacket[i].LC_1;
+        sensor_avg.LC_2 += MemPacket[i].LC_2;
+        sensor_avg.LC_3 += MemPacket[i].LC_3;
+        sensor_avg.TC_1 += MemPacket[i].TC_1;
+        sensor_avg.TC_2 += MemPacket[i].TC_2;
+    }
+    sensor_avg.PT_01 /= filt_sz;
+    sensor_avg.PT_02 /= filt_sz;
+    sensor_avg.PT_E1 /= filt_sz;
+    sensor_avg.PT_E2 /= filt_sz;
+    sensor_avg.PT_C1 /= filt_sz;
+    sensor_avg.LC_1 /= filt_sz;
+    sensor_avg.LC_2 /= filt_sz;
+    sensor_avg.LC_3 /= filt_sz;
+    sensor_avg.TC_1 /= filt_sz;
+    sensor_avg.TC_2 /= filt_sz;
 }
 
 void printSensorReadings() {
