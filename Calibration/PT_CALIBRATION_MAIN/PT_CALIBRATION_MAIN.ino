@@ -18,20 +18,20 @@ This code runs on the DAQ ESP32 and has a couple of main functions.
 #define ONBOARD_LED  13
 #define PTDOUT1 36 //PT-O1
 #define CLKPT1 27 
-// #define PTDOUT2 34 //PT-O2
-// #define CLKPT2 27 
-#define PTDOUT3 39 //PT-E1
+#define PTDOUT2 39 //PT-O2
+#define CLKPT2 27 
+#define PTDOUT3 34 //PT-E1
 #define CLKPT3 27
 #define PTDOUT4 35 //PT-E2
 #define CLKPT4 27
 #define PTDOUT5 32 //PT-C1
 #define CLKPT5 27
-
-
-// #define PTDOUT6 33
-// #define CLKPT6 27
-// #define PTDOUT7 25
-// #define CLKPT7 27
+#define PTDOUT6 33 //LC1
+#define CLKPT6 27
+#define PTDOUT7 25
+#define CLKPT7 27
+#define PTDOUT8 26
+ #define CLKPT8 27
 
 
 
@@ -45,6 +45,7 @@ float pt4=-1;
 float pt5=-1;
 float pt6=-1;
 float pt7=-1;
+float pt8=-1;
 // String serialMessage = "";
 String serialMessage = "";
 
@@ -60,7 +61,7 @@ HX711 scale4;
 HX711 scale5;
 HX711 scale6;
 HX711 scale7;
-
+HX711 scale8;
 //Initialize the servo objects
 // Servo servo1;
 // Servo servo2;
@@ -76,9 +77,9 @@ void setup() {
   scale1.set_gain(64);
      //Sets the pin as an input
 
-//set gains for pt pins
-  // scale2.begin(PTDOUT2, CLKPT2);
-  // scale2.set_gain(64);
+// set gains for pt pins
+  scale2.begin(PTDOUT2, CLKPT2);
+  scale2.set_gain(64);
 
   //set gains for pt pins
   scale3.begin(PTDOUT3, CLKPT3); //ethanol tank
@@ -92,17 +93,19 @@ void setup() {
   scale5.begin(PTDOUT5, CLKPT5); //chamber
   scale5.set_gain(64);
 
+
   //set gains for pt pins
-//   scale6.begin(PTDOUT6, CLKPT6);
-//   scale6.set_gain(64);
+  scale6.begin(PTDOUT6, CLKPT6); //chamber
+  scale6.set_gain(64);
 
-// //set gains for pt pins
-//   scale7.begin(PTDOUT7, CLKPT7);
-//   scale7.set_gain(64);
+  //set gains for pt pins
+  scale7.begin(PTDOUT7, CLKPT7); //chamber
+  scale7.set_gain(64);
 
-
+  //set gains for pt pins
+  scale8.begin(PTDOUT8, CLKPT8); //chamber
+  scale8.set_gain(64);
   Serial.begin(115200);
-
 }
 
 void loop() {
@@ -122,6 +125,7 @@ void getReadings(){
   //
        // Serial.print(" p2: ");
 
+  pt2 = scale2.read();
 
   pt3 = scale3.read();
        // Serial.print(" pt3: ");
@@ -134,11 +138,14 @@ void getReadings(){
        // Serial.print(" pt5: ");
 
 
-  // pt6 = scale6.read();
-  //      // Serial.print(" pt6: ");
+   pt6 = scale6.read();
+        // Serial.print(" pt6: ");
+  
+   pt7 = scale7.read();
+        Serial.print(" pt7: ");
 
-  // pt7 = scale7.read();
-       // Serial.print(" pt7: ");
+   pt8 = scale8.read();
+      Serial.print(" pt8: ");      
 
   serialMessage = "";
   //
@@ -155,23 +162,10 @@ void getReadings(){
   serialMessage.concat(pt6);
   serialMessage.concat(" ");
   serialMessage.concat(pt7);
-  // serialMessage = (pt1+" "+pt2+" "+pt3+" "+pt4+" "+pt5+" "+pt6+" "+pt7);
-  // Serial.print(pt1);
-  // Serial.print(" ");
-  // Serial.print(pt2);
-  // Serial.print(" ");
-  // Serial.print(pt3);
-  // Serial.print(" ");
-  // Serial.print(pt4);
-  // Serial.print(" ");
-  // Serial.print(pt1);
-  // Serial.print(" ");
-  // Serial.print(pt1);
-  // Serial.print(" ");
-  // Serial.println(pt1);
-  // Serial.println(" ");
-  Serial.println(serialMessage);
+  serialMessage.concat(" ");
+  serialMessage.concat(pt8);
 
+  Serial.println(serialMessage);
 
 
 }

@@ -26,7 +26,7 @@ int WIFIDEBUG = 0; // Don't send/receive data.
 // MODEL DEFINED PARAMETERS FOR TEST/HOTFIRE. Pressures in psi //
 float pressureFuel  = 100;//450;  // Set pressure for fuel: 412
 float pressureOx    = 100;//475;  // Set pressure for lox: 445
-float threshold     = 0.97; // re-pressurrization threshold (/1x)
+float threshold     = 0.99; // re-pressurrization threshold (/1x)
 float ventTo        = 25;   // c2se solenoids at this pressure to preserve lifetime.
 float LOXventing    = 40;   // pressure at which ethanol begins venting
 #define abortPressure 525   // Cutoff pressure to automatically trigger abort
@@ -359,7 +359,7 @@ void press() {
     if (PT_O1.reading < pressureOx*threshold) {
       mosfetOpenValve(MOSFET_LOX_PRESS);
       if (DEBUG) {
-        PT_O1.reading += 0.5;
+        PT_O1.reading += (0.05*GEN_DELAY);
       }
     } else {
       mosfetCloseValve(MOSFET_LOX_PRESS);
@@ -368,7 +368,7 @@ void press() {
     if (PT_E1.reading < pressureFuel*threshold) {
       mosfetOpenValve(MOSFET_ETH_PRESS);
       if (DEBUG) {
-        PT_E1.reading += 0.6;
+        PT_E1.reading += (0.025*GEN_DELAY);
       }
     } else {
       mosfetCloseValve(MOSFET_ETH_PRESS);
@@ -424,13 +424,13 @@ void abort_sequence() {
     if (PT_O1.reading > LOXventing) { // vent only lox down to loxventing pressure
       mosfetOpenValve(MOSFET_VENT_LOX);
       if (DEBUG) {
-        PT_O1.reading = PT_O1.reading - 0.25;
+        PT_O1.reading = PT_O1.reading - (0.025*GEN_DELAY);
       }
     } else {
       if (PT_E1.reading > ventTo) {
         mosfetOpenValve(MOSFET_VENT_ETH); // vent ethanol
         if (DEBUG) {
-          PT_E1.reading = PT_E1.reading - 0.2;
+          PT_E1.reading = PT_E1.reading - (0.010*GEN_DELAY);
         }
       } else {
         mosfetCloseValve(MOSFET_VENT_ETH);
@@ -440,7 +440,7 @@ void abort_sequence() {
       if (PT_O1.reading > ventTo) {
         mosfetOpenValve(MOSFET_VENT_LOX); // vent lox
         if (DEBUG) {
-          PT_O1.reading = PT_O1.reading - 0.1;
+          PT_O1.reading = PT_O1.reading - (0.010*GEN_DELAY);
         }
       } else { // lox vented to acceptable hold pressure
         mosfetCloseValve(MOSFET_VENT_LOX); // close lox
@@ -492,7 +492,6 @@ void mosfetCloseValve(int num){
 void mosfetOpenValve(int num){
   if (mosfet_pcf_found /*&& !DEBUG*/) {
     mosfet_pcf.setBitUp(num);
-    Serial.println(num);
   }
 }
 
@@ -551,8 +550,6 @@ void printSensorReadings() {
   serialMessage.concat(ethComplete);
   serialMessage.concat(" ");
   serialMessage.concat(oxComplete);
-  serialMessage.concat(" ");
-  serialMessage.concat(mosfet_pcf_found);
   serialMessage.concat(" ");
   serialMessage.concat(state_names[DAQState]);
   //  serialMessage.concat(readingCap1);
