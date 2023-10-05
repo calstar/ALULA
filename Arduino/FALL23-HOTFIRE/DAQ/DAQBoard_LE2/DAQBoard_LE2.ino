@@ -86,18 +86,18 @@ struct_max31855 TC_4 {Adafruit_MAX31855(TC_CLK, 15, TC_DO), -1, 15, .offset=0, .
 #define I2C_SCL 22
 
 // MOSFETS
-#define MOSFET_IGNITER  11
-#define MOSFET_ETH_MAIN  10
-#define MOSFET_EXTRA    14
-#define MOSFET_LOX_MAIN  3
-#define MOSFET_ETH_PRESS 4
-#define MOSFET_LOX_PRESS 5
-#define MOSFET_VENT_ETH  6
-#define MOSFET_VENT_LOX  7
+#define MOSFET_ETH_MAIN   0
+#define MOSFET_IGNITER    1
+#define MOSFET_QD_LOX     2
+#define MOSFET_QD_ETH     3
+#define MOSFET_EXTRA      4
+#define MOSFET_LOX_MAIN  11
+#define MOSFET_ETH_PRESS 12
+#define MOSFET_LOX_PRESS 13
+#define MOSFET_VENT_ETH  14
+#define MOSFET_VENT_LOX  15
 //#define MOSFET_P_VENT_LOX //NEED PIN
 //#define MOSFET_P_VENT_ETH //NEED PIN
-#define MOSFET_QD_LOX 12
-#define MOSFET_QD_ETH 13
 
 // Initialize mosfets' io expander.
 #define MOSFET_PCF_ADDR 0x20
@@ -494,8 +494,6 @@ void mosfetOpenValve(int num){
     mosfet_pcf.setBitUp(num);
   }
 }
-
-
 
 
 //::::::DATA LOGGING AND COMMUNICATION::::::://
