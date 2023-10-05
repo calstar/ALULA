@@ -142,10 +142,10 @@ void getReadings(){
         // Serial.print(" pt6: ");
   
    pt7 = scale7.read();
-        Serial.print(" pt7: ");
+//        Serial.print(" pt7: ");
 
    pt8 = scale8.read();
-      Serial.print(" pt8: ");      
+//      Serial.print(" pt8: ");      
 
   serialMessage = "";
   //
