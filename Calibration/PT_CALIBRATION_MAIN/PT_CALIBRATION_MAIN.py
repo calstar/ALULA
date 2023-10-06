@@ -12,17 +12,7 @@ process_array = []
 data_length = 7
 
 def sensor_calibrator():
-    # Initial Reset
-    # file_name = 'PTCal_test0'
-    # folder_name = 'PTCal_testfold'
-    # test_device = 'PT '
-
-    data_point_num = 10
-
-
-
-    # data_labels = [f'{test_device}{i}' for i in range(1, data_length + 1)]
-    # data_labels.append(f'{test_device}Readings')
+    data_point_num = 10 #get the last 10 data points
 
     port_num = "COM3"
     esp32 = Serial(port=port_num, baudrate=115200)
@@ -39,9 +29,6 @@ def sensor_calibrator():
                 str_data = decoded_bytes.split(" ")
                 print("got it")
 
-                # with open(filename, "a", newline='') as f:
-                #     writer = csv.writer(f, delimiter= ",")
-                #     writer.writerow(str_data)
             except:
                 continue
 
@@ -54,19 +41,16 @@ def sensor_calibrator():
 
     except KeyboardInterrupt:
         # User interrupted the process, now clean up
-        clean_me_up(raw_data, data_length, esp32)
+        clean_me_up(raw_data, data_length, esp32) # control C
 
 def clean_me_up(raw_data, data_length, s):
     global process_array
 
     reading = float(input("What is the pressure gauge reading? (Numbers only) \n"))
 
-
-
     # calculate mean values
     data_array = np.array(raw_data)
     mean_array = np.mean(data_array, axis=0)
-
 
     mean_vals = []
 
@@ -105,13 +89,13 @@ def data_processing_graphing(array):
         trendpoly = np.poly1d(trend)
         axs[row, col].plot(X, trendpoly(X), label=f"y = {trend[0]:.2f}x + {trend[1]:.2f}")
 
-        axs[row, col].set_title(f"Sensor {j + 1}")
+        axs[row, col].set_title(f"Reading {j + 1}")
         axs[row, col].legend()
 
         with open(filename, "a", newline='') as f:
             writer = csv.writer(f, delimiter=",")
             # Write the header
-            writer.writerow([f"Sensor {j + 1} X", f"Sensor {j + 1} Y", "Slope (m)", "Intercept (c)"])
+            writer.writerow([f"Reading {j + 1} X", f"Reading {j + 1} Y", "Slope (m)", "Intercept (c)"])
             # Write data
             for x_val, y_val in zip(X, Y):
                 writer.writerow([x_val, y_val, trend[0], trend[1]])
@@ -128,6 +112,6 @@ def data_processing_graphing(array):
 if __name__ == "__main__":
     while True:
         sensor_calibrator()
-        rerun = input("Would you like to run the sensor calibration again? (y/n): ").strip().lower()
+        rerun = input("Would you like to run the PT calibration again? (y/n): ").strip().lower()
         if rerun != "y":
             break
