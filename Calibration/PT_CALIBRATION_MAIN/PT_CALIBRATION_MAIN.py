@@ -9,25 +9,15 @@ import csv
 import shutil
 
 process_array = []
-data_length = 8
+instrument_number = 8
 
 def sensor_calibrator():
-<<<<<<< HEAD
     # Initial Reset
     # file_name = 'PTCal_test0'
     # folder_name = 'PTCal_testfold'
     # test_device = 'PT '
 
     data_point_num = 3
-
-
-
-    # data_labels = [f'{test_device}{i}' for i in range(1, data_length + 1)]
-    # data_labels.append(f'{test_device}Readings')
-=======
-    data_point_num = 10 #get the last 10 data points
->>>>>>> 5741aeb07541336b5f1900c6a6f5e76ab0f401e3
-
     port_num = "COM14"
     esp32 = Serial(port=port_num, baudrate=115200)
 
@@ -46,7 +36,7 @@ def sensor_calibrator():
             except:
                 continue
 
-            if len(str_data) == data_length:
+            if len(str_data) == instrument_number:
                 raw_data.append([float(x) for x in str_data])
 
             if len(raw_data) > data_point_num:
@@ -55,9 +45,9 @@ def sensor_calibrator():
 
     except KeyboardInterrupt:
         # User interrupted the process, now clean up
-        clean_me_up(raw_data, data_length, esp32) # control C
+        clean_me_up(raw_data, instrument_number, esp32) # control C
 
-def clean_me_up(raw_data, data_length, s):
+def clean_me_up(raw_data, instrument_number, s):
     global process_array
 
     reading = float(input("What is the pressure gauge reading? (Numbers only) \n"))
@@ -90,7 +80,7 @@ def data_processing_graphing(array):
 
     fig, axs = plt.subplots(3, 3, figsize=(12, 8))
 
-    for j in range(data_length):
+    for j in range(instrument_number):
         # Extract the j-th data set
         row, col = divmod(j, 3)
 
@@ -115,7 +105,7 @@ def data_processing_graphing(array):
                 writer.writerow([x_val, y_val, trend[0], trend[1]])
 
     # Remove any unused subplots
-    for j in range(data_length, 9):
+    for j in range(instrument_number, 9):
         row, col = divmod(j, 3)
         fig.delaxes(axs[row][col])
 
