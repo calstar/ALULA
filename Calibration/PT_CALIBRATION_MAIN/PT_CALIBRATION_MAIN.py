@@ -67,6 +67,7 @@ def clean_me_up(raw_data, instrument_number, s):
         data_processing_graphing(process_array)
 
 def data_processing_graphing(array):
+    fil
     file_base = f"testing_calibration_{time.strftime('%Y-%m-%d', time.gmtime())}"
     file_ext = ".csv"
     test_num = 1
@@ -75,7 +76,6 @@ def data_processing_graphing(array):
         test_num += 1
 
     filename = file_base + f"_test{test_num}" + file_ext
-
 
 
     fig, axs = plt.subplots(3, 3, figsize=(12, 8))
