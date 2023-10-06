@@ -9,7 +9,7 @@ import csv
 import shutil
 
 process_array = []
-data_length = 7
+data_length = 8
 
 def sensor_calibrator():
     # Initial Reset
@@ -17,14 +17,14 @@ def sensor_calibrator():
     # folder_name = 'PTCal_testfold'
     # test_device = 'PT '
 
-    data_point_num = 10
+    data_point_num = 3
 
 
 
     # data_labels = [f'{test_device}{i}' for i in range(1, data_length + 1)]
     # data_labels.append(f'{test_device}Readings')
 
-    port_num = "COM3"
+    port_num = "COM14"
     esp32 = Serial(port=port_num, baudrate=115200)
 
     # Open serial port and read data
@@ -45,7 +45,7 @@ def sensor_calibrator():
             except:
                 continue
 
-            if len(str_data) == 7:
+            if len(str_data) == data_length:
                 raw_data.append([float(x) for x in str_data])
 
             if len(raw_data) > data_point_num:
@@ -129,5 +129,6 @@ if __name__ == "__main__":
     while True:
         sensor_calibrator()
         rerun = input("Would you like to run the sensor calibration again? (y/n): ").strip().lower()
+        time.sleep(10)
         if rerun != "y":
             break

@@ -21,14 +21,14 @@ This code runs on the DAQ ESP32 and has a couple of main tasks.
 // DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE.
 // MOSFET must not trigger while in debug.
 int DEBUG = 1;     // Simulate LOX and Eth fill.
-int WIFIDEBUG = 0; // Don't send/receive data.
+int WIFIDEBUG = 1; // Don't send/receive data.
 
 // MODEL DEFINED PARAMETERS FOR TEST/HOTFIRE. Pressures in psi //
 float pressureFuel  = 100;//450;  // Set pressure for fuel: 412
 float pressureOx    = 100;//475;  // Set pressure for lox: 445
 float threshold     = 0.99; // re-pressurrization threshold (/1x)
 float ventTo        = 25;   // c2se solenoids at this pressure to preserve lifetime.
-float LOXventing    = 40;   // pressure at which ethanol begins venting
+float LOXventing    = 25;   // pressure at which ethanol begins venting
 #define abortPressure 525   // Cutoff pressure to automatically trigger abort
 #define period        0.5   // Sets period for bang-bang control
 float sendDelay     = 250;  // Sets frequency of data collection. 1/(sendDelay*10^-3) is frequency in Hz
@@ -50,11 +50,11 @@ typedef struct struct_hx711 {
 #define HX_CLK 27
 
 // PRESSURE TRANSDUCERS
-struct_hx711 PT_O1 {{}, -1, HX_CLK, 36, .offset=-89.22, .slope=0.007522};
-struct_hx711 PT_O2 {{}, -1, HX_CLK, 39, .offset=-80.88, .slope=0.006633};
-struct_hx711 PT_E1 {{}, -1, HX_CLK, 34, .offset=-85.11, .slope=0.006729};
-struct_hx711 PT_E2 {{}, -1, HX_CLK, 35, .offset=-84.02, .slope=0.007220}; // Change GPIO PIN
-struct_hx711 PT_C1 {{}, -1, HX_CLK, 32, .offset=-79.94, .slope=0.006853};
+struct_hx711 PT_O1 {{}, -1, HX_CLK, 36, .offset=-82.5, .slope=0.008909};
+struct_hx711 PT_O2 {{}, -1, HX_CLK, 39, .offset=-82.5, .slope=0.007714};
+struct_hx711 PT_E1 {{}, -1, HX_CLK, 34, .offset=-101.9, .slope=0.00777};
+struct_hx711 PT_E2 {{}, -1, HX_CLK, 35, .offset=-83.1, .slope=0.008375}; // Change GPIO PIN
+struct_hx711 PT_C1 {{}, -1, HX_CLK, 32, .offset=-101.21, .slope=0.008041};
 
 // LOADCELLS
 struct_hx711 LC_1  {{}, -1, HX_CLK, 33, .offset=0, .slope=0.0000412};
@@ -359,7 +359,7 @@ void press() {
     if (PT_O1.reading < pressureOx*threshold) {
       mosfetOpenValve(MOSFET_LOX_PRESS);
       if (DEBUG) {
-        PT_O1.reading += (0.05*GEN_DELAY);
+        PT_O1.reading += (0.0025*GEN_DELAY);
       }
     } else {
       mosfetCloseValve(MOSFET_LOX_PRESS);
@@ -368,7 +368,7 @@ void press() {
     if (PT_E1.reading < pressureFuel*threshold) {
       mosfetOpenValve(MOSFET_ETH_PRESS);
       if (DEBUG) {
-        PT_E1.reading += (0.025*GEN_DELAY);
+        PT_E1.reading += (0.005*GEN_DELAY);
       }
     } else {
       mosfetCloseValve(MOSFET_ETH_PRESS);
@@ -402,12 +402,14 @@ void ignition() {
 }
 
 void hotfire() {
+  mosfetCloseValve(MOSFET_IGNITER);
   mosfetOpenValve(MOSFET_ETH_MAIN);
-  if (millis() >= hotfireStart+3000) {
-    mosfetCloseValve(MOSFET_LOX_MAIN);
-  } else {
+//  
+//  if (millis() >= hotfireStart+3000) {
+//    mosfetCloseValve(MOSFET_LOX_MAIN);
+//  } else {
     mosfetOpenValve(MOSFET_LOX_MAIN);
-  }
+//  }
 }
 
 void abort_sequence() {
@@ -416,39 +418,42 @@ void abort_sequence() {
   // Waits for LOX pressure to decrease before venting Eth through pyro
   mosfetCloseValve(MOSFET_LOX_PRESS);
   mosfetCloseValve(MOSFET_ETH_PRESS);
+  mosfetCloseValve(MOSFET_LOX_MAIN);  
+  mosfetCloseValve(MOSFET_ETH_MAIN);  
 
   int currtime = millis();
-  oxVentComplete = !(PT_O1.reading > 1.3*ventTo); // 1.3 is magic number.
-  ethVentComplete = !(PT_E1.reading > 1.3*ventTo);
+  if (PT_O1.reading > 1.3*ventTo) { // 1.3 is magic number.
+        oxVentComplete = false; }
+  if (PT_E1.reading > 1.3*ventTo) { // 1.3 is magic number.
+        ethVentComplete = false; }  
+      
   if(!(oxVentComplete && ethVentComplete)){
-    if (PT_O1.reading > LOXventing) { // vent only lox down to loxventing pressure
+    if (PT_O1.reading > ventTo) { // vent only lox down to loxventing pressure
       mosfetOpenValve(MOSFET_VENT_LOX);
       if (DEBUG) {
-        PT_O1.reading = PT_O1.reading - (0.025*GEN_DELAY);
+        PT_O1.reading = PT_O1.reading - (0.008*GEN_DELAY);
       }
-    } else {
-      if (PT_E1.reading > ventTo) {
-        mosfetOpenValve(MOSFET_VENT_ETH); // vent ethanol
-        if (DEBUG) {
-          PT_E1.reading = PT_E1.reading - (0.010*GEN_DELAY);
-        }
-      } else {
-        mosfetCloseValve(MOSFET_VENT_ETH);
-        ethVentComplete = true;
-      }
-
-      if (PT_O1.reading > ventTo) {
-        mosfetOpenValve(MOSFET_VENT_LOX); // vent lox
-        if (DEBUG) {
-          PT_O1.reading = PT_O1.reading - (0.010*GEN_DELAY);
-        }
-      } else { // lox vented to acceptable hold pressure
+    }
+    else { // lox vented to acceptable hold pressure
         mosfetCloseValve(MOSFET_VENT_LOX); // close lox
         oxVentComplete = true;
       }
+    if (PT_E1.reading > ventTo) {
+      mosfetOpenValve(MOSFET_VENT_ETH); // vent ethanol
+      if (DEBUG) {
+        PT_E1.reading = PT_E1.reading - (0.005*GEN_DELAY);
+      }
+    } else {
+      mosfetCloseValve(MOSFET_VENT_ETH);
+      ethVentComplete = true;
     }
+    }
+  if (DEBUG) {
+    PT_O1.reading = PT_O1.reading + (0.00020*GEN_DELAY);
+    PT_E1.reading = PT_E1.reading + (0.00025*GEN_DELAY);
   }
-}
+    
+  }
 
 // Helper Functions
 
