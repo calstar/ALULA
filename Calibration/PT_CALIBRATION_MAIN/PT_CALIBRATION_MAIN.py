@@ -18,7 +18,7 @@ def sensor_calibrator():
     # test_device = 'PT '
 
     data_point_num = 3
-    port_num = "COM14"
+    port_num = "/dev/cu.usbserial-0001"
     esp32 = Serial(port=port_num, baudrate=115200)
 
     # Open serial port and read data
@@ -67,7 +67,6 @@ def clean_me_up(raw_data, instrument_number, s):
         data_processing_graphing(process_array)
 
 def data_processing_graphing(array):
-    fil
     file_base = f"testing_calibration_{time.strftime('%Y-%m-%d', time.gmtime())}"
     file_ext = ".csv"
     test_num = 1
@@ -116,7 +115,6 @@ def data_processing_graphing(array):
 if __name__ == "__main__":
     while True:
         sensor_calibrator()
-
-        rerun = input("Would you like to run the sensor calibration again? (y/n): ").strip().lower()
-        time.sleep(10)
-        break
+        rerun = input("Would you like to run the PT calibration again? (y/n): ").strip().lower()
+        if rerun != "y":
+            break
