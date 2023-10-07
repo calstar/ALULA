@@ -18,9 +18,10 @@ This code runs on the DAQ ESP32 and has a couple of main tasks.
 
 //::::::Global Variables::::::://
 
+
 // DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE.
 // MOSFET must not trigger while in debug.
-int DEBUG = 1;     // Simulate LOX and Eth fill.
+int DEBUG = 0;     // Simulate LOX and Eth fill.
 int WIFIDEBUG = 0; // Don't send/receive data.
 
 // MODEL DEFINED PARAMETERS FOR TEST/HOTFIRE. Pressures in psi //
@@ -50,16 +51,16 @@ typedef struct struct_hx711 {
 #define HX_CLK 27
 
 // PRESSURE TRANSDUCERS
-struct_hx711 PT_O1 {{}, -1, HX_CLK, 36, .offset=-82.5, .slope=0.008909};
-struct_hx711 PT_O2 {{}, -1, HX_CLK, 39, .offset=-82.5, .slope=0.007714};
-struct_hx711 PT_E1 {{}, -1, HX_CLK, 34, .offset=-101.9, .slope=0.00777};
-struct_hx711 PT_E2 {{}, -1, HX_CLK, 35, .offset=-83.1, .slope=0.008375}; // Change GPIO PIN
-struct_hx711 PT_C1 {{}, -1, HX_CLK, 32, .offset=-101.21, .slope=0.008041};
+struct_hx711 PT_O1 {{}, -1, HX_CLK, 36, .offset=-75.9, .slope=0.01074};
+struct_hx711 PT_O2 {{}, -1, HX_CLK, 39, .offset=-77.7, .slope=0.009309};
+struct_hx711 PT_E1 {{}, -1, HX_CLK, 34, .offset=-100.1, .slope=0.009041};
+struct_hx711 PT_E2 {{}, -1, HX_CLK, 35, .offset=-84.9, .slope=0.009588}; // Change GPIO PIN
+struct_hx711 PT_C1 {{}, -1, HX_CLK, 32, .offset=-108.5, .slope=0.009753};
 
 // LOADCELLS
-struct_hx711 LC_1  {{}, -1, HX_CLK, 33, .offset=0, .slope=0.0000412};
-struct_hx711 LC_2  {{}, -1, HX_CLK, 25, .offset=0, .slope=0.0000412};
-struct_hx711 LC_3  {{}, -1, HX_CLK, 26, .offset=0, .slope=0.0000412};
+struct_hx711 LC_1  {{}, -1, HX_CLK, 33, .offset=0, .slope=1};
+struct_hx711 LC_2  {{}, -1, HX_CLK, 25, .offset=0, .slope=1};
+struct_hx711 LC_3  {{}, -1, HX_CLK, 26, .offset=0, .slope=1};
 
 // THERMOCOUPLES
 typedef struct struct_max31855 {
