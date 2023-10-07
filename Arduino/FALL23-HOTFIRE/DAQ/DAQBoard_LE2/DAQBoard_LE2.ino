@@ -21,7 +21,7 @@ This code runs on the DAQ ESP32 and has a couple of main tasks.
 // DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE.
 // MOSFET must not trigger while in debug.
 int DEBUG = 1;     // Simulate LOX and Eth fill.
-int WIFIDEBUG = 1; // Don't send/receive data.
+int WIFIDEBUG = 0; // Don't send/receive data.
 
 // MODEL DEFINED PARAMETERS FOR TEST/HOTFIRE. Pressures in psi //
 float pressureFuel  = 100;//450;  // Set pressure for fuel: 412
@@ -408,7 +408,13 @@ void hotfire() {
 //  if (millis() >= hotfireStart+3000) {
 //    mosfetCloseValve(MOSFET_LOX_MAIN);
 //  } else {
+
+  if (millis() >= hotfireStart + 5) {
     mosfetOpenValve(MOSFET_LOX_MAIN);
+   // Serial.print(hotfireStart);
+   // Serial.print(hotfireStart + 5000);
+   //Serial.print("done");
+  }
 //  }
 }
 
