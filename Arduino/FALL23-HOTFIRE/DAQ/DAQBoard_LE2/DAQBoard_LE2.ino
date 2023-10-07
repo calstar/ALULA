@@ -25,9 +25,9 @@ int DEBUG = 0;     // Simulate LOX and Eth fill.
 int WIFIDEBUG = 0; // Don't send/receive data.
 
 // MODEL DEFINED PARAMETERS FOR TEST/HOTFIRE. Pressures in psi //
-float pressureFuel  = 100;//450;  // Set pressure for fuel: 412
-float pressureOx    = 100;//475;  // Set pressure for lox: 445
-float threshold     = 0.99; // re-pressurrization threshold (/1x)
+float pressureFuel  = 150;//405;  // Set pressure for fuel: 412
+float pressureOx    = 150;//460;  // Set pressure for lox: 445
+float threshold     = 0.995; // re-psressurrization threshold (/1x)
 float ventTo        = 25;   // c2se solenoids at this pressure to preserve lifetime.
 float LOXventing    = 25;   // pressure at which ethanol begins venting
 #define abortPressure 525   // Cutoff pressure to automatically trigger abort
@@ -51,7 +51,7 @@ typedef struct struct_hx711 {
 #define HX_CLK 27
 
 // PRESSURE TRANSDUCERS
-struct_hx711 PT_O1 {{}, -1, HX_CLK, 36, .offset=-46.5, .slope=0.01074};
+struct_hx711 PT_O1 {{}, -1, HX_CLK, 36, .offset=-36.5, .slope=0.01074};
 struct_hx711 PT_O2 {{}, -1, HX_CLK, 39, .offset=-48.3, .slope=0.009309};
 struct_hx711 PT_E1 {{}, -1, HX_CLK, 34, .offset=-70.8, .slope=0.009041};
 struct_hx711 PT_E2 {{}, -1, HX_CLK, 35, .offset=-55.5, .slope=0.009588}; // Change GPIO PIN
