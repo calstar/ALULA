@@ -284,7 +284,7 @@ void loop() {
     case (PRESS):
       if (COMState == IDLE || (COMState == QD && oxComplete && ethComplete)) {
         syncDAQState();
-        int pressStart = millis();
+        int QDStart = millis();
       }
       press();
       break;
@@ -387,7 +387,7 @@ void quick_disconnect() {
   //mosfetOpenValve(MOSFET_P_VENT_LOX);
   //mosfetOpenValve(MOSFET_P_VENT_ETH);
   // vent the pressure solenoid for 1 full second
-  //if millis() >= (pressStart+1000){
+  //if millis() >= (QDStart+1000){
    // mosfetCloseValve(MOSFET_P_VENT_LOX);
    // mosfetCloseValve(MOSFET_P_VENT_ETH);
   // then, disconnect the lines from the rocket itself
