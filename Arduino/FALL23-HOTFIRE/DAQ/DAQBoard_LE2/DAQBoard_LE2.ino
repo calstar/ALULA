@@ -39,14 +39,57 @@ float sendDelay     = 250;  // Sets frequency of data collection. 1/(sendDelay*1
 
 //::::::DEFINE INSTRUMENT PINOUTS::::::://
 
-typedef struct struct_hx711 {
+struct struct_hx711 {
+private:
+  const static int ROLLING_AVG_BUFFER_SIZE = 10;
+  float rollingAvgBuffer[ROLLING_AVG_BUFFER_SIZE] = {};
+  float sum = 0;
+  int numReadings = 0;
+  int index = 0;
+
+public:
   HX711 scale;
-  float reading;
+  float reading = -1;
   int clk;
   int gpio;
   float offset;
   float slope;
-} struct_hx711;
+
+  struct_hx711(HX711 scale, int clk, int gpio, float offset, float slope) {
+    this->scale = scale;
+    this->clk = clk;
+    this->gpio = gpio;
+    this->offset = offset;
+    this->slope = slope;
+  }
+
+  float read() {
+    float newReading = scale.read();
+
+    if (numReadings < ROLLING_AVG_BUFFER_SIZE) {
+      numReadings++;
+    }
+    else {
+      sum -= rollingAvgBuffer[index];
+    }
+    rollingAvgBuffer[index] = newReading;
+    index = (index + 1) % ROLLING_AVG_BUFFER_SIZE;
+    sum += newReading;
+
+    return sum / numReadings;
+  }
+
+  void resetReading() {
+    reading = -1;
+    sum = 0;
+    numReadings = 0;
+    index = 0;
+
+    for (int i = 0; i < ROLLING_AVG_BUFFER_SIZE; i++) {
+      rollingAvgBuffer[i] = 0;
+    }
+  }
+};
 
 #define HX_CLK 27
 
@@ -63,13 +106,55 @@ struct_hx711 LC_2  {{}, -1, HX_CLK, 25, .offset=0, .slope=1};
 struct_hx711 LC_3  {{}, -1, HX_CLK, 26, .offset=0, .slope=1};
 
 // THERMOCOUPLES
-typedef struct struct_max31855 {
+struct struct_max31855 {
+private:
+  const static int ROLLING_AVG_BUFFER_SIZE = 10;
+  float rollingAvgBuffer[ROLLING_AVG_BUFFER_SIZE] = {};
+  float sum = 0;
+  int numReadings = 0;
+  int index = 0;
+
+public:
   Adafruit_MAX31855 scale;
-  float reading;
-  float cs;
+  float reading = -1;
+  int cs;
   float offset;
   float slope;
-} struct_max31855;
+
+  struct_max31855(Adafruit_MAX31855 scale, float cs, float offset, float slope) {
+    this->scale = scale;
+    this->cs = cs;
+    this->offset = offset;
+    this->slope = slope;
+  }
+
+  float read() {
+    float newReading = scale.read();
+
+    if (numReadings < ROLLING_AVG_BUFFER_SIZE) {
+      numReadings++;
+    }
+    else {
+      sum -= rollingAvgBuffer[index];
+    }
+    rollingAvgBuffer[index] = newReading;
+    index = (index + 1) % ROLLING_AVG_BUFFER_SIZE;
+    sum += newReading;
+
+    return sum / numReadings;
+  }
+
+  void resetReading() {
+    reading = -1;
+    sum = 0;
+    numReadings = 0;
+    index = 0;
+
+    for (int i = 0; i < ROLLING_AVG_BUFFER_SIZE; i++) {
+      rollingAvgBuffer[i] = 0;
+    }
+  }
+};
 
 #define TC_CLK 14
 #define TC_DO  13
@@ -521,14 +606,14 @@ void logData() {
 
 void getReadings(){
    if (!DEBUG){
-    PT_O1.reading = PT_O1.slope * PT_O1.scale.read() + PT_O1.offset;
-    PT_O2.reading = PT_O2.slope * PT_O2.scale.read() + PT_O2.offset;
-    PT_E1.reading = PT_E1.slope * PT_E1.scale.read() + PT_E1.offset;
-    PT_E2.reading = PT_E2.slope * PT_E2.scale.read() + PT_E2.offset;
-    PT_C1.reading = PT_C1.slope * PT_C1.scale.read() + PT_C1.offset;
-    LC_1.reading  = LC_1.slope  * LC_1.scale.read()  + LC_1.offset;
-    LC_2.reading  = LC_2.slope  * LC_2.scale.read()  + LC_2.offset;
-    LC_3.reading  = LC_3.slope  * LC_3.scale.read()  + LC_3.offset;
+    PT_O1.reading = PT_O1.slope * PT_O1.read() + PT_O1.offset;
+    PT_O2.reading = PT_O2.slope * PT_O2.read() + PT_O2.offset;
+    PT_E1.reading = PT_E1.slope * PT_E1.read() + PT_E1.offset;
+    PT_E2.reading = PT_E2.slope * PT_E2.read() + PT_E2.offset;
+    PT_C1.reading = PT_C1.slope * PT_C1.read() + PT_C1.offset;
+    LC_1.reading  = LC_1.slope  * LC_1.read()  + LC_1.offset;
+    LC_2.reading  = LC_2.slope  * LC_2.read()  + LC_2.offset;
+    LC_3.reading  = LC_3.slope  * LC_3.read()  + LC_3.offset;
     // TC_1.reading = TC_1.scale.readCelsius();
     // TC_2.reading = TC_2.scale.readCelsius();
     // TC_2.reading = TC_2.scale.readCelsius();
