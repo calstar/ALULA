@@ -76,7 +76,10 @@ public:
     index = (index + 1) % ROLLING_AVG_BUFFER_SIZE;
     sum += newReading;
 
-    return sum / numReadings;
+    float avgReading = sum / numReadings;
+
+    reading = avgReading;
+    return avgReading;
   }
 
   void resetReading() {
@@ -141,7 +144,10 @@ public:
     index = (index + 1) % ROLLING_AVG_BUFFER_SIZE;
     sum += newReading;
 
-    return sum / numReadings;
+    float avgReading = sum / numReadings;
+
+    reading = avgReading;
+    return avgReading;
   }
 
   void resetReading() {
