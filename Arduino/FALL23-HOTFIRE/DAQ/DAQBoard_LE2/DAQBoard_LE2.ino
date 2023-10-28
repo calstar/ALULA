@@ -30,8 +30,8 @@ float pressureOx    = 150;//460;  // Set pressure for lox: 445
 float threshold     = 0.995; // re-psressurrization threshold (/1x)
 float ventTo        = 25;   // c2se solenoids at this pressure to preserve lifetime.
 float LOXventing    = 25;   // pressure at which ethanol begins venting
-#define abortPressure 525   // Cutoff pressure to automatically trigger abort
-#define period        0.5   // Sets period for bang-bang control
+float abortPressure = 525;   // Cutoff pressure to automatically trigger abort
+float period        = 0.5;   // Sets period for bang-bang control
 float sendDelay     = 250;  // Sets frequency of data collection. 1/(sendDelay*10^-3) is frequency in Hz
 // END OF USER DEFINED PARAMETERS //
 // refer to https://docs.google.com/spreadsheets/d/17NrJWC0AR4Gjejme-EYuIJ5uvEJ98FuyQfYVWI3Qlio/edit#gid=1185803967 for all pinouts
@@ -39,7 +39,7 @@ float sendDelay     = 250;  // Sets frequency of data collection. 1/(sendDelay*1
 
 //::::::DEFINE INSTRUMENT PINOUTS::::::://
 
-struct struct_hx711 {
+struct Filter {
 private:
   const static int ROLLING_AVG_BUFFER_SIZE = 10;
   float rollingAvgBuffer[ROLLING_AVG_BUFFER_SIZE] = {};
@@ -48,24 +48,7 @@ private:
   int index = 0;
 
 public:
-  HX711 scale;
-  float reading = -1;
-  int clk;
-  int gpio;
-  float offset;
-  float slope;
-
-  struct_hx711(HX711 scale, int clk, int gpio, float offset, float slope) {
-    this->scale = scale;
-    this->clk = clk;
-    this->gpio = gpio;
-    this->offset = offset;
-    this->slope = slope;
-  }
-
-  float read() {
-    float newReading = scale.read();
-
+  void addReading(float newReading) {
     if (numReadings < ROLLING_AVG_BUFFER_SIZE) {
       numReadings++;
     }
@@ -75,22 +58,81 @@ public:
     rollingAvgBuffer[index] = newReading;
     index = (index + 1) % ROLLING_AVG_BUFFER_SIZE;
     sum += newReading;
-
-    float avgReading = sum / numReadings;
-
-    reading = avgReading;
-    return avgReading;
   }
 
-  void resetReading() {
-    reading = -1;
+  float getReading() {
+    if (numReadings == 0) {
+      return -1;
+    }
+    return sum / numReadings;
+  }
+
+  void resetReadings() {
     sum = 0;
     numReadings = 0;
     index = 0;
+  }
+};
 
-    for (int i = 0; i < ROLLING_AVG_BUFFER_SIZE; i++) {
-      rollingAvgBuffer[i] = 0;
+template <class Board>
+struct struct_data_board {
+private:
+  Filter filter; 
+
+  float getDataFromBoard(bool isFilteredData) {
+    float newReading = scale.read();
+    filter.addReading(newReading);
+
+    if (isFilteredData) {
+      return filter.getReading();
     }
+    else {
+      return newReading;
+    }
+  }
+
+public:
+  Board scale;
+  float offset;
+  float slope;
+  float reading;
+
+  struct_data_board(Board scale, float offset, float slope) {
+    this->scale = scale;
+    this->offset = offset;
+    this->slope = slope;
+  }
+
+  float readFilteredData() {
+    return getDataFromBoard(true);
+  }
+
+  float readRawData() {
+    return getDataFromBoard(false);
+  }
+
+  void resetReading() {
+    filter.resetReadings();
+  }
+};
+
+struct struct_hx711 : struct_data_board<HX711> {
+public:
+  int clk;
+  int gpio;
+
+  struct_hx711(HX711 scale, int clk, int gpio, float offset, float slope) : struct_data_board(scale, offset, slope) {
+    this->clk = clk;
+    this->gpio = gpio;
+  }
+};
+
+class struct_max31855 : struct_data_board<Adafruit_MAX31855> {  
+public:
+  int cs;
+
+  struct_max31855(Adafruit_MAX31855 scale, float cs, float offset, float slope) : struct_data_board(scale, offset, slope) {
+    this->cs = cs;
   }
 };
 
@@ -107,60 +149,6 @@ struct_hx711 PT_C1 {{}, -1, HX_CLK, 32, .offset=-79.2, .slope=0.009753};
 struct_hx711 LC_1  {{}, -1, HX_CLK, 33, .offset=0, .slope=1};
 struct_hx711 LC_2  {{}, -1, HX_CLK, 25, .offset=0, .slope=1};
 struct_hx711 LC_3  {{}, -1, HX_CLK, 26, .offset=0, .slope=1};
-
-// THERMOCOUPLES
-struct struct_max31855 {
-private:
-  const static int ROLLING_AVG_BUFFER_SIZE = 10;
-  float rollingAvgBuffer[ROLLING_AVG_BUFFER_SIZE] = {};
-  float sum = 0;
-  int numReadings = 0;
-  int index = 0;
-
-public:
-  Adafruit_MAX31855 scale;
-  float reading = -1;
-  int cs;
-  float offset;
-  float slope;
-
-  struct_max31855(Adafruit_MAX31855 scale, float cs, float offset, float slope) {
-    this->scale = scale;
-    this->cs = cs;
-    this->offset = offset;
-    this->slope = slope;
-  }
-
-  float read() {
-    float newReading = scale.read();
-
-    if (numReadings < ROLLING_AVG_BUFFER_SIZE) {
-      numReadings++;
-    }
-    else {
-      sum -= rollingAvgBuffer[index];
-    }
-    rollingAvgBuffer[index] = newReading;
-    index = (index + 1) % ROLLING_AVG_BUFFER_SIZE;
-    sum += newReading;
-
-    float avgReading = sum / numReadings;
-
-    reading = avgReading;
-    return avgReading;
-  }
-
-  void resetReading() {
-    reading = -1;
-    sum = 0;
-    numReadings = 0;
-    index = 0;
-
-    for (int i = 0; i < ROLLING_AVG_BUFFER_SIZE; i++) {
-      rollingAvgBuffer[i] = 0;
-    }
-  }
-};
 
 #define TC_CLK 14
 #define TC_DO  13
@@ -448,7 +436,7 @@ void armed() {
 
 void press() {
   if (!(oxComplete && ethComplete)) {
-    if (PT_O1.reading < pressureOx*threshold) {
+    if (PT_O1.reading < pressureOx * threshold) {
       mosfetOpenValve(MOSFET_LOX_PRESS);
       if (DEBUG) {
         PT_O1.reading += (0.0025*GEN_DELAY);
@@ -457,7 +445,7 @@ void press() {
       mosfetCloseValve(MOSFET_LOX_PRESS);
       oxComplete = true;
     }
-    if (PT_E1.reading < pressureFuel*threshold) {
+    if (PT_E1.reading < pressureFuel * threshold) {
       mosfetOpenValve(MOSFET_ETH_PRESS);
       if (DEBUG) {
         PT_E1.reading += (0.005*GEN_DELAY);
