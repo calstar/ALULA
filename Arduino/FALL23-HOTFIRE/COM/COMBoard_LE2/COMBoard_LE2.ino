@@ -93,25 +93,27 @@ uint8_t broadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x50, 0x23, 0x34}; //Core board 
 
 //Structure example to send data
 //Must match the receiver structure
-typedef struct struct_message {
-     int messageTime;
-     float PT_O1;
-     float PT_O2;
-     float PT_E1;
-     float PT_E2;
-     float PT_C1;
-     float LC_1;
-     float LC_2;
-     float LC_3;
-     float TC_1;
-     float TC_2;
-     int COMState;
-     int DAQState;
-     short int queueLength;
-     bool pressComplete;
-     bool ethComplete;
-     bool oxComplete;
-} struct_message;
+struct struct_message {
+  int messageTime;
+  float PT_O1_raw;
+  float PT_O2_raw;
+  float PT_E1_raw;
+  float PT_E2_raw;
+  float PT_C1_raw;
+  float LC_1_raw;
+  float LC_2_raw;
+  float LC_3_raw;
+  float TC_1_raw;
+  float TC_2_raw;
+  int COMState;
+  int DAQState;
+  short int queueLength;
+  bool ethComplete;
+  bool oxComplete;
+  // bool oxvent;
+  // bool ethVent;
+  // bool VentComplete;
+};
 
 // Create a struct_message called Readings to recieve sensor readings remotely
 struct_message incomingReadings;
