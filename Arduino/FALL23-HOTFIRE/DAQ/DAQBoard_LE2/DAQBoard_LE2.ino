@@ -14,6 +14,7 @@ This code runs on the DAQ ESP32 and has a couple of main tasks.
 #include "HX711.h"
 #include "Adafruit_MAX31855.h"
 #include <EasyPCF8575.h>
+#include "RunningMedian.h" // Just search for RunningMedian libarary to install
 
 
 //::::::Global Variables::::::://
@@ -38,54 +39,32 @@ float sendDelay     = 250;  // Sets frequency of data collection. 1/(sendDelay*1
 
 //::::::DEFINE INSTRUMENT PINOUTS::::::://
 
-struct MovingAverageFilter {
+struct MovingMedianFilter {
 private:
-  const static int ROLLING_AVG_BUFFER_SIZE = 10;
-  float rollingAvgBuffer[ROLLING_AVG_BUFFER_SIZE] = {};
-  float sum = 0;
-  int numReadings = 0;
-  int index = 0;
+  const unsigned BUFFER_SIZE = 500000;
+  RunningMedian medianFilter;
 
 public:
+  MovingMedianFilter(): medianFilter(BUFFER_SIZE) {
+  }
+
   void addReading(float newReading) {
-    if (numReadings < ROLLING_AVG_BUFFER_SIZE) {
-      numReadings++;
-    }
-    else {
-      sum -= rollingAvgBuffer[index];
-    }
-    rollingAvgBuffer[index] = newReading;
-    index = (index + 1) % ROLLING_AVG_BUFFER_SIZE;
-    sum += newReading;
+    medianFilter.add(newReading);
   }
 
   float getReading() {
-    if (numReadings == 0) {
-      return -1;
-    }
-    return sum / numReadings;
+    return medianFilter.getMedian();
   }
 
   void resetReadings() {
-    sum = 0;
-    numReadings = 0;
-    index = 0;
+    medianFilter.clear();
   }
 };
 
-template <class Board>
+template<class Board>
 struct struct_data_board {
 private:
-  MovingAverageFilter filter; 
-
-  float readDataFromBoard() {
-    float newReading = scale.read();
-    filter.addReading(newReading);
-
-    // Update raw and filtered readings; also applies scale & offset transformation
-    rawReading = slope * newReading + offset;
-    filteredReading = slope * filter.getReading() + offset;
-  }
+  MovingMedianFilter filter = MovingMedianFilter();
 
 public:
   Board scale;
@@ -94,7 +73,7 @@ public:
   float filteredReading = -1;
   float rawReading = -1;
 
-  struct_data_board(Board scale, float offset, float slope) {
+  struct_data_board(Board scale, float offset, float slope) : scale(scale)  {
     this->scale = scale;
     this->offset = offset;
     this->slope = slope;
@@ -104,8 +83,8 @@ public:
     float newReading = scale.read();
     filter.addReading(newReading);
 
-    rawReading = newReading;
-    filteredReading = filter.getReading();
+    rawReading = slope * newReading + offset;
+    filteredReading = slope * filter.getReading() + offset;
   }
 
   void resetReading() {
@@ -120,34 +99,35 @@ public:
   int clk;
   int gpio;
 
-  struct_hx711(HX711 scale, int clk, int gpio, float offset, float slope) : struct_data_board(scale, offset, slope) {
+  struct_hx711(HX711 scale, int clk, int gpio, float offset, float slope)
+    : struct_data_board(scale, offset, slope) {
     this->clk = clk;
     this->gpio = gpio;
   }
 };
 
-class struct_max31855 : struct_data_board<Adafruit_MAX31855> {  
+struct struct_max31855 : struct_data_board<Adafruit_MAX31855> {
 public:
   int cs;
 
-  struct_max31855(Adafruit_MAX31855 scale, float cs, float offset, float slope) : struct_data_board(scale, offset, slope) {
+  struct_max31855(Adafruit_MAX31855 scale, float cs, float offset, float slope)
+    : struct_data_board(scale, offset, slope) {
     this->cs = cs;
   }
 };
-
 #define HX_CLK 27
 
 // PRESSURE TRANSDUCERS
-struct_hx711 PT_O1 {{}, -1, HX_CLK, 36, .offset=-36.5, .slope=0.01074};
-struct_hx711 PT_O2 {{}, -1, HX_CLK, 39, .offset=-48.3, .slope=0.009309};
-struct_hx711 PT_E1 {{}, -1, HX_CLK, 34, .offset=-70.8, .slope=0.009041};
-struct_hx711 PT_E2 {{}, -1, HX_CLK, 35, .offset=-55.5, .slope=0.009588}; // Change GPIO PIN
-struct_hx711 PT_C1 {{}, -1, HX_CLK, 32, .offset=-79.2, .slope=0.009753};
+struct_hx711 PT_O1 {{}, HX_CLK, 36, .offset=-36.5, .slope=0.01074};
+struct_hx711 PT_O2 {{}, HX_CLK, 39, .offset=-48.3, .slope=0.009309};
+struct_hx711 PT_E1 {{}, HX_CLK, 34, .offset=-70.8, .slope=0.009041};
+struct_hx711 PT_E2 {{}, HX_CLK, 35, .offset=-55.5, .slope=0.009588}; // Change GPIO PIN
+struct_hx711 PT_C1 {{}, HX_CLK, 32, .offset=-79.2, .slope=0.009753};
 
 // LOADCELLS
-struct_hx711 LC_1  {{}, -1, HX_CLK, 33, .offset=0, .slope=1};
-struct_hx711 LC_2  {{}, -1, HX_CLK, 25, .offset=0, .slope=1};
-struct_hx711 LC_3  {{}, -1, HX_CLK, 26, .offset=0, .slope=1};
+struct_hx711 LC_1  {{}, HX_CLK, 33, .offset=0, .slope=1};
+struct_hx711 LC_2  {{}, HX_CLK, 25, .offset=0, .slope=1};
+struct_hx711 LC_3  {{}, HX_CLK, 26, .offset=0, .slope=1};
 
 #define TC_CLK 14
 #define TC_DO  13
@@ -155,10 +135,10 @@ struct_hx711 LC_3  {{}, -1, HX_CLK, 26, .offset=0, .slope=1};
 #define SD_CLK 18
 #define SD_DO  23
 
-struct_max31855 TC_1 {Adafruit_MAX31855(TC_CLK, 17, TC_DO), -1, 17, .offset=0, .slope=1};
-struct_max31855 TC_2 {Adafruit_MAX31855(TC_CLK, 16, TC_DO), -1, 16, .offset=0, .slope=1};
-struct_max31855 TC_3 {Adafruit_MAX31855(TC_CLK, 4, TC_DO), -1, 4, .offset=0, .slope=1};
-struct_max31855 TC_4 {Adafruit_MAX31855(TC_CLK, 15, TC_DO), -1, 15, .offset=0, .slope=1};
+struct_max31855 TC_1 {Adafruit_MAX31855(TC_CLK, 17, TC_DO), 17, .offset=0, .slope=1};
+struct_max31855 TC_2 {Adafruit_MAX31855(TC_CLK, 16, TC_DO), 16, .offset=0, .slope=1};
+struct_max31855 TC_3 {Adafruit_MAX31855(TC_CLK, 4, TC_DO), 4, .offset=0, .slope=1};
+struct_max31855 TC_4 {Adafruit_MAX31855(TC_CLK, 15, TC_DO), 15, .offset=0, .slope=1};
 
 // GPIO expander
 #define I2C_SDA 21
@@ -297,7 +277,7 @@ void setup() {
     mosfet_pcf_found = true;
   }
   mosfetCloseAllValves(); // make sure everything is off by default (NMOS: Down = Off, Up = On)
-  delay(500); // startup time to make sure its good for personal testing
+  delay(2500); // startup time to make sure its good for personal testing
 
   // Broadcast setup.
   // Set device as a Wi-Fi Station
@@ -343,8 +323,10 @@ void loop() {
   if (DEBUG || COMState == ABORT) {
     syncDAQState();
   }
+
 //  Serial.print("testing");
   logData();
+  
 //  Serial.print("made it");
   sendDelay = GEN_DELAY;
   switch (DAQState) {
@@ -516,7 +498,7 @@ void abort_sequence() {
     if (PT_O1.filteredReading > ventTo) { // vent only lox down to loxventing pressure
       mosfetOpenValve(MOSFET_VENT_LOX);
       if (DEBUG) {
-        PT_O1.reading = PT_O1.reading - (0.008*GEN_DELAY);
+        PT_O1.filteredReading = PT_O1.filteredReading - (0.008*GEN_DELAY);
       }
     }
     else { // lox vented to acceptable hold pressure
@@ -526,7 +508,7 @@ void abort_sequence() {
     if (PT_E1.filteredReading > ventTo) {
       mosfetOpenValve(MOSFET_VENT_ETH); // vent ethanol
       if (DEBUG) {
-        PT_E1.reading = PT_E1.reading - (0.005*GEN_DELAY);
+        PT_E1.filteredReading = PT_E1.filteredReading - (0.005*GEN_DELAY);
       }
     } else {
       mosfetCloseValve(MOSFET_VENT_ETH);
