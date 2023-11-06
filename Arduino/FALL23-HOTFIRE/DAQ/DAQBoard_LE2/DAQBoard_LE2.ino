@@ -5,6 +5,9 @@ This code runs on the DAQ ESP32 and has a couple of main tasks.
 3. Actuate hotfire sequence
 */
 
+// Max pressure : 800 psi
+// 
+
 //::::::Libraries::::::://
 #include <Arduino.h>
 #include <esp_now.h>
@@ -15,6 +18,7 @@ This code runs on the DAQ ESP32 and has a couple of main tasks.
 #include "Adafruit_MAX31855.h"
 #include <EasyPCF8575.h>
 #include "RunningMedian.h" // Just search for RunningMedian libarary to install
+#include <cppQueue.h>
 
 
 //::::::Global Variables::::::://
@@ -22,8 +26,6 @@ This code runs on the DAQ ESP32 and has a couple of main tasks.
 
 // DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE.
 // MOSFET must not trigger while in debug.
-int DEBUG = 0;     // Simulate LOX and Eth fill.
-int WIFIDEBUG = 0; // Don't send/receive data.
 
 // MODEL DEFINED PARAMETERS FOR TEST/HOTFIRE. Pressures in psi //
 float pressureFuel  = 150;//405;  // Set pressure for fuel: 412
@@ -33,7 +35,9 @@ float ventTo        = 25;   // c2se solenoids at this pressure to preserve lifet
 float LOXventing    = 25;   // pressure at which ethanol begins venting
 float abortPressure = 525;   // Cutoff pressure to automatically trigger abort
 float period        = 0.5;   // Sets period for bang-bang control
-float sendDelay     = 250;  // Sets frequency of data collection. 1/(sendDelay*10^-3) is frequency in Hz
+
+float sendDelay    = 250;  // Sets frequency of sending data to COM. 1/(sendDelay*10^-3) is frequency in Hz
+float readDelay = 20;
 // END OF USER DEFINED PARAMETERS //
 // refer to https://docs.google.com/spreadsheets/d/17NrJWC0AR4Gjejme-EYuIJ5uvEJ98FuyQfYVWI3Qlio/edit#gid=1185803967 for all pinouts
 
@@ -41,7 +45,7 @@ float sendDelay     = 250;  // Sets frequency of data collection. 1/(sendDelay*1
 
 struct MovingMedianFilter {
 private:
-  const unsigned BUFFER_SIZE = 500000;
+  const unsigned BUFFER_SIZE = 5;
   RunningMedian medianFilter;
 
 public:
@@ -80,7 +84,8 @@ public:
   }
 
   void readDataFromBoard() {
-    float newReading = scale.read();
+    float newReading = analogRead(36);
+    // float newReading = scale.read();
     filter.addReading(newReading);
 
     rawReading = slope * newReading + offset;
@@ -115,6 +120,7 @@ public:
     this->cs = cs;
   }
 };
+
 #define HX_CLK 27
 
 // PRESSURE TRANSDUCERS
@@ -180,9 +186,8 @@ int hotfireStart;
 
 
 //::::DEFINE READOUT VARIABLES:::://
-String serialMessage;
 float sendTime;
-short int queueLength = 0;
+float readTime;
 
 // Define variables to store readings to be sent
 
@@ -190,6 +195,7 @@ short int queueLength = 0;
 // Must match the receiver structure.
 struct struct_message {
   int messageTime;
+
   float PT_O1_raw;
   float PT_O2_raw;
   float PT_E1_raw;
@@ -200,6 +206,18 @@ struct struct_message {
   float LC_3_raw;
   float TC_1_raw;
   float TC_2_raw;
+
+  float PT_O1_filtered;
+  float PT_O2_filtered;
+  float PT_E1_filtered;
+  float PT_E2_filtered;
+  float PT_C1_filtered;
+  float LC_1_filtered;
+  float LC_2_filtered;
+  float LC_3_filtered;
+  float TC_1_filtered;
+  float TC_2_filtered;
+
   int COMState;
   int DAQState;
   short int queueLength;
@@ -210,10 +228,9 @@ struct struct_message {
   // bool VentComplete;
 };
 
-// Create a struct_message called Packet to be sent.
-struct_message Packet;
 // Create a queue for Packet in case Packets are dropped.
-struct_message PacketQueue[120];
+const int MAX_QUEUE_SIZE = 40;
+cppQueue packetQueue(sizeof(struct_message), MAX_QUEUE_SIZE, FIFO, true);
 
 // Create a struct_message to hold incoming commands
 struct_message Commands;
@@ -228,7 +245,8 @@ esp_now_peer_info_t peerInfo;
 // HEADERLESS BOARD {0x7C, 0x87, 0xCE, 0xF0 0x69, 0xAC}
 // NEWEST COM BOARD IN EVA {0x24, 0x62, 0xAB, 0xD2, 0x85, 0xDC}
 // uint8_t broadcastAddress[] = {0x24, 0x62, 0xAB, 0xD2, 0x85, 0xDC};
-uint8_t broadcastAddress[] = {0xB0, 0xA7, 0x32, 0xDE, 0xC1, 0xFC};
+// uint8_t broadcastAddress[] = {0xB0, 0xA7, 0x32, 0xDE, 0xC1, 0xFC};
+uint8_t broadcastAddress[] = {0x08, 0x3A, 0xF2, 0xB7, 0xEE, 0x00};
 // {0x7C, 0x87, 0xCE, 0xF0, 0x69, 0xAC};
 // {0x3C, 0x61, 0x05, 0x4A, 0xD5, 0xE0};
 // {0xC4, 0xDD, 0x57, 0x9E, 0x96, 0x34};
@@ -306,12 +324,11 @@ void setup() {
     return;
   }
   // Register for a callback function that will be called when data is received
-  if (!WIFIDEBUG) {
-    esp_now_register_recv_cb(OnDataRecv);
-  }
+  esp_now_register_recv_cb(OnDataRecv);
 
   sendTime = millis();
   DAQState = IDLE;
+
 }
 
 
@@ -319,58 +336,59 @@ void setup() {
 
 // Main Structure of State Machine.
 void loop() {
-  fetchCOMState();
-  if (DEBUG || COMState == ABORT) {
-    syncDAQState();
-  }
+    fetchCOMState();
+    if (COMState == ABORT) {
+      syncDAQState();
+    }
 
-//  Serial.print("testing");
-  logData();
-  
-//  Serial.print("made it");
-  sendDelay = GEN_DELAY;
-  switch (DAQState) {
-    case (IDLE):
-      sendDelay = IDLE_DELAY;
-      if (COMState == ARMED) { syncDAQState(); }
-      idle();
-      break;
+  //  Serial.print("testing");
+    logData();
 
-    case (ARMED): // NEED TO ADD TO CASE OPTIONS //ALLOWS OTHER CASES TO TRIGGER //INITIATE TANK PRESS LIVE READINGS
-      if (COMState == IDLE || COMState == PRESS) { syncDAQState(); }
-      armed();
-      break;
+  //  Serial.print("made it");
+    sendDelay = GEN_DELAY;
+    switch (DAQState) {
+      case (IDLE):
+        sendDelay = IDLE_DELAY;
+        if (COMState == ARMED) { syncDAQState(); }
+        idle();
+        break;
 
-    case (PRESS):
-      if (COMState == IDLE || (COMState == QD && oxComplete && ethComplete)) {
-        syncDAQState();
-        int QDStart = millis();
-      }
-      press();
-      break;
+      case (ARMED): // NEED TO ADD TO CASE OPTIONS //ALLOWS OTHER CASES TO TRIGGER //INITIATE TANK PRESS LIVE READINGS
+        if (COMState == IDLE || COMState == PRESS) { syncDAQState(); }
+        armed();
+        break;
 
-    case (QD):
-      if (COMState == IDLE || COMState == IGNITION) { syncDAQState(); }
-      quick_disconnect();
-      break;
+      case (PRESS):
+        if (COMState == IDLE || (COMState == QD && oxComplete && ethComplete)) {
+          syncDAQState();
+          int QDStart = millis();
+        }
+        press();
+        break;
 
-    case (IGNITION):
-      if (COMState == IDLE || COMState == HOTFIRE) {
-        syncDAQState();
-        hotfireStart = millis();
-      }
-      ignition();
-      break;
+      case (QD):
+        if (COMState == IDLE || COMState == IGNITION) { syncDAQState(); }
+        quick_disconnect();
+        break;
 
-    case (HOTFIRE):
-      hotfire();
-      break;
+      case (IGNITION):
+        if (COMState == IDLE || COMState == HOTFIRE) {
+          syncDAQState();
+          hotfireStart = millis();
+        }
+        ignition();
+        break;
 
-    case (ABORT):
-      if (COMState == IDLE && oxVentComplete && ethVentComplete) { syncDAQState(); }
-      abort_sequence();
-      break;
-  }
+      case (HOTFIRE):
+        hotfire();
+        break;
+
+      case (ABORT):
+        if (COMState == IDLE && oxVentComplete && ethVentComplete) { syncDAQState(); }
+        abort_sequence();
+        break;
+    }
+
 }
 
 // State Functions.
@@ -392,6 +410,7 @@ void reset() {
   // TC_1.reading = -1;
   // TC_2.reading = -1;
   // TC_2.reading = -1;
+  
 }
 
 
@@ -419,18 +438,12 @@ void press() {
   if (!(oxComplete && ethComplete)) {
     if (PT_O1.filteredReading < pressureOx * threshold) {
       mosfetOpenValve(MOSFET_LOX_PRESS);
-      if (DEBUG) {
-        PT_O1.filteredReading += (0.0025*GEN_DELAY);
-      }
     } else {
       mosfetCloseValve(MOSFET_LOX_PRESS);
       oxComplete = true;
     }
     if (PT_E1.filteredReading < pressureFuel * threshold) {
       mosfetOpenValve(MOSFET_ETH_PRESS);
-      if (DEBUG) {
-        PT_E1.filteredReading += (0.005*GEN_DELAY);
-      }
     } else {
       mosfetCloseValve(MOSFET_ETH_PRESS);
       ethComplete = true;
@@ -497,9 +510,6 @@ void abort_sequence() {
   if(!(oxVentComplete && ethVentComplete)){
     if (PT_O1.filteredReading > ventTo) { // vent only lox down to loxventing pressure
       mosfetOpenValve(MOSFET_VENT_LOX);
-      if (DEBUG) {
-        PT_O1.filteredReading = PT_O1.filteredReading - (0.008*GEN_DELAY);
-      }
     }
     else { // lox vented to acceptable hold pressure
         mosfetCloseValve(MOSFET_VENT_LOX); // close lox
@@ -507,20 +517,13 @@ void abort_sequence() {
       }
     if (PT_E1.filteredReading > ventTo) {
       mosfetOpenValve(MOSFET_VENT_ETH); // vent ethanol
-      if (DEBUG) {
-        PT_E1.filteredReading = PT_E1.filteredReading - (0.005*GEN_DELAY);
-      }
     } else {
       mosfetCloseValve(MOSFET_VENT_ETH);
       ethVentComplete = true;
     }
-    }
-  if (DEBUG) {
-    PT_O1.filteredReading = PT_O1.filteredReading + (0.00020*GEN_DELAY);
-    PT_E1.filteredReading = PT_E1.filteredReading + (0.00025*GEN_DELAY);
   }
     
-  }
+}
 
 // Helper Functions
 
@@ -570,35 +573,54 @@ void mosfetOpenValve(int num){
 
 //::::::DATA LOGGING AND COMMUNICATION::::::://
 void logData() {
-  getReadings();
-  printSensorReadings();
-  if (millis()-sendTime > sendDelay) {
+  int currTime = millis();
+  if (currTime - readTime > readDelay) {
+    getReadings();
+    addPacketToQueue();
+    readTime = millis();
+    printSensorReadings();
+  }
+  if (currTime - sendTime > sendDelay) {
     sendTime = millis();
-    sendData();
-    // saveData();
+    sendQueue();
   }
 }
 
 void getReadings(){
-   if (!DEBUG){
-    PT_O1.readDataFromBoard();
-    PT_O2.readDataFromBoard();
-    PT_E1.readDataFromBoard();
-    PT_E2.readDataFromBoard();
-    PT_C1.readDataFromBoard();
-    LC_1.readDataFromBoard();
-    LC_2.readDataFromBoard();
-    LC_3.readDataFromBoard();
-    // TC_1.reading = TC_1.scale.readCelsius();
-    // TC_2.reading = TC_2.scale.readCelsius();
-    // TC_2.reading = TC_2.scale.readCelsius();
-  }
+  PT_O1.readDataFromBoard();
+  PT_O2.readDataFromBoard();
+  PT_E1.readDataFromBoard();
+  PT_E2.readDataFromBoard();
+  PT_C1.readDataFromBoard();
+  LC_1.readDataFromBoard();
+  LC_2.readDataFromBoard();
+  LC_3.readDataFromBoard();
+  // TC_1.reading = TC_1.scale.readCelsius();
+  // TC_2.reading = TC_2.scale.readCelsius();
+  // TC_2.reading = TC_2.scale.readCelsius();
 }
 
 void printSensorReadings() {
-  serialMessage = " ";
+  String serialMessage = " ";
   serialMessage.concat(millis());
   serialMessage.concat(" ");
+  serialMessage.concat(PT_O1.rawReading);
+  serialMessage.concat(" ");
+  serialMessage.concat(PT_O2.rawReading);
+  serialMessage.concat(" ");
+  serialMessage.concat(PT_E1.rawReading);
+  serialMessage.concat(" ");
+  serialMessage.concat(PT_E2.rawReading);
+  serialMessage.concat(" ");
+  serialMessage.concat(PT_C1.rawReading);
+  serialMessage.concat(" ");
+  serialMessage.concat(LC_1.rawReading);
+  serialMessage.concat(" ");
+  serialMessage.concat(LC_2.rawReading);
+  serialMessage.concat(" ");
+  serialMessage.concat(LC_3.rawReading);
+  serialMessage.concat(" ");
+
   serialMessage.concat(PT_O1.filteredReading);
   serialMessage.concat(" ");
   serialMessage.concat(PT_O2.filteredReading);
@@ -628,54 +650,56 @@ void printSensorReadings() {
   //  serialMessage.concat(" ");
   //  serialMessage.concat(readingCap2);
   serialMessage.concat(" Queue Length: ");
-  serialMessage.concat(queueLength);
-  Serial.println(serialMessage);
-}
-
-// Send data to COM board.
-void sendData() {
-  addPacketToQueue();
-  sendQueue();
+  serialMessage.concat(packetQueue.getCount());
+   Serial.println(serialMessage);
 }
 
 void addPacketToQueue() {
-  if (queueLength < 40) {
-    queueLength += 1;
-    PacketQueue[queueLength].messageTime = millis();
-    PacketQueue[queueLength].PT_O1_raw            = PT_O1.rawReading;
-    PacketQueue[queueLength].PT_O2_raw            = PT_O2.rawReading;
-    PacketQueue[queueLength].PT_E1_raw            = PT_E1.rawReading;
-    PacketQueue[queueLength].PT_E2_raw            = PT_E2.rawReading;
-    PacketQueue[queueLength].PT_C1_raw            = PT_C1.rawReading;
-    PacketQueue[queueLength].LC_1_raw             = LC_1.rawReading;
-    PacketQueue[queueLength].LC_2_raw             = LC_2.rawReading;
-    PacketQueue[queueLength].LC_3_raw             = LC_3.rawReading;
-    PacketQueue[queueLength].TC_1_raw             = TC_1.rawReading;
-    PacketQueue[queueLength].TC_2_raw             = TC_2.rawReading;
-    // PacketQueue[queueLength].TC_3        = TC_3.reading; // sinc daq and com when adding tcs
-    PacketQueue[queueLength].queueLength = queueLength;
-    PacketQueue[queueLength].DAQState    = DAQState;
-    PacketQueue[queueLength].oxComplete  = oxComplete;
-    PacketQueue[queueLength].ethComplete = ethComplete;
-  }
+  struct_message Packet;
+  Packet.messageTime = millis();
+  Packet.PT_O1_raw            = PT_O1.rawReading;
+  Packet.PT_O2_raw            = PT_O2.rawReading;
+  Packet.PT_E1_raw            = PT_E1.rawReading;
+  Packet.PT_E2_raw            = PT_E2.rawReading;
+  Packet.PT_C1_raw            = PT_C1.rawReading;
+  Packet.LC_1_raw             = LC_1.rawReading;
+  Packet.LC_2_raw             = LC_2.rawReading;
+  Packet.LC_3_raw             = LC_3.rawReading;
+  Packet.TC_1_raw             = TC_1.rawReading;
+  Packet.TC_2_raw             = TC_2.rawReading;
+
+  Packet.PT_O1_filtered            = PT_O1.filteredReading;
+  Packet.PT_O2_filtered            = PT_O2.filteredReading;
+  Packet.PT_E1_filtered            = PT_E1.filteredReading;
+  Packet.PT_E2_filtered            = PT_E2.filteredReading;
+  Packet.PT_C1_filtered            = PT_C1.filteredReading;
+  Packet.LC_1_filtered             = LC_1.filteredReading;
+  Packet.LC_2_filtered             = LC_2.filteredReading;
+  Packet.LC_3_filtered             = LC_3.filteredReading;
+  Packet.TC_1_filtered             = TC_1.filteredReading;
+  Packet.TC_2_filtered             = TC_2.filteredReading;
+  // PacketQueue[queueLength].TC_3        = TC_3.reading; // sinc daq and com when adding tcs
+  Packet.queueLength = packetQueue.getCount();
+  Packet.DAQState    = DAQState;
+  Packet.oxComplete  = oxComplete;
+  Packet.ethComplete = ethComplete;
+
+  packetQueue.push(&Packet);
 }
 
 void sendQueue() {
-  if (queueLength < 0) {
+  if (packetQueue.getCount() == 0) {
     return;
   }
-  // Set values to send
-  Packet = PacketQueue[queueLength];
+  // Send message via ESP-NOW
+  struct_message Packet;
+  packetQueue.peek(&Packet);
+  esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &Packet, sizeof(Packet));
 
-  if (!WIFIDEBUG) {
-    // Send message via ESP-NOW
-    esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &Packet, sizeof(Packet));
-
-    if (result == ESP_OK) {
-      // Serial.println("Sent with success Data Send");
-      queueLength -= 1;
-    } else {
-      Serial.println("Error sending the data");
-    }
+  if (result != ESP_OK) {
+    Serial.println("Error sending the data");
+  }
+  else {
+    packetQueue.pop(&Packet);
   }
 }

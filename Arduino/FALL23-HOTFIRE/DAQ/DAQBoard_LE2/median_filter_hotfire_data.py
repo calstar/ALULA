@@ -24,6 +24,6 @@ fig, ax = plt.subplots(3, 3)
 for i in range(2, 10):
     data_arr = data[:, i].astype(np.float32)
     ax[(i - 2) // 3][(i - 2) % 3].plot(time_values, data_arr)
-    ax[(i - 2) // 3][(i - 2) % 3].plot(time_values, median_filter(data_arr, 500))
+    ax[(i - 2) // 3][(i - 2) % 3].plot(time_values, median_filter(data_arr, 3))
 
 plt.show()
