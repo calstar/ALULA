@@ -1,10 +1,9 @@
 #include <Arduino.h>
 #include <Wire.h>
 #include <EasyPCF8575.h>
-
 EasyPCF8575 pcf;
 
-int dt = 50;
+int dt = 250;
 
 void setup() {
   Serial.begin(115200);

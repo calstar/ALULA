@@ -16,13 +16,18 @@ This code runs on the DAQ ESP32 and has a couple of main tasks.
 #include <EasyPCF8575.h>
 
 
+#include "PCF8575.h"  // https://github.com/xreef/PCF8575_library
+ 
+// Set i2c address
+PCF8575 pcf8575(0x20);
+
 //::::::Global Variables::::::://
 
 
 // DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE.
 // MOSFET must not trigger while in debug.
-int DEBUG = 0;     // Simulate LOX and Eth fill.
-int WIFIDEBUG = 0; // Don't send/receive data.
+int DEBUG = 1;     // Simulate LOX and Eth fill.
+int WIFIDEBUG = 1; // Don't send/receive data.
 
 // MODEL DEFINED PARAMETERS FOR TEST/HOTFIRE. Pressures in psi //
 float pressureFuel  = 150;//405;  // Set pressure for fuel: 412
@@ -83,26 +88,27 @@ struct_max31855 TC_3 {Adafruit_MAX31855(TC_CLK, 4, TC_DO), -1, 4, .offset=0, .sl
 struct_max31855 TC_4 {Adafruit_MAX31855(TC_CLK, 15, TC_DO), -1, 15, .offset=0, .slope=0};
 
 // GPIO expander
-#define I2C_SDA 21
+#define I2C_SDA 211
+
 #define I2C_SCL 22
 
 // MOSFETS
-#define MOSFET_ETH_MAIN   0
-#define MOSFET_IGNITER    1
-#define MOSFET_QD_LOX     2
-#define MOSFET_QD_ETH     3
+#define MOSFET_ETH_MAIN   7
+#define MOSFET_IGNITER    8
+#define MOSFET_QD_LOX     3
+#define MOSFET_QD_ETH     12
 #define MOSFET_EXTRA      4
-#define MOSFET_LOX_MAIN  11
-#define MOSFET_ETH_PRESS 12
-#define MOSFET_LOX_PRESS 13
-#define MOSFET_VENT_ETH  14
-#define MOSFET_VENT_LOX  15
+#define MOSFET_LOX_MAIN  9
+#define MOSFET_ETH_PRESS 6
+#define MOSFET_LOX_PRESS 10
+#define MOSFET_VENT_ETH  5
+#define MOSFET_VENT_LOX  11
 //#define MOSFET_P_VENT_LOX //NEED PIN
 //#define MOSFET_P_VENT_ETH //NEED PIN
 
 // Initialize mosfets' io expander.
-#define MOSFET_PCF_ADDR 0x20
-EasyPCF8575 mosfet_pcf;
+//#define MOSFET_PCF_ADDR 0x20
+//EasyPCF8575 mosfet_pcf;
 bool mosfet_pcf_found;
 
 //::::::STATE VARIABLES::::::://
@@ -185,9 +191,13 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   COMState = Commands.COMState;
 }
 
+
+
+
 // Initialize all sensors and parameters.
 void setup() {
   // pinMode(ONBOARD_LED,OUTPUT);
+  
   Serial.begin(115200);
 
   while (!Serial) delay(1); // wait for Serial on Leonardo/Zero, etc.
@@ -209,15 +219,15 @@ void setup() {
   pinMode(TC_4.cs, OUTPUT);
 
   // MOSFET.
-  mosfet_pcf.startI2C(I2C_SDA, I2C_SCL, MOSFET_PCF_ADDR); // Only SEARCH, if using normal pins in Arduino
-  mosfet_pcf_found = false;
-  if (!mosfet_pcf.check(MOSFET_PCF_ADDR)) {
-    Serial.println("Device not found. Try to specify the address");
-    Serial.println(mosfet_pcf.whichAddr());
-    // while (true); // This while (true) stalls the program until an interrupt occurs.
-  } else {
-    mosfet_pcf_found = true;
+//  mosfet_pcf.startI2C(I2C_SDA, I2C_SCL, MOSFET_PCF_ADDR); // Only SEARCH, if using normal pins in Arduino
+  mosfet_pcf_found = true;
+  
+    // Set pinMode to OUTPUT
+  for(int i=0;i<16;i++) {
+    pcf8575.pinMode(i, OUTPUT);
   }
+  pcf8575.begin();
+  mosfet_pcf_found = true;
   mosfetCloseAllValves(); // make sure everything is off by default (NMOS: Down = Off, Up = On)
   delay(500); // startup time to make sure its good for personal testing
 
@@ -334,15 +344,8 @@ void reset() {
   // TC_2.reading = -1;
 }
 
-
 void idle() {
-  // mosfetCloseValve(MOSFET_LOX_MAIN);
-  // mosfetCloseValve(MOSFET_ETH_MAIN);
-  // mosfetCloseValve(MOSFET_IGNITER);
-  // mosfetCloseValve(MOSFET_LOX_PRESS);
-  // mosfetCloseValve(MOSFET_ETH_PRESS);
-  // mosfetCloseValve(MOSFET_VENT_LOX);
-  // mosfetCloseValve(MOSFET_VENT_ETH);
+
   mosfetCloseAllValves();
   reset(); // must set oxComplete and ethComplete to false!
 }
@@ -360,7 +363,7 @@ void press() {
     if (PT_O1.reading < pressureOx*threshold) {
       mosfetOpenValve(MOSFET_LOX_PRESS);
       if (DEBUG) {
-        PT_O1.reading += (0.0025*GEN_DELAY);
+        PT_O1.reading += (0.0005*GEN_DELAY);
       }
     } else {
       mosfetCloseValve(MOSFET_LOX_PRESS);
@@ -369,7 +372,7 @@ void press() {
     if (PT_E1.reading < pressureFuel*threshold) {
       mosfetOpenValve(MOSFET_ETH_PRESS);
       if (DEBUG) {
-        PT_E1.reading += (0.005*GEN_DELAY);
+        PT_E1.reading += (0.0005*GEN_DELAY);
       }
     } else {
       mosfetCloseValve(MOSFET_ETH_PRESS);
@@ -438,7 +441,7 @@ void abort_sequence() {
     if (PT_O1.reading > ventTo) { // vent only lox down to loxventing pressure
       mosfetOpenValve(MOSFET_VENT_LOX);
       if (DEBUG) {
-        PT_O1.reading = PT_O1.reading - (0.008*GEN_DELAY);
+        PT_O1.reading = PT_O1.reading - (0.0005*GEN_DELAY);
       }
     }
     else { // lox vented to acceptable hold pressure
@@ -448,7 +451,7 @@ void abort_sequence() {
     if (PT_E1.reading > ventTo) {
       mosfetOpenValve(MOSFET_VENT_ETH); // vent ethanol
       if (DEBUG) {
-        PT_E1.reading = PT_E1.reading - (0.005*GEN_DELAY);
+        PT_E1.reading = PT_E1.reading - (0.0005*GEN_DELAY);
       }
     } else {
       mosfetCloseValve(MOSFET_VENT_ETH);
@@ -456,8 +459,8 @@ void abort_sequence() {
     }
     }
   if (DEBUG) {
-    PT_O1.reading = PT_O1.reading + (0.00020*GEN_DELAY);
-    PT_E1.reading = PT_E1.reading + (0.00025*GEN_DELAY);
+    PT_O1.reading = PT_O1.reading + (0.00005*GEN_DELAY);
+    PT_E1.reading = PT_E1.reading + (0.00005*GEN_DELAY);
   }
     
   }
@@ -492,21 +495,27 @@ void CheckAbort() {
 
 void mosfetCloseAllValves(){
   if (mosfet_pcf_found /*&& !DEBUG*/) {
-    mosfet_pcf.setAllBitsDown();
+      for(int i=0;i<16;i++) {
+      pcf8575.digitalWrite(i, LOW);
   }
-}
-void mosfetCloseValve(int num){
-  // For NMOS, LOW=OFF, and HIGH=ON.
-  if (mosfet_pcf_found/* && !DEBUG*/) {
-    mosfet_pcf.setBitDown(num);
-  }
-}
-void mosfetOpenValve(int num){
-  if (mosfet_pcf_found /*&& !DEBUG*/) {
-    mosfet_pcf.setBitUp(num);
   }
 }
 
+void mosfetCloseValve(int num){
+  // For NMOS, LOW=OFF, and HIGH=ON.
+  if (mosfet_pcf_found/* && !DEBUG*/) {
+//    mosfet_pcf.setBitDown(num);
+      pcf8575.digitalWrite(num, LOW);
+  }
+}
+
+void mosfetOpenValve(int num){
+  // For NMOS, LOW=OFF, and HIGH=ON.
+  if (mosfet_pcf_found/* && !DEBUG*/) {
+  //    mosfet_pcf.setBitDown(num);
+      pcf8575.digitalWrite(num, HIGH);
+  }
+}
 
 //::::::DATA LOGGING AND COMMUNICATION::::::://
 void logData() {
