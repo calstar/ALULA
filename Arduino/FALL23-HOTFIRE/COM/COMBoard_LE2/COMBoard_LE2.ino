@@ -37,20 +37,6 @@ float pressTime = 0;
  String success;
 String message;
  int COMState;
-int incomingByte = 0;
-int incomingMessageTime;
- float incomingPT1 = 4; //PT errors when initialized to zero
-float incomingPT2 = 4;
-float incomingPT3 = 4;
-float incomingPT4 = 4;
- float incomingPT5 = 4;
- float incomingLC1 = 4;
- float incomingLC2 = 4;
- float incomingLC3 = 4;
- float incomingTC1 = 4;
- float incomingTC2 = 4;
- float incomingCap1 = 0;
- float incomingCap2 = 0;
  bool pressComplete = false;
  bool ethComplete = false;
  bool oxComplete = false;
@@ -87,31 +73,48 @@ float receiveTime = 0;
 //DAQ Protoboard {0x0C, 0xDC, 0x7E, 0xCB, 0x05, 0xC4}
 //NON BUSTED DAQ {0x7C, 0x9E, 0xBD, 0xD8, 0xFC, 0x14}
 // {0xC4, 0xDD, 0x57, 0x9E, 0x96, 0x34};
-uint8_t broadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x50, 0x23, 0x34}; //Core board 1
+// HOTFIRE ADDRESS --> uint8_t broadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x50, 0x23, 0x34}; //Core board 1
+uint8_t broadcastAddress[] = {0x48, 0xE7, 0x29, 0xA3, 0x0D, 0xA8};
 //uint8_t broadcastAddress[] = {0xB0, 0xA7, 0x32, 0xDE, 0xD3, 0x1C}; //Core board 2
 //{0x30, 0xC6, 0xF7, 0x2A, 0x28, 0x04}
 
 //Structure example to send data
 //Must match the receiver structure
-typedef struct struct_message {
-     int messageTime;
-     float PT_O1;
-     float PT_O2;
-     float PT_E1;
-     float PT_E2;
-     float PT_C1;
-     float LC_1;
-     float LC_2;
-     float LC_3;
-     float TC_1;
-     float TC_2;
-     int COMState;
-     int DAQState;
-     short int queueLength;
-     bool pressComplete;
-     bool ethComplete;
-     bool oxComplete;
-} struct_message;
+struct struct_message {
+  int messageTime;
+
+  float PT_O1_raw;
+  float PT_O2_raw;
+  float PT_E1_raw;
+  float PT_E2_raw;
+  float PT_C1_raw;
+  float LC_1_raw;
+  float LC_2_raw;
+  float LC_3_raw;
+  float TC_1_raw;
+  float TC_2_raw;
+
+  float PT_O1_filtered;
+  float PT_O2_filtered;
+  float PT_E1_filtered;
+  float PT_E2_filtered;
+  float PT_C1_filtered;
+  float LC_1_filtered;
+  float LC_2_filtered;
+  float LC_3_filtered;
+  float TC_1_filtered;
+  float TC_2_filtered;
+
+  int COMState;
+  int DAQState;
+  short int queueLength;
+  bool ethComplete;
+  bool oxComplete;
+  // bool oxvent;
+  // bool ethVent;
+  // bool VentComplete;
+};
+
 
 // Create a struct_message called Readings to recieve sensor readings remotely
 struct_message incomingReadings;
@@ -150,6 +153,7 @@ void setup() {
 
   //set device as WiFi station
   WiFi.mode(WIFI_STA);
+  Serial.println(WiFi.macAddress());
 
   //initialize ESP32
    if (esp_now_init() != ESP_OK) {
@@ -223,6 +227,8 @@ void loop(){
     if(!SWITCH_ARMED.on()) {serialState=IDLE;}
 
     state = serialState;
+    Serial.print("State: ");
+    Serial.println(state);
     break;
 
   case (PRESS):
@@ -334,27 +340,12 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
 // Serial.print("Bytes received: ");
 //  Serial.println(len);
   DAQState = incomingReadings.DAQState;
-  incomingPT1 = incomingReadings.PT_O1; //LOX Tank PT
-  incomingPT2 = incomingReadings.PT_O2; //LOX Injector PT
-  incomingPT3 = incomingReadings.PT_E1; //ETH Tank PT
-  incomingPT4 = incomingReadings.PT_E2; //ETH Injector PT
-  incomingPT5 = incomingReadings.PT_C1; //COMBUSTION CHAMBER PT
-  incomingLC1 = incomingReadings.LC_1;
-  incomingLC2 = incomingReadings.LC_2;
-  incomingLC3 = incomingReadings.LC_3;
-  incomingTC1 = incomingReadings.TC_1; //Phenolic-Interface Thermocouple
-  incomingTC2 = incomingReadings.TC_2;
-  pressComplete = incomingReadings.pressComplete;
+  // pressComplete = incomingReadings.pressComplete;
   oxComplete = incomingReadings.oxComplete;
   ethComplete = incomingReadings.ethComplete;
-  queueSize = incomingReadings.queueLength;
   receiveDataPrint();
-
-
-
-
-
 }
+
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
   // Serial.print("\r\nLast Packet Send Status:\t");
   // Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
@@ -370,25 +361,48 @@ void receiveDataPrint() {
   message = "";
   message.concat(millis());
   message.concat(" ");
-  message.concat(incomingPT1);
+  message.concat(incomingReadings.messageTime);
   message.concat(" ");
-  message.concat(incomingPT2);
+  message.concat(incomingReadings.PT_O1_raw);
   message.concat(" ");
-  message.concat(incomingPT3);
+  message.concat(incomingReadings.PT_O2_raw);
   message.concat(" ");
-  message.concat(incomingPT4);
+  message.concat(incomingReadings.PT_E1_raw);
   message.concat(" ");
-  message.concat(incomingPT5);
+  message.concat(incomingReadings.PT_E2_raw);
   message.concat(" ");
-  message.concat(incomingLC1);
+  message.concat(incomingReadings.PT_C1_raw);
   message.concat(" ");
-  message.concat(incomingLC2);
+  message.concat(incomingReadings.LC_1_raw);
   message.concat(" ");
-  message.concat(incomingLC3);
+  message.concat(incomingReadings.LC_2_raw);
   message.concat(" ");
-  message.concat(incomingTC1);
+  message.concat(incomingReadings.LC_3_raw);
   message.concat(" ");
-  message.concat(incomingTC2);
+  message.concat(incomingReadings.TC_1_raw);
+  message.concat(" ");
+  message.concat(incomingReadings.TC_2_raw);
+  message.concat(" ");
+
+  message.concat(incomingReadings.PT_O1_filtered);
+  message.concat(" ");
+  message.concat(incomingReadings.PT_O2_filtered);
+  message.concat(" ");
+  message.concat(incomingReadings.PT_E1_filtered);
+  message.concat(" ");
+  message.concat(incomingReadings.PT_E2_filtered);
+  message.concat(" ");
+  message.concat(incomingReadings.PT_C1_filtered);
+  message.concat(" ");
+  message.concat(incomingReadings.LC_1_filtered);
+  message.concat(" ");
+  message.concat(incomingReadings.LC_2_filtered);
+  message.concat(" ");
+  message.concat(incomingReadings.LC_3_filtered);
+  message.concat(" ");
+  message.concat(incomingReadings.TC_1_filtered);
+  message.concat(" ");
+  message.concat(incomingReadings.TC_2_filtered);
   message.concat(" ");
   // message.concat(incomingCap1);
   // message.concat(" ");
@@ -398,7 +412,7 @@ void receiveDataPrint() {
   message.concat(" ");
   message.concat(DAQState);
   message.concat(" ");
-  message.concat(queueSize);
+  message.concat(incomingReadings.queueLength);
 
   Serial.println(message);
 }
