@@ -41,7 +41,7 @@ float LOXventing    = 25;   // pressure at which ethanol begins venting
 #define abortPressure 525   // Cutoff pressure to automatically trigger abort
 #define period        0.5   // Sets period for bang-bang control
 float sendDelay     = 250;  // Sets frequency of data collection. 1/(sendDelay*10^-3) is frequency in Hz
-float readDelay     = 20; // Sets frequency of data collection
+float readDelay     = 250; // Sets frequency of reading data from sensors
 // END OF USER DEFINED PARAMETERS //
 // refer to https://docs.google.com/spreadsheets/d/17NrJWC0AR4Gjejme-EYuIJ5uvEJ98FuyQfYVWI3Qlio/edit#gid=1185803967 for all pinouts
 
@@ -190,7 +190,11 @@ int hotfireStart;
 
 // Delay between loops.
 #define IDLE_DELAY 250
-#define GEN_DELAY 5 // This should be 5 ms so that the ESP sends data as fast as possible (in reality takes between 15 and 20 ms)
+#define GEN_DELAY 5 // This should be < 15 ms so that the ESP sends data as fast as possible (in reality takes between 15 and 20 ms to send data)
+
+// Delay for reading from sensors
+#define IDLE_READ_DELAY 250
+#define GEN_READ_DELAY 20
 
 
 //::::DEFINE READOUT VARIABLES:::://
@@ -359,9 +363,11 @@ void loop() {
   logData();
 //  Serial.print("made it");
   sendDelay = GEN_DELAY;
+  readDelay = GEN_READ_DELAY;
   switch (DAQState) {
     case (IDLE):
       sendDelay = IDLE_DELAY;
+      readDelay = IDLE_READ_DELAY;
       if (COMState == ARMED) { syncDAQState(); }
       idle();
       break;
@@ -503,14 +509,19 @@ void hotfire() {
 }
 
 void abort_sequence() {
+  // mosfetOpenValve(MOSFET_VENT_LOX);
+  // mosfetOpenValve(MOSFET_VENT_ETH);
+  // Waits for LOX pressure to decrease before venting Eth through pyro
   mosfetCloseValve(MOSFET_LOX_PRESS);
   mosfetCloseValve(MOSFET_ETH_PRESS);
   mosfetCloseValve(MOSFET_LOX_MAIN);  
-  mosfetCloseValve(MOSFET_ETH_MAIN);  
+  mosfetCloseValve(MOSFET_ETH_MAIN); 
+
   if (DEBUG) {
-          mosfetOpenValve(MOSFET_VENT_LOX);
-          mosfetOpenValve(MOSFET_VENT_ETH);
-        }
+    mosfetOpenValve(MOSFET_VENT_LOX);
+    mosfetOpenValve(MOSFET_VENT_ETH);
+  }
+
   int currtime = millis();
   if (PT_O1.filteredReading > 1.3*ventTo) { // 1.3 is magic number.
         oxVentComplete = false; }
@@ -731,6 +742,7 @@ void sendQueue() {
   if (result != ESP_OK) {
     Serial.println("Error sending the data");
   } else {
+    Serial.println("SUCCESSFULLY SENT");
     packetQueue.pop(&Packet);
   }
 }
