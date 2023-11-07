@@ -423,14 +423,14 @@ void hotfire() {
 }
 
 void abort_sequence() {
-  // mosfetOpenValve(MOSFET_VENT_LOX);
-  // mosfetOpenValve(MOSFET_VENT_ETH);
-  // Waits for LOX pressure to decrease before venting Eth through pyro
   mosfetCloseValve(MOSFET_LOX_PRESS);
   mosfetCloseValve(MOSFET_ETH_PRESS);
   mosfetCloseValve(MOSFET_LOX_MAIN);  
   mosfetCloseValve(MOSFET_ETH_MAIN);  
-
+  if (DEBUG) {
+          mosfetOpenValve(MOSFET_VENT_LOX);
+          mosfetOpenValve(MOSFET_VENT_ETH);
+        }
   int currtime = millis();
   if (PT_O1.reading > 1.3*ventTo) { // 1.3 is magic number.
         oxVentComplete = false; }
