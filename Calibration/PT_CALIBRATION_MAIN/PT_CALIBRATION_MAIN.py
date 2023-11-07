@@ -2,28 +2,42 @@ from serial import Serial
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from collections import deque
 import os
 import time
 from os.path import isfile
 import csv
-import shutil
 
-process_array = []
-instrument_number = 8
+instrument_count = 8
+data_point_num = 3
+i = 1
 
-def sensor_calibrator():
-    # Initial Reset
-    # file_name = 'PTCal_test0'
-    # folder_name = 'PTCal_testfold'
-    # test_device = 'PT '
+instrument_deques = [deque(maxlen=data_point_num) for _ in range(instrument_count)]
+X = [[] for _ in range(instrument_count)]
+Y = []
 
-    data_point_num = 3
+file_base = f"calibration_{time.strftime('%Y-%m-%d', time.gmtime())}"
+file_ext = ".csv"
+test_num = 1
+
+while isfile(file_base + f"_test{test_num}" + file_ext):
+    test_num += 1
+
+filename = file_base + f"_test{test_num}" + file_ext
+
+with open(filename, "a", newline='') as f:
+    writer = csv.writer(f, delimiter=",")
+
+    row = []
+    for j in range(instrument_count):
+        row.extend([f"Reading {j + 1} X", f"Reading {j + 1} Y", "Slope (m)", "Intercept (c)"])
+    
+    writer.writerow(row)
+
+
+def read_serial():
     port_num = "/dev/cu.usbserial-0001"
     esp32 = Serial(port=port_num, baudrate=115200)
-
-    # Open serial port and read data
-    raw_data = []
-    i = 1
 
     try:
         while True:
@@ -31,91 +45,71 @@ def sensor_calibrator():
             try:
                 decoded_bytes = data[:len(data)-2].decode("utf-8")
                 str_data = decoded_bytes.split(" ")
-                print("got it")
+                print("got it", str_data)
 
+                if len(str_data) == instrument_count:
+                   [i.append(float(x)) for i, x in zip(instrument_deques, str_data)]
+                
             except:
                 continue
 
-            if len(str_data) == instrument_number:
-                raw_data.append([float(x) for x in str_data])
-
-            if len(raw_data) > data_point_num:
-                raw_data.pop(0)
-
-
     except KeyboardInterrupt:
-        # User interrupted the process, now clean up
-        clean_me_up(raw_data, instrument_number, esp32) # control C
+        interrupt(instrument_deques) # control C
 
-def clean_me_up(raw_data, instrument_number, s):
-    global process_array
+def interrupt(instrument_deques):
+    input_reading = float(input("What is the pressure gauge reading? (Numbers only) \n"))
+    Y.append(input_reading)
 
-    reading = float(input("What is the pressure gauge reading? (Numbers only) \n"))
+    [X[i].append(np.mean(instrument_deques[i])) for i in range(instrument_count)]
 
-    # calculate mean values
-    data_array = np.array(raw_data)
-    mean_array = np.mean(data_array, axis=0)
+    if len(Y) > 1:
+        graphing(X, Y)
+    else:
+        with open(filename, "a", newline='') as f:
+            writer = csv.writer(f, delimiter=",")
+            row = []
+            for j in range(instrument_count):
+                row.extend([X[j][0], Y[0], 0, 0])
+            writer.writerow(row)
 
-    mean_vals = []
-
-    [mean_vals.append([i, reading]) for i in mean_array]
-
-    process_array.append(mean_vals)
-    print(process_array)
-
-    if len(process_array) > 1:
-        data_processing_graphing(process_array)
-
-def data_processing_graphing(array):
-    file_base = f"testing_calibration_{time.strftime('%Y-%m-%d', time.gmtime())}"
-    file_ext = ".csv"
-    test_num = 1
-
-    while isfile(file_base + f"_test{test_num}" + file_ext):
-        test_num += 1
-
-    filename = file_base + f"_test{test_num}" + file_ext
-
-
+def graphing(X, Y):
     fig, axs = plt.subplots(3, 3, figsize=(12, 8))
 
-    for j in range(instrument_number):
-        # Extract the j-th data set
+    val_row = []
+    for j in range(instrument_count):
         row, col = divmod(j, 3)
 
-        X = [reading[j][0] for reading in array]
-        Y = [reading[j][1] for reading in array]
+        x = np.array(X[j])
+        y = np.array(Y)
 
-        axs[row, col].plot(X, Y, 'o')
+        # Find line of best fit
+        a, b = np.polyfit(x, y, 1)
 
-        trend = np.polyfit(X, Y, 1)
-        trendpoly = np.poly1d(trend)
-        axs[row, col].plot(X, trendpoly(X), label=f"y = {trend[0]:.2f}x + {trend[1]:.2f}")
+        axs[row, col].scatter(x, y, color='purple')
 
+        axs[row, col].plot(x, a*x+b, color='steelblue', linestyle='--', linewidth=2, label=f'y = {b:.2f} + {a:.2f}x')
         axs[row, col].set_title(f"Reading {j + 1}")
         axs[row, col].legend()
 
-        with open(filename, "a", newline='') as f:
-            writer = csv.writer(f, delimiter=",")
-            # Write the header
-            writer.writerow([f"Reading {j + 1} X", f"Reading {j + 1} Y", "Slope (m)", "Intercept (c)"])
-            # Write data
-            for x_val, y_val in zip(X, Y):
-                writer.writerow([x_val, y_val, trend[0], trend[1]])
+        val_row.extend([x[-1], y[-1], a, b])
+
+    # Write data
+    with open(filename, "a", newline='') as f:
+        writer = csv.writer(f, delimiter=",")
+        writer.writerow(val_row)
 
     # Remove any unused subplots
-    for j in range(instrument_number, 9):
+    for j in range(instrument_count, 9):
         row, col = divmod(j, 3)
         fig.delaxes(axs[row][col])
 
     plt.tight_layout()
     plt.show()
 
-
 if __name__ == "__main__":
     while True:
-        sensor_calibrator()
-        time.sleep(10)
+        read_serial()
+
         rerun = input("Would you like to run the PT calibration again? (y/n): ").strip().lower()
         if rerun != "y":
             break
