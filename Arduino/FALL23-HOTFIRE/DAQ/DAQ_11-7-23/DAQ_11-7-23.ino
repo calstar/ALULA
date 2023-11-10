@@ -95,19 +95,18 @@ struct_max31855 TC_4 {Adafruit_MAX31855(TC_CLK, 15, TC_DO), -1, 15, .offset=0, .
 
 #define I2C_SCL 22
 
-// MOSFETS
-#define MOSFET_ETH_MAIN   7
-#define MOSFET_IGNITER    8
-#define MOSFET_QD_LOX     11 // was 3
-#define MOSFET_QD_ETH     12 
-#define MOSFET_EXTRA      5 // 4 
-#define MOSFET_LOX_MAIN  9
-#define MOSFET_ETH_PRESS 6
-#define MOSFET_LOX_PRESS 10
-#define MOSFET_VENT_ETH  4 // 5
-#define MOSFET_VENT_LOX  3 // was 11
-//#define MOSFET_P_VENT_LOX //NEED PIN
-//#define MOSFET_P_VENT_ETH //NEED PIN
+////////////////////////////// MOSFETS ///////////////////////////////////////////////////////////////////
+#define MOSFET_ETH_MAIN   4 //P07 REASSIGN
+#define MOSFET_IGNITER    8 //P10
+#define MOSFET_QD_LOX     3 //P03
+#define MOSFET_QD_ETH     12 //P14
+#define MOSFET_EXTRA      4 //P04
+#define MOSFET_LOX_MAIN  9 //P11
+#define MOSFET_ETH_PRESS 6 //P06
+#define MOSFET_LOX_PRESS 10 //P12
+#define MOSFET_VENT_ETH  5 //P05
+#define MOSFET_VENT_LOX  11 //P13
+
 
 // Initialize mosfets' io expander.
 //#define MOSFET_PCF_ADDR 0x20
@@ -298,12 +297,16 @@ void loop() {
       if (COMState == IDLE || (COMState == QD && oxComplete && ethComplete)) {
         syncDAQState();
         int QDStart = millis();
+        mosfetCloseAllValves();
       }
       press();
       break;
 
     case (QD):
-      if (COMState == IDLE || COMState == IGNITION) { syncDAQState(); }
+      if (COMState == IDLE || COMState == IGNITION) {
+        syncDAQState(); 
+        mosfetCloseAllValves();
+        }
       quick_disconnect();
       break;
 
@@ -387,15 +390,11 @@ void press() {
 
 // Disconnect harnessings and check state of rocket.
 void quick_disconnect() {
-  mosfetCloseValve(MOSFET_LOX_PRESS);
-  mosfetCloseValve(MOSFET_ETH_PRESS);
+  mosfetOpenValve(MOSFET_QD_LOX);
+  mosfetOpenValve(MOSFET_QD_ETH);
   // vent valves/vent the lines themselves
-  //mosfetOpenValve(MOSFET_P_VENT_LOX);
-  //mosfetOpenValve(MOSFET_P_VENT_ETH);
   // vent the pressure solenoid for 1 full second
   //if millis() >= (QDStart+1000){
-   // mosfetCloseValve(MOSFET_P_VENT_LOX);
-   // mosfetCloseValve(MOSFET_P_VENT_ETH);
   // then, disconnect the lines from the rocket itself
     //mosfetOpenValve(MOSFET_QD_LOX);
     //mosfetOpenValve(MOSFET_QD_ETH);
