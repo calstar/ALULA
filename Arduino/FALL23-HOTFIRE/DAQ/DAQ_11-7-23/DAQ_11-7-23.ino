@@ -96,16 +96,16 @@ struct_max31855 TC_4 {Adafruit_MAX31855(TC_CLK, 15, TC_DO), -1, 15, .offset=0, .
 #define I2C_SCL 22
 
 ////////////////////////////// MOSFETS ///////////////////////////////////////////////////////////////////
-#define MOSFET_ETH_MAIN   4 //P07 REASSIGN
-#define MOSFET_IGNITER    8 //P10
-#define MOSFET_QD_LOX     3 //P03
-#define MOSFET_QD_ETH     12 //P14
-#define MOSFET_EXTRA      4 //P04
-#define MOSFET_LOX_MAIN  9 //P11
+#define MOSFET_ETH_MAIN   7 //P07 
 #define MOSFET_ETH_PRESS 6 //P06
-#define MOSFET_LOX_PRESS 10 //P12
 #define MOSFET_VENT_ETH  5 //P05
+#define MOSFET_EXTRA 4 //CAN USE THIS PIN FOR ANYTHING JUST CHANGE ASSIGNMENT AND HARNESS
+#define MOSFET_QD_LOX     3 //P03
+#define MOSFET_IGNITER    8 //P10
+#define MOSFET_LOX_MAIN  9 //P11
+#define MOSFET_LOX_PRESS 10 //P12
 #define MOSFET_VENT_LOX  11 //P13
+#define MOSFET_QD_ETH     12 //P14
 
 
 // Initialize mosfets' io expander.
@@ -507,17 +507,13 @@ void mosfetCloseAllValves(){
 }
 
 void mosfetCloseValve(int num){
-  // For NMOS, LOW=OFF, and HIGH=ON.
   if (mosfet_pcf_found/* && !DEBUG*/) {
-//    mosfet_pcf.setBitDown(num);
       pcf8575.digitalWrite(num, LOW);
   }
 }
 
 void mosfetOpenValve(int num){
-  // For NMOS, LOW=OFF, and HIGH=ON.
-  if (mosfet_pcf_found/* && !DEBUG*/) {
-  //    mosfet_pcf.setBitDown(num);
+  if (mosfet_pcf_found) {
       pcf8575.digitalWrite(num, HIGH);
   }
 }
