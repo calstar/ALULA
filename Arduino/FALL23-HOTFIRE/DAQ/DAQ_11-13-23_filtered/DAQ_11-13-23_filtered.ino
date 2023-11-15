@@ -31,7 +31,7 @@ PCF8575 pcf8575(0x20);
 
 // DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE.
 // MOSFET must not trigger while in debug.
-int DEBUG = 0;      // Simulate LOX and Eth fill.
+int DEBUG = 1;      // Simulate LOX and Eth fill.
 int WIFIDEBUG = 0;  // Don't send/receive data.
 
 // MODEL DEFINED PARAMETERS FOR TEST/HOTFIRE. Pressures in psi //
@@ -436,9 +436,9 @@ void reset() {
   LC_1.resetReading();
   LC_2.resetReading();
   LC_3.resetReading();
-  // TC_1.resetReading();
-  // TC_2.resetReading();
-  // TC_2.resetReading();
+  TC_1.resetReading();
+  TC_2.resetReading();
+  // TC_3.resetReading();
 }
 
 void idle() {
@@ -457,19 +457,19 @@ void armed() {
 
 void press() {
   if (!(oxComplete && ethComplete)) {
-    if (PT_O1.filteredReading < pressureOx * threshold) {
+    if (PT_O1.rawReading < pressureOx * threshold) {
       mosfetOpenValve(MOSFET_LOX_PRESS);
       if (DEBUG) {
-        PT_O1.filteredReading += (0.0005 * GEN_DELAY);
+        PT_O1.rawReading += (0.0005 * GEN_DELAY);
       }
     } else {
       mosfetCloseValve(MOSFET_LOX_PRESS);
       oxComplete = true;
     }
-    if (PT_E1.filteredReading < pressureFuel * threshold) {
+    if (PT_E1.rawReading < pressureFuel * threshold) {
       mosfetOpenValve(MOSFET_ETH_PRESS);
       if (DEBUG) {
-        PT_E1.filteredReading += (0.0005 * GEN_DELAY);
+        PT_E1.rawReading += (0.0005 * GEN_DELAY);
       }
     } else {
       mosfetCloseValve(MOSFET_ETH_PRESS);
@@ -537,7 +537,7 @@ void abort_sequence() {
     if (PT_O1.filteredReading > ventTo) {  // vent only lox down to vent to pressure
       mosfetOpenValve(MOSFET_VENT_LOX);
       if (DEBUG) {
-        PT_O1.filteredReading = PT_O1.filteredReading - (0.0005 * GEN_DELAY);
+        PT_O1.rawReading = PT_O1.rawReading - (0.0005 * GEN_DELAY);
       }
     } else {                              // lox vented to acceptable hold pressure
       mosfetCloseValve(MOSFET_VENT_LOX);  // close lox
@@ -546,7 +546,7 @@ void abort_sequence() {
     if (PT_E1.filteredReading > ventTo) {
       mosfetOpenValve(MOSFET_VENT_ETH);  // vent ethanol
       if (DEBUG) {
-        PT_E1.filteredReading = PT_E1.filteredReading - (0.0005 * GEN_DELAY);
+        PT_E1.rawReading = PT_E1.rawReading - (0.0005 * GEN_DELAY);
       }
     } else {
       mosfetCloseValve(MOSFET_VENT_ETH);
@@ -554,8 +554,8 @@ void abort_sequence() {
     }
   }
   if (DEBUG) {
-    PT_O1.filteredReading = PT_O1.filteredReading + (0.00005 * GEN_DELAY);
-    PT_E1.filteredReading = PT_E1.filteredReading + (0.00005 * GEN_DELAY);
+    PT_O1.rawReading = PT_O1.rawReading + (0.00005 * GEN_DELAY);
+    PT_E1.rawReading = PT_E1.rawReading + (0.00005 * GEN_DELAY);
   }
 }
 
@@ -628,9 +628,9 @@ void getReadings() {
     LC_1.readDataFromBoard();
     LC_2.readDataFromBoard();
     LC_3.readDataFromBoard();
-    // TC_1.reading = TC_1.scale.readCelsius();
-    // TC_2.reading = TC_2.scale.readCelsius();
-    // TC_2.reading = TC_2.scale.readCelsius();
+    TC_1.readDataFromBoard();
+    TC_2.readDataFromBoard();
+    // TC_3.readDataFromBoard();
   }
 }
 
@@ -654,10 +654,10 @@ void printSensorReadings() {
   serialMessage.concat(" ");
   serialMessage.concat(LC_3.filteredReading);
   serialMessage.concat(" ");
-  //  serialMessage.concat(TC_1.filteredReading);
-  //  serialMessage.concat(" ");
-  //  serialMessage.concat(TC_2.filteredReading);
-  //  serialMessage.concat(" ");
+   serialMessage.concat(TC_1.filteredReading);
+   serialMessage.concat(" ");
+   serialMessage.concat(TC_2.filteredReading);
+   serialMessage.concat(" ");
   serialMessage.concat(ethComplete);
   serialMessage.concat(" ");
   serialMessage.concat(oxComplete);
@@ -684,14 +684,14 @@ void addPacketToQueue() {
     PacketQueue[queueLength].PT_O1 = PT_O1.rawReading;
     PacketQueue[queueLength].PT_O2 = PT_O2.rawReading;
     PacketQueue[queueLength].PT_E1 = PT_E1.rawReading;
-    // PacketQueue[queueLength].PT_E2       = PT_E2.reading;
+    PacketQueue[queueLength].PT_E2 = PT_E2.rawReading;
     PacketQueue[queueLength].PT_C1 = PT_C1.rawReading;
     PacketQueue[queueLength].LC_1 = LC_1.rawReading;
     PacketQueue[queueLength].LC_2 = LC_2.rawReading;
     PacketQueue[queueLength].LC_3 = LC_3.rawReading;
     PacketQueue[queueLength].TC_1 = TC_1.rawReading;
     PacketQueue[queueLength].TC_2 = TC_2.rawReading;
-    // PacketQueue[queueLength].TC_3        = TC_3.reading; // sinc daq and com when adding tcs
+    // PacketQueue[queueLength].TC_3 = TC_3.rawReading; // sinc daq and com when adding tcs
     PacketQueue[queueLength].queueLength = queueLength;
     PacketQueue[queueLength].DAQState = DAQState;
     PacketQueue[queueLength].oxComplete = oxComplete;
