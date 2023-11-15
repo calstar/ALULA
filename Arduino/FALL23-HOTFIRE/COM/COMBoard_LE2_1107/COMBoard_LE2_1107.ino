@@ -87,8 +87,8 @@ float receiveTime = 0;
 //DAQ Protoboard {0x0C, 0xDC, 0x7E, 0xCB, 0x05, 0xC4}
 //NON BUSTED DAQ {0x7C, 0x9E, 0xBD, 0xD8, 0xFC, 0x14}
 // {0xC4, 0xDD, 0x57, 0x9E, 0x96, 0x34};
-uint8_t broadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x50, 0x23, 0x34}; //Core board 1
-//uint8_t broadcastAddress[] = {0xB0, 0xA7, 0x32, 0xDE, 0xD3, 0x1C}; //Core board 2
+// uint8_t broadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x50, 0x23, 0x34}; //Core board 1
+uint8_t broadcastAddress[] = {0xB0, 0xA7, 0x32, 0xDE, 0xD3, 0x1C}; //Core board 2
 //{0x30, 0xC6, 0xF7, 0x2A, 0x28, 0x04}
 
 //Structure example to send data
@@ -108,7 +108,7 @@ typedef struct struct_message {
      int COMState;
      int DAQState;
      short int queueLength;
-     bool pressComplete;
+    //  bool pressComplete;
      bool ethComplete;
      bool oxComplete;
 } struct_message;
@@ -341,7 +341,7 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   incomingLC3 = incomingReadings.LC_3;
   incomingTC1 = incomingReadings.TC_1; //Phenolic-Interface Thermocouple
   incomingTC2 = incomingReadings.TC_2;
-  pressComplete = incomingReadings.pressComplete;
+  // pressComplete = incomingReadings.pressComplete;
   oxComplete = incomingReadings.oxComplete;
   ethComplete = incomingReadings.ethComplete;
   queueSize = incomingReadings.queueLength;
