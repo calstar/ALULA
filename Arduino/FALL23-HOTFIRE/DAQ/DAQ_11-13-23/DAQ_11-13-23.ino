@@ -32,14 +32,13 @@ PCF8575 pcf8575(0x20);
 // DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE.
 // MOSFET must not trigger while in debug.
 int DEBUG = 1;     // Simulate LOX and Eth fill.
-int WIFIDEBUG = 1; // Don't send/receive data.
+int WIFIDEBUG = 0; // Don't send/receive data.
 
 // MODEL DEFINED PARAMETERS FOR TEST/HOTFIRE. Pressures in psi //
-float pressureFuel  = 30;//405;  // Set pressure for fuel: 412
-float pressureOx    = 30;//460;  // Set pressure for lox: 445
+float pressureFuel  = 70;//405;  // Set pressure for fuel: 412
+float pressureOx    = 70;//460;  // Set pressure for lox: 445
 float threshold     = 0.995; // re-psressurrization threshold (/1x)
 float ventTo        = 5;   // c2se solenoids at this pressure to preserve lifetime.
-float LOXventing    = 25;   // pressure at which ethanol begins venting
 #define abortPressure 525   // Cutoff pressure to automatically trigger abort
 #define period        0.5   // Sets period for bang-bang control
 float sendDelay     = 250;  // Sets frequency of data collection. 1/(sendDelay*10^-3) is frequency in Hz
@@ -325,8 +324,8 @@ void loop() {
       break;
 
     case (ABORT):
-      if (COMState == IDLE && oxVentComplete && ethVentComplete) { syncDAQState(); }
       abort_sequence();
+      if (COMState == IDLE && oxVentComplete && ethVentComplete) { syncDAQState(); }
       break;
   }
 }
@@ -401,7 +400,6 @@ void quick_disconnect() {
     //mosfetOpenValve(MOSFET_QD_LOX);
     //mosfetOpenValve(MOSFET_QD_ETH);
   // }
-
   CheckAbort();
 }
 
@@ -420,24 +418,21 @@ void hotfire() {
   if (millis() >= hotfireStart + 5) {
     mosfetOpenValve(MOSFET_LOX_MAIN);
    // Serial.print(hotfireStart);
-   // Serial.print(hotfireStart + 5000);
-   //Serial.print("done");
   }
 //  }
 }
 
 void abort_sequence() {
-   if (DEBUG) {
+  if (DEBUG) {
       mosfetOpenValve(MOSFET_VENT_LOX);
-      mosfetOpenValve(MOSFET_VENT_ETH);      }
-  // mosfetOpenValve(MOSFET_VENT_LOX);
-  // mosfetOpenValve(MOSFET_VENT_ETH);
+      mosfetOpenValve(MOSFET_VENT_ETH);
+      delay(50);}
   // Waits for LOX pressure to decrease before venting Eth through pyro
   mosfetCloseValve(MOSFET_LOX_PRESS);
   mosfetCloseValve(MOSFET_ETH_PRESS);
   mosfetCloseValve(MOSFET_LOX_MAIN);
   mosfetCloseValve(MOSFET_ETH_MAIN);
-
+  mosfetCloseValve(MOSFET_IGNITER);
   int currtime = millis();
   if (PT_O1.reading > 1.3*ventTo) { // 1.3 is magic number.
         oxVentComplete = false; }
@@ -445,7 +440,7 @@ void abort_sequence() {
         ethVentComplete = false; }
 
   if(!(oxVentComplete && ethVentComplete)){
-    if (PT_O1.reading > ventTo) { // vent only lox down to loxventing pressure
+    if (PT_O1.reading > ventTo) { // vent only lox down to vent to pressure
       mosfetOpenValve(MOSFET_VENT_LOX);
       if (DEBUG) {
         PT_O1.reading = PT_O1.reading - (0.0005*GEN_DELAY);
@@ -469,12 +464,11 @@ void abort_sequence() {
     PT_O1.reading = PT_O1.reading + (0.00005*GEN_DELAY);
     PT_E1.reading = PT_E1.reading + (0.00005*GEN_DELAY);
   }
-
   }
 
-// Helper Functions
-
-// Get commanded state from COM board.
+//// Helper Functions
+//
+//// Get commanded state from COM board.
 void fetchCOMState() {
   // Actually, COMState will be updated in the OnDataRec function.
   if (Serial.available() > 0) {
