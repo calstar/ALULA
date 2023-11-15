@@ -1,6 +1,9 @@
 /*
 11-7-2023
 
+Make sure to change debug mode, broadcast address, and
+reset parameters.
+
 
 This code runs on the DAQ ESP32 and has a couple of main tasks.
 1. Read sensor data
@@ -16,11 +19,10 @@ This code runs on the DAQ ESP32 and has a couple of main tasks.
 #include <SPI.h>
 #include "HX711.h"
 #include "Adafruit_MAX31855.h"
-#include <EasyPCF8575.h>
 
 
 #include "PCF8575.h"  // https://github.com/xreef/PCF8575_library
- 
+
 // Set i2c address
 PCF8575 pcf8575(0x20);
 
@@ -33,8 +35,8 @@ int DEBUG = 1;     // Simulate LOX and Eth fill.
 int WIFIDEBUG = 1; // Don't send/receive data.
 
 // MODEL DEFINED PARAMETERS FOR TEST/HOTFIRE. Pressures in psi //
-float pressureFuel  = 150;//405;  // Set pressure for fuel: 412
-float pressureOx    = 150;//460;  // Set pressure for lox: 445
+float pressureFuel  = 30;//405;  // Set pressure for fuel: 412
+float pressureOx    = 30;//460;  // Set pressure for lox: 445
 float threshold     = 0.995; // re-psressurrization threshold (/1x)
 float ventTo        = 5;   // c2se solenoids at this pressure to preserve lifetime.
 float LOXventing    = 25;   // pressure at which ethanol begins venting
@@ -96,7 +98,7 @@ struct_max31855 TC_4 {Adafruit_MAX31855(TC_CLK, 15, TC_DO), -1, 15, .offset=0, .
 #define I2C_SCL 22
 
 ////////////////////////////// MOSFETS ///////////////////////////////////////////////////////////////////
-#define MOSFET_ETH_MAIN   7 //P07 
+#define MOSFET_ETH_MAIN   7 //P07
 #define MOSFET_ETH_PRESS 6 //P06
 #define MOSFET_VENT_ETH  5 //P05
 #define MOSFET_EXTRA 4 //CAN USE THIS PIN FOR ANYTHING JUST CHANGE ASSIGNMENT AND HARNESS
@@ -199,7 +201,7 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
 // Initialize all sensors and parameters.
 void setup() {
   // pinMode(ONBOARD_LED,OUTPUT);
-  
+
   Serial.begin(115200);
 
   while (!Serial) delay(1); // wait for Serial on Leonardo/Zero, etc.
@@ -223,7 +225,7 @@ void setup() {
   // MOSFET.
 //  mosfet_pcf.startI2C(I2C_SDA, I2C_SCL, MOSFET_PCF_ADDR); // Only SEARCH, if using normal pins in Arduino
   mosfet_pcf_found = true;
-  
+
     // Set pinMode to OUTPUT
   for(int i=0;i<16;i++) {
     pcf8575.pinMode(i, OUTPUT);
@@ -304,7 +306,7 @@ void loop() {
 
     case (QD):
       if (COMState == IDLE || COMState == IGNITION) {
-        syncDAQState(); 
+        syncDAQState();
         mosfetCloseAllValves();
         }
       quick_disconnect();
@@ -410,7 +412,7 @@ void ignition() {
 void hotfire() {
   mosfetCloseValve(MOSFET_IGNITER);
   mosfetOpenValve(MOSFET_ETH_MAIN);
-//  
+//
 //  if (millis() >= hotfireStart+3000) {
 //    mosfetCloseValve(MOSFET_LOX_MAIN);
 //  } else {
@@ -433,15 +435,15 @@ void abort_sequence() {
   // Waits for LOX pressure to decrease before venting Eth through pyro
   mosfetCloseValve(MOSFET_LOX_PRESS);
   mosfetCloseValve(MOSFET_ETH_PRESS);
-  mosfetCloseValve(MOSFET_LOX_MAIN);  
-  mosfetCloseValve(MOSFET_ETH_MAIN);  
+  mosfetCloseValve(MOSFET_LOX_MAIN);
+  mosfetCloseValve(MOSFET_ETH_MAIN);
 
   int currtime = millis();
   if (PT_O1.reading > 1.3*ventTo) { // 1.3 is magic number.
         oxVentComplete = false; }
   if (PT_E1.reading > 1.3*ventTo) { // 1.3 is magic number.
-        ethVentComplete = false; }  
-      
+        ethVentComplete = false; }
+
   if(!(oxVentComplete && ethVentComplete)){
     if (PT_O1.reading > ventTo) { // vent only lox down to loxventing pressure
       mosfetOpenValve(MOSFET_VENT_LOX);
@@ -467,7 +469,7 @@ void abort_sequence() {
     PT_O1.reading = PT_O1.reading + (0.00005*GEN_DELAY);
     PT_E1.reading = PT_E1.reading + (0.00005*GEN_DELAY);
   }
-    
+
   }
 
 // Helper Functions
