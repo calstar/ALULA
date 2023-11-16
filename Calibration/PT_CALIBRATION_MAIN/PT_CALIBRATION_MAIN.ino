@@ -109,16 +109,12 @@ void setup() {
 }
 
 void loop() {
-
   getReadings();
-
-  delay(2);
 
 }
 
 void getReadings(){
-
-
+  ;;
  pt1 = scale1.read();
        // Serial.print("pt1: ");
 
