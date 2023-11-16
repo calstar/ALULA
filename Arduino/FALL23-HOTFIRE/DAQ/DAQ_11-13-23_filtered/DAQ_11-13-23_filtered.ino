@@ -95,7 +95,7 @@ public:
     return analogRead(36); // This is arbitrary, function should ALWAYS be overriden in child class
   }
 
-  virtual void readDataFromBoard() {
+  void readDataFromBoard() {
     float newReading = readRawFromBoard();
     filter.addReading(newReading);
 
