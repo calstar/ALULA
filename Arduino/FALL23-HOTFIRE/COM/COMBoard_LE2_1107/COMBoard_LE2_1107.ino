@@ -49,6 +49,8 @@ float incomingPT4 = 4;
  float incomingLC3 = 4;
  float incomingTC1 = 4;
  float incomingTC2 = 4;
+ float incomingTC3 = 4;
+ float incomingTC4 = 4;
  float incomingCap1 = 0;
  float incomingCap2 = 0;
  bool pressComplete = false;
@@ -88,8 +90,8 @@ float receiveTime = 0;
 //NON BUSTED DAQ {0x7C, 0x9E, 0xBD, 0xD8, 0xFC, 0x14}
 // {0xC4, 0xDD, 0x57, 0x9E, 0x96, 0x34};
 // uint8_t broadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x50, 0x23, 0x34}; //Core board 1
-// uint8_t broadcastAddress[] = {0xB0, 0xA7, 0x32, 0xDE, 0xD3, 0x1C}; //Core board 2
-uint8_t broadcastAddress[] = {0x08, 0x3A, 0xF2, 0xB7, 0xEE, 0x00}; //TEST
+uint8_t broadcastAddress[] = {0xB0, 0xA7, 0x32, 0xDE, 0xD3, 0x1C}; //Core board 2
+//uint8_t broadcastAddress[] = {0x08, 0x3A, 0xF2, 0xB7, 0xEE, 0x00}; //TEST
 //{0x30, 0xC6, 0xF7, 0x2A, 0x28, 0x04}
 
 //Structure example to send data
@@ -106,6 +108,8 @@ typedef struct struct_message {
      float LC_3;
      float TC_1;
      float TC_2;
+     float TC_3;
+     float TC_4;
      int COMState;
      int DAQState;
      short int queueLength;
@@ -342,6 +346,9 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   incomingLC3 = incomingReadings.LC_3;
   incomingTC1 = incomingReadings.TC_1; //Phenolic-Interface Thermocouple
   incomingTC2 = incomingReadings.TC_2;
+  incomingTC3 = incomingReadings.TC_3;
+  incomingTC4 = incomingReadings.TC_4;
+
   // pressComplete = incomingReadings.pressComplete;
   oxComplete = incomingReadings.oxComplete;
   ethComplete = incomingReadings.ethComplete;
@@ -383,6 +390,10 @@ void receiveDataPrint() {
   message.concat(incomingTC1);
   message.concat(" ");
   message.concat(incomingTC2);
+  message.concat(" ");
+  message.concat(incomingTC3);
+  message.concat(" ");
+  message.concat(incomingTC4);
   message.concat(" ");
   // message.concat(incomingCap1);
   // message.concat(" ");

@@ -232,6 +232,8 @@ typedef struct struct_message {
   float LC_3;
   float TC_1;
   float TC_2;
+  float TC_3;
+  float TC_4;
   int COMState;
   int DAQState;
   short int queueLength;
@@ -260,8 +262,8 @@ esp_now_peer_info_t peerInfo;
 // HEADERLESS BOARD {0x7C, 0x87, 0xCE, 0xF0 0x69, 0xAC}
 // NEWEST COM BOARD IN EVA {0x24, 0x62, 0xAB, 0xD2, 0x85, 0xDC}
 // uint8_t broadcastAddress[] = {0x24, 0x62, 0xAB, 0xD2, 0x85, 0xDC};
-// uint8_t broadcastAddress[] = {0xB0, 0xA7, 0x32, 0xDE, 0xC1, 0xFC};
-uint8_t broadcastAddress[] = {0x48, 0xE7, 0x29, 0xA3, 0x0D, 0xA8}; // TEST
+uint8_t broadcastAddress[] = {0xB0, 0xA7, 0x32, 0xDE, 0xC1, 0xFC};
+// uint8_t broadcastAddress[] = {0x48, 0xE7, 0x29, 0xA3, 0x0D, 0xA8}; // TEST
 // uint8_t broadcastAddress[] = { 0x48, 0xE7, 0x29, 0xA3, 0x0D, 0xA8 }; // TEST COM
 // {0x7C, 0x87, 0xCE, 0xF0, 0x69, 0xAC};
 // {0x3C, 0x61, 0x05, 0x4A, 0xD5, 0xE0};
@@ -439,7 +441,8 @@ void reset() {
   LC_3.resetReading();
   TC_1.resetReading();
   TC_2.resetReading();
-  // TC_3.resetReading();
+  TC_3.resetReading();
+  TC_4.resetReading();
 }
 
 void idle() {
@@ -631,7 +634,8 @@ void getReadings() {
     LC_3.readDataFromBoard();
     TC_1.readDataFromBoard();
     TC_2.readDataFromBoard();
-    // TC_3.readDataFromBoard();
+    TC_3.readDataFromBoard();
+    TC_4.readDataFromBoard();
   }
 }
 
@@ -655,10 +659,14 @@ void printSensorReadings() {
   serialMessage.concat(" ");
   serialMessage.concat(LC_3.filteredReading);
   serialMessage.concat(" ");
-   serialMessage.concat(TC_1.filteredReading);
-   serialMessage.concat(" ");
-   serialMessage.concat(TC_2.filteredReading);
-   serialMessage.concat(" ");
+  serialMessage.concat(TC_1.filteredReading);
+  serialMessage.concat(" ");
+  serialMessage.concat(TC_2.filteredReading);
+  serialMessage.concat(" ");
+  serialMessage.concat(TC_3.filteredReading);
+  serialMessage.concat(" ");
+  serialMessage.concat(TC_4.filteredReading);
+  serialMessage.concat(" ");
   serialMessage.concat(ethComplete);
   serialMessage.concat(" ");
   serialMessage.concat(oxComplete);
@@ -692,6 +700,9 @@ void addPacketToQueue() {
     PacketQueue[queueLength].LC_3 = LC_3.rawReading;
     PacketQueue[queueLength].TC_1 = TC_1.rawReading;
     PacketQueue[queueLength].TC_2 = TC_2.rawReading;
+    PacketQueue[queueLength].TC_3 = TC_3.rawReading;
+    PacketQueue[queueLength].TC_4 = TC_4.rawReading;
+
     // PacketQueue[queueLength].TC_3 = TC_3.rawReading; // sinc daq and com when adding tcs
     PacketQueue[queueLength].queueLength = queueLength;
     PacketQueue[queueLength].DAQState = DAQState;
