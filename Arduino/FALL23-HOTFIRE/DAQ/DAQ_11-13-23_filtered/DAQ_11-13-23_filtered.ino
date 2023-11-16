@@ -34,8 +34,8 @@ int DEBUG = 0;      // Simulate LOX and Eth fill.
 int WIFIDEBUG = 0;  // Don't send/receive data.
 
 // MODEL DEFINED PARAMETERS FOR TEST/HOTFIRE. Pressures in psi //
-float pressureFuel = 70;   //405;  // Set pressure for fuel: 412
-float pressureOx = 70;     //460;  // Set pressure for lox: 445
+float pressureFuel = 120;   //405;  // Set pressure for fuel: 412
+float pressureOx = 120;     //460;  // Set pressure for lox: 445
 float threshold = 0.995;   // re-psressurrization threshold (/1x)
 float ventTo = 5;          // c2se solenoids at this pressure to preserve lifetime.
 #define abortPressure 525  // Cutoff pressure to automatically trigger abort
@@ -46,7 +46,7 @@ float sendDelay = 250;     // Sets frequency of data collection. 1/(sendDelay*10
 
 
 //::::::DEFINE INSTRUMENT PINOUTS::::::://
-
+#define TimeOut 100
 
 struct MovingMedianFilter {
 private:
@@ -121,7 +121,10 @@ public:
   }
 
   float readRawFromBoard() override {
-    return scale.read();
+    if (scale.wait_ready_timeout(TimeOut)) {
+      return scale.read();
+    }
+    return (rawReading - offset) / slope;
   }
 };
 
@@ -142,11 +145,11 @@ public:
 
 #define HX_CLK 27
 
-struct_hx711 PT_O1{ {}, HX_CLK, 36, .offset = -102.0, .slope = 0.008211 };
-struct_hx711 PT_O2{ {}, HX_CLK, 39, .offset = -108.3, .slope = 0.007127 };
-struct_hx711 PT_E1{ {}, HX_CLK, 34, .offset = -111.5, .slope = 0.007186 };
-struct_hx711 PT_E2{ {}, HX_CLK, 35, .offset = -98.98, .slope = 0.007794 };  // Change GPIO PIN
-struct_hx711 PT_C1{ {}, HX_CLK, 32, .offset = -109.9, .slope = 0.007398 };
+struct_hx711 PT_O1{ {}, HX_CLK, 36, .offset = -104.0, .slope = 0.008505 };
+struct_hx711 PT_O2{ {}, HX_CLK, 39, .offset = -109.25, .slope = 0.007623 };
+struct_hx711 PT_E1{ {}, HX_CLK, 34, .offset = -110.85, .slope = 0.008670 };
+struct_hx711 PT_E2{ {}, HX_CLK, 35, .offset = -91.95, .slope = 0.008209 };  // Change GPIO PIN
+struct_hx711 PT_C1{ {}, HX_CLK, 32, .offset = -104.72, .slope = 0.007086};
 
 // LOADCELLS
 struct_hx711 LC_1{ {}, HX_CLK, 33, .offset = 0, .slope = 1 };
@@ -169,7 +172,7 @@ struct_max31855 TC_4{ Adafruit_MAX31855(TC4_CLK, 15, TC4_DO), 15, .offset = 0, .
 
 
 // GPIO expander
-#define I2C_SDA 211
+#define I2C_SDA 21
 
 #define I2C_SCL 22
 
@@ -210,7 +213,7 @@ int hotfireStart;
 
 // Delay between loops.
 #define IDLE_DELAY 250
-#define GEN_DELAY 50
+#define GEN_DELAY 20
 
 
 //::::DEFINE READOUT VARIABLES:::://
@@ -294,21 +297,21 @@ void setup() {
 
   // HX711.
   PT_O1.scale.begin(PT_O1.gpio, PT_O1.clk);
-  PT_O1.scale.set_gain(64);
+  PT_O1.scale.set_gain(128);
   PT_O2.scale.begin(PT_O2.gpio, PT_O2.clk);
-  PT_O2.scale.set_gain(64);
+  PT_O2.scale.set_gain(128);
   PT_E1.scale.begin(PT_E1.gpio, PT_E1.clk);
-  PT_E1.scale.set_gain(64);
+  PT_E1.scale.set_gain(128);
   PT_E2.scale.begin(PT_E2.gpio, PT_E2.clk);
-  PT_E2.scale.set_gain(64);
+  PT_E2.scale.set_gain(128);
   PT_C1.scale.begin(PT_C1.gpio, PT_C1.clk);
-  PT_C1.scale.set_gain(64);
+  PT_C1.scale.set_gain(128);
   LC_1.scale.begin(LC_1.gpio, LC_1.clk);
-  LC_1.scale.set_gain(64);
+  LC_1.scale.set_gain(128);
   LC_2.scale.begin(LC_2.gpio, LC_2.clk);
-  LC_2.scale.set_gain(64);
+  LC_2.scale.set_gain(128);
   LC_3.scale.begin(LC_3.gpio, LC_3.clk);
-  LC_3.scale.set_gain(64);
+  LC_3.scale.set_gain(128);
 
   // Thermocouple.
   pinMode(TC_1.cs, OUTPUT);

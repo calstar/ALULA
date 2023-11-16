@@ -31,7 +31,7 @@ PCF8575 pcf8575(0x20);
 
 // DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE.
 // MOSFET must not trigger while in debug.
-int DEBUG = 1;     // Simulate LOX and Eth fill.
+int DEBUG = 0;     // Simulate LOX and Eth fill.
 int WIFIDEBUG = 0; // Don't send/receive data.
 
 // MODEL DEFINED PARAMETERS FOR TEST/HOTFIRE. Pressures in psi //
@@ -60,7 +60,7 @@ typedef struct struct_hx711 {
 #define HX_CLK 27
 
 struct_hx711 PT_O1{ {}, -1, HX_CLK, 36, .offset = -102.03, .slope = 0.008211 };
-struct_hx711 PT_O2{ {}, -1, HX_CLK, 39, .offset = -108.37, .slope = 0.007127 };
+struct_hx711 PT_O2{ {}, -1, HX_CLK, 39, .offset = -92.37, .slope = 0.007127 };
 struct_hx711 PT_E1{ {}, -1, HX_CLK, 34, .offset = -111.55, .slope = 0.007186 };
 struct_hx711 PT_E2{ {}, -1, HX_CLK, 35, .offset = -98.98, .slope = 0.007794 }; 
 struct_hx711 PT_C1{ {}, -1, HX_CLK, 32, .offset = -109.96, .slope = 0.007398 };
@@ -82,16 +82,17 @@ typedef struct struct_max31855 {
 #define TC_CLK 14
 #define TC_DO  13
 
+
 #define SD_CLK 18
 #define SD_DO  23
 
 struct_max31855 TC_1 {Adafruit_MAX31855(TC_CLK, 17, TC_DO), -1, 17, .offset=0, .slope=0};
 struct_max31855 TC_2 {Adafruit_MAX31855(TC_CLK, 16, TC_DO), -1, 16, .offset=0, .slope=0};
 struct_max31855 TC_3 {Adafruit_MAX31855(TC_CLK, 4, TC_DO), -1, 4, .offset=0, .slope=0};
-struct_max31855 TC_4 {Adafruit_MAX31855(TC_CLK, 15, TC_DO), -1, 15, .offset=0, .slope=0};
+struct_max31855 TC_4 {Adafruit_MAX31855(18, 15, 23), -1, 15, .offset=0, .slope=0};
 
 // GPIO expander
-#define I2C_SDA 211
+#define I2C_SDA 21
 
 #define I2C_SCL 22
 
@@ -127,7 +128,7 @@ int hotfireStart;
 // Delay between loops.
 #define IDLE_DELAY 250
 #define GEN_DELAY 20
-
+#define TimeOut 100
 
 //::::DEFINE READOUT VARIABLES:::://
 String serialMessage;
@@ -327,6 +328,8 @@ void loop() {
       if (COMState == IDLE && oxVentComplete && ethVentComplete) { syncDAQState(); }
       break;
   }
+
+  //delay(50);
 }
 
 // State Functions.
@@ -526,17 +529,25 @@ void logData() {
 
 void getReadings(){
    if (!DEBUG){
+    if (PT_O1.scale.wait_ready_timeout(TimeOut))
     PT_O1.reading = PT_O1.slope * PT_O1.scale.read() + PT_O1.offset;
+    if (PT_O2.scale.wait_ready_timeout(TimeOut))
     PT_O2.reading = PT_O2.slope * PT_O2.scale.read() + PT_O2.offset;
+    if (PT_E1.scale.wait_ready_timeout(TimeOut))
     PT_E1.reading = PT_E1.slope * PT_E1.scale.read() + PT_E1.offset;
+    if (PT_E2.scale.wait_ready_timeout(TimeOut))
     PT_E2.reading = PT_E2.slope * PT_E2.scale.read() + PT_E2.offset;
+    if (PT_C1.scale.wait_ready_timeout(TimeOut))
     PT_C1.reading = PT_C1.slope * PT_C1.scale.read() + PT_C1.offset;
+    if (LC_1.scale.wait_ready_timeout(TimeOut))
     LC_1.reading  = LC_1.slope  * LC_1.scale.read()  + LC_1.offset;
+    if (LC_2.scale.wait_ready_timeout(TimeOut))
     LC_2.reading  = LC_2.slope  * LC_2.scale.read()  + LC_2.offset;
+    if (LC_3.scale.wait_ready_timeout(TimeOut))
     LC_3.reading  = LC_3.slope  * LC_3.scale.read()  + LC_3.offset;
-    // TC_1.reading = TC_1.scale.readCelsius();
-    // TC_2.reading = TC_2.scale.readCelsius();
-    // TC_2.reading = TC_2.scale.readCelsius();
+    TC_1.reading = TC_1.scale.readCelsius();
+    TC_2.reading = TC_2.scale.readCelsius();
+    TC_2.reading = TC_2.scale.readCelsius();
   }
 }
 
@@ -581,6 +592,7 @@ void printSensorReadings() {
 void sendData() {
   addPacketToQueue();
   sendQueue();
+  // delay(50);
 }
 
 void addPacketToQueue() {
