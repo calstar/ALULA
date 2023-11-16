@@ -59,12 +59,11 @@ typedef struct struct_hx711 {
 
 #define HX_CLK 27
 
-// PRESSURE TRANSDUCERS
-struct_hx711 PT_O1 {{}, -1, HX_CLK, 36, .offset=-36.5, .slope=0.01074};
-struct_hx711 PT_O2 {{}, -1, HX_CLK, 39, .offset=-48.3, .slope=0.009309};
-struct_hx711 PT_E1 {{}, -1, HX_CLK, 34, .offset=-70.8, .slope=0.009041};
-struct_hx711 PT_E2 {{}, -1, HX_CLK, 35, .offset=-55.5, .slope=0.009588}; // Change GPIO PIN
-struct_hx711 PT_C1 {{}, -1, HX_CLK, 32, .offset=-79.2, .slope=0.009753};
+struct_hx711 PT_O1{ {}, -1, HX_CLK, 36, .offset = -102.03, .slope = 0.008211 };
+struct_hx711 PT_O2{ {}, -1, HX_CLK, 39, .offset = -108.37, .slope = 0.007127 };
+struct_hx711 PT_E1{ {}, -1, HX_CLK, 34, .offset = -111.55, .slope = 0.007186 };
+struct_hx711 PT_E2{ {}, -1, HX_CLK, 35, .offset = -98.98, .slope = 0.007794 }; 
+struct_hx711 PT_C1{ {}, -1, HX_CLK, 32, .offset = -109.96, .slope = 0.007398 };
 
 // LOADCELLS
 struct_hx711 LC_1  {{}, -1, HX_CLK, 33, .offset=0, .slope=1};

@@ -28,7 +28,6 @@ PCF8575 pcf8575(0x20);
 
 //::::::Global Variables::::::://
 
-
 // DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE.
 // MOSFET must not trigger while in debug.
 int DEBUG = 0;      // Simulate LOX and Eth fill.
@@ -143,11 +142,11 @@ public:
 
 #define HX_CLK 27
 
-struct_hx711 PT_O1{ {}, HX_CLK, 36, .offset = -36.5, .slope = 0.01074 };
-struct_hx711 PT_O2{ {}, HX_CLK, 39, .offset = -48.3, .slope = 0.009309 };
-struct_hx711 PT_E1{ {}, HX_CLK, 34, .offset = -70.8, .slope = 0.009041 };
-struct_hx711 PT_E2{ {}, HX_CLK, 35, .offset = -55.5, .slope = 0.009588 };  // Change GPIO PIN
-struct_hx711 PT_C1{ {}, HX_CLK, 32, .offset = -79.2, .slope = 0.009753 };
+struct_hx711 PT_O1{ {}, HX_CLK, 36, .offset = -102.0, .slope = 0.008211 };
+struct_hx711 PT_O2{ {}, HX_CLK, 39, .offset = -108.3, .slope = 0.007127 };
+struct_hx711 PT_E1{ {}, HX_CLK, 34, .offset = -111.5, .slope = 0.007186 };
+struct_hx711 PT_E2{ {}, HX_CLK, 35, .offset = -98.98, .slope = 0.007794 };  // Change GPIO PIN
+struct_hx711 PT_C1{ {}, HX_CLK, 32, .offset = -109.9, .slope = 0.007398 };
 
 // LOADCELLS
 struct_hx711 LC_1{ {}, HX_CLK, 33, .offset = 0, .slope = 1 };
@@ -155,7 +154,10 @@ struct_hx711 LC_2{ {}, HX_CLK, 25, .offset = 0, .slope = 1 };
 struct_hx711 LC_3{ {}, HX_CLK, 26, .offset = 0, .slope = 1 };
 
 #define TC_CLK 14
+#define TC4_CLK 18
 #define TC_DO 13
+#define TC4_DO 23
+
 
 #define SD_CLK 18
 #define SD_DO 23
@@ -163,7 +165,7 @@ struct_hx711 LC_3{ {}, HX_CLK, 26, .offset = 0, .slope = 1 };
 struct_max31855 TC_1{ Adafruit_MAX31855(TC_CLK, 17, TC_DO), 17, .offset = 0, .slope = 1 };
 struct_max31855 TC_2{ Adafruit_MAX31855(TC_CLK, 16, TC_DO), 16, .offset = 0, .slope = 1 };
 struct_max31855 TC_3{ Adafruit_MAX31855(TC_CLK, 4, TC_DO), 4, .offset = 0, .slope = 1 };
-struct_max31855 TC_4{ Adafruit_MAX31855(TC_CLK, 15, TC_DO), 15, .offset = 0, .slope = 1 };
+struct_max31855 TC_4{ Adafruit_MAX31855(TC4_CLK, 15, TC4_DO), 15, .offset = 0, .slope = 1 };
 
 
 // GPIO expander
@@ -208,7 +210,7 @@ int hotfireStart;
 
 // Delay between loops.
 #define IDLE_DELAY 250
-#define GEN_DELAY 20
+#define GEN_DELAY 50
 
 
 //::::DEFINE READOUT VARIABLES:::://
@@ -520,7 +522,7 @@ void abort_sequence() {
   if (DEBUG) {
     mosfetOpenValve(MOSFET_VENT_LOX);
     mosfetOpenValve(MOSFET_VENT_ETH);
-    delay(50);
+//    delay(50);
   }
   // Waits for LOX pressure to decrease before venting Eth through pyro
   mosfetCloseValve(MOSFET_LOX_PRESS);
