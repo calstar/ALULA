@@ -33,7 +33,7 @@ def interrupt(instrument_deques):
     input_reading = float(input("What is the pressure gauge reading? (Numbers only) \n"))
     Y.append(input_reading)
 
-    [X[i].append(np.mean(instrument_deques[i])) for i in range(instrument_count)]
+    [X[i].append(np.median(instrument_deques[i])) for i in range(instrument_count)]
 
     if len(Y) > 1:
         graphing(X, Y)
@@ -87,7 +87,7 @@ if __name__ == "__main__":
     global instrument_count
     instrument_count = int(input("Pls input the number of instruments for calibration (INT ONLY): "))
 
-    data_point_num = 3
+    data_point_num = 5
 
     instrument_deques = [deque(maxlen=data_point_num) for _ in range(instrument_count)]
     X = [[] for _ in range(instrument_count)]
