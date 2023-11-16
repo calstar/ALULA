@@ -52,11 +52,16 @@ def graphing(X, Y):
     fig, axs = plt.subplots(num_rows, num_cols, figsize=(12, 3* num_cols))
 
     val_row = []
+
+
     for j in range(instrument_count):
         row, col = divmod(j, num_cols)
 
         x = np.array(X[j])
         y = np.array(Y)
+
+        if np.isnan(x).any():
+            read_serial()
         # Find line of best fit
         a, b = np.polyfit(x, y, 1)
 
