@@ -163,5 +163,5 @@ void getReadings(){
 
   Serial.println(serialMessage);
 
-
+  delay(200);
 }
