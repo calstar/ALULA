@@ -77,20 +77,13 @@ public:
   Board scale;
   float offset;
   float slope;
-  float c1;
+  float c1=0;
   float c2;
   float c3;
   float filteredReading = -1;
   float rawReading = -1;
 
-  struct_data_board(Board scale, float offset, float slope)
-    : scale(scale) {
-    this->scale = scale;
-    this->offset = offset;
-    this->slope = slope;
-  }
-  
-  struct_data_poly_board(Board scale, float c1, float c2, float c3)
+  struct_data_board(Board scale, float c1, float c2, float c3)
     : scale(scale) {
     this->scale = scale;
     this->c1 = c1;
@@ -117,7 +110,7 @@ public:
   }
 };
 
-struct struct_hx711 : struct_data_poly_board<HX711> {
+struct struct_hx711 : struct_data_board<HX711> {
 public:
   int clk;
   int gpio;
@@ -132,7 +125,7 @@ public:
     if (scale.wait_ready_timeout(TimeOut)) {
       return scale.read();
     }
-    return (rawReading - offset) / slope;
+    return (rawReading - c3) / c2;
   }
 };
 
@@ -140,8 +133,8 @@ struct struct_max31855 : struct_data_board<Adafruit_MAX31855> {
 public:
   int cs;
 
-  struct_max31855(Adafruit_MAX31855 scale, float cs, float offset, float slope)
-    : struct_data_board(scale, offset, slope) {
+  struct_max31855(Adafruit_MAX31855 scale, float cs, float c1, float c2, float c3)
+    : struct_data_board(scale, c1, c2, c3) {
     this->cs = cs;
   }
 
@@ -154,16 +147,16 @@ public:
 #define HX_CLK 27
 
 // PRESSURE TRANSDUCERS, Y[psi] = c1*x^2 + c2*x + c3
-struct_hx711 PT_O1{ {}, HX_CLK, 36, c1 = -2.677e-8, c2 = 0.01049, c3 = -103.6}; 
-struct_hx711 PT_O2{ {}, HX_CLK, 39, c1 = -2.164e-8, c2 = 0.00924, c3 = -106.2}; 
-struct_hx711 PT_E1{ {}, HX_CLK, 34, c1 = -2.510e-8, c2 = 0.01016, c3 = -117.7}; 
-struct_hx711 PT_E2{ {}, HX_CLK, 35, c1 = -2.431e-8, c2 = 0.00980, c3 = -93.97}; 
-struct_hx711 PT_C1{ {}, HX_CLK, 32, c1 = -1.858e-8, c2 = 0.008493, c3 = -117.4}; 
+struct_hx711 PT_O1{ {}, HX_CLK, 36, .c1 = -2.677e-8, .c2 = 0.01049, .c3 = -103.6}; 
+struct_hx711 PT_O2{ {}, HX_CLK, 39, .c1 = -2.164e-8, .c2 = 0.00924, .c3 = -106.2}; 
+struct_hx711 PT_E1{ {}, HX_CLK, 34, .c1 = -2.510e-8, .c2 = 0.01016, .c3 = -117.7}; 
+struct_hx711 PT_E2{ {}, HX_CLK, 35, .c1 = -2.431e-8, .c2 = 0.00980, .c3 = -93.97}; 
+struct_hx711 PT_C1{ {}, HX_CLK, 32, .c1 = -1.858e-8, .c2 = 0.008493, .c3 = -117.4}; 
 
 // LOADCELLS
-struct_hx711 LC_1{ {}, HX_CLK, 33, c1 = 0, c2 = 0.0149, c3 = -103.6}; 
-struct_hx711 LC_2{ {}, HX_CLK, 25, c1 = 0, c2 = 0.0149, c3 = -103.6}; 
-struct_hx711 LC_3{ {}, HX_CLK, 26, c1 = 0, c2 = 0.0149, c3 = -103.6}; 
+struct_hx711 LC_1{ {}, HX_CLK, 33, .c1 = 0, .c2 = 0.0149, .c3 = -103.6}; 
+struct_hx711 LC_2{ {}, HX_CLK, 25, .c1 = 0, .c2 = 0.0149, .c3 = -103.6}; 
+struct_hx711 LC_3{ {}, HX_CLK, 26, .c1 = 0, .c2 = 0.0149, .c3 = -103.6}; 
 
 #define TC_CLK 14
 #define TC4_CLK 18
@@ -174,10 +167,10 @@ struct_hx711 LC_3{ {}, HX_CLK, 26, c1 = 0, c2 = 0.0149, c3 = -103.6};
 #define SD_CLK 18
 #define SD_DO 23
 
-struct_max31855 TC_1{ Adafruit_MAX31855(TC_CLK, 17, TC_DO), 17, .offset = 0, .slope = 1 };
-struct_max31855 TC_2{ Adafruit_MAX31855(TC_CLK, 16, TC_DO), 16, .offset = 0, .slope = 1 };
-struct_max31855 TC_3{ Adafruit_MAX31855(TC_CLK, 4, TC_DO), 4, .offset = 0, .slope = 1 };
-struct_max31855 TC_4{ Adafruit_MAX31855(TC4_CLK, 15, TC4_DO), 15, .offset = 0, .slope = 1 };
+struct_max31855 TC_1{ Adafruit_MAX31855(TC_CLK, 17, TC_DO), 17, .c1 = 0, .c2 = 1, .c3 = 0 };
+struct_max31855 TC_2{ Adafruit_MAX31855(TC_CLK, 16, TC_DO), 16, .c1 = 0, .c2 = 1, .c3 = 0 };
+struct_max31855 TC_3{ Adafruit_MAX31855(TC_CLK, 4, TC_DO), 4, .c1 = 0, .c2 = 1, .c3 = 0 };
+struct_max31855 TC_4{ Adafruit_MAX31855(TC4_CLK, 15, TC4_DO), 15, .c1 = 0, .c2 = 1, .c3 = 0 };
 
 
 // GPIO expander
