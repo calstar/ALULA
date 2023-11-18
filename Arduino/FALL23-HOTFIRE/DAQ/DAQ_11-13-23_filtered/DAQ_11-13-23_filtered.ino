@@ -31,7 +31,7 @@ PCF8575 pcf8575(0x20);
 // DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE.
 // MOSFET must not trigger while in debug.
 int DEBUG = 1;      // Simulate LOX and Eth fill.
-int WIFIDEBUG = 1;  // Don't send/receive data.
+int WIFIDEBUG = 0;  // Don't send/receive data.
 
 // MODEL DEFINED PARAMETERS FOR TEST/HOTFIRE. Pressures in psi //
 float pressureFuel = 120;   //405;  // Set pressure for fuel: 412
@@ -145,11 +145,11 @@ public:
 
 #define HX_CLK 27
 
-struct_hx711 PT_O1{ {}, HX_CLK, 36, .offset = -104.0, .slope = 0.008505 };
-struct_hx711 PT_O2{ {}, HX_CLK, 39, .offset = -109.25, .slope = 0.007623 };
-struct_hx711 PT_E1{ {}, HX_CLK, 34, .offset = -110.85, .slope = 0.008670 };
-struct_hx711 PT_E2{ {}, HX_CLK, 35, .offset = -91.95, .slope = 0.008209 };  // Change GPIO PIN
-struct_hx711 PT_C1{ {}, HX_CLK, 32, .offset = -104.72, .slope = 0.007086};
+struct_hx711 PT_O1{ {}, HX_CLK, 36, .offset = -102.025, .slope = 0.008211 };
+struct_hx711 PT_O2{ {}, HX_CLK, 39, .offset = -108.369, .slope = 0.007127 };
+struct_hx711 PT_E1{ {}, HX_CLK, 34, .offset = -111.55, .slope = 0.007186 };
+struct_hx711 PT_E2{ {}, HX_CLK, 35, .offset = -98.9791, .slope = 0.007794 };  // Change GPIO PIN
+struct_hx711 PT_C1{ {}, HX_CLK, 32, .offset = -109.959, .slope = 0.007398};
 
 // LOADCELLS
 struct_hx711 LC_1{ {}, HX_CLK, 33, .offset = 0, .slope = 1 };
@@ -267,7 +267,7 @@ esp_now_peer_info_t peerInfo;
 // HEADERLESS BOARD {0x7C, 0x87, 0xCE, 0xF0 0x69, 0xAC}
 // NEWEST COM BOARD IN EVA {0x24, 0x62, 0xAB, 0xD2, 0x85, 0xDC}
 // uint8_t broadcastAddress[] = {0x24, 0x62, 0xAB, 0xD2, 0x85, 0xDC};
-uint8_t broadcastAddress[] = {0xB0, 0xA7, 0x32, 0xDE, 0xC1, 0xFC};
+uint8_t broadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x4F, 0xAF, 0x40};
 // uint8_t broadcastAddress[] = {0x48, 0xE7, 0x29, 0xA3, 0x0D, 0xA8}; // TEST
 // uint8_t broadcastAddress[] = { 0x48, 0xE7, 0x29, 0xA3, 0x0D, 0xA8 }; // TEST COM
 // {0x7C, 0x87, 0xCE, 0xF0, 0x69, 0xAC};
