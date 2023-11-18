@@ -118,7 +118,7 @@ def animate(i):
             ax.relim()
             ax.autoscale_view()
 
-        ax = axs_list[-1]
+        ax = axs_list[-2]
         ax.clear()
         ax.plot(x, LC1, label="LC1", color='blue')
         ax.plot(x, LC2, label="LC2", color='red')
