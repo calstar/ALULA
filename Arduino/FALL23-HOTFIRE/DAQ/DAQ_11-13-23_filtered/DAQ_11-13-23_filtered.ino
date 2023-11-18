@@ -30,8 +30,8 @@ PCF8575 pcf8575(0x20);
 
 // DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE.
 // MOSFET must not trigger while in debug.
-int DEBUG = 0;      // Simulate LOX and Eth fill.
-int WIFIDEBUG = 0;  // Don't send/receive data.
+int DEBUG = 1;      // Simulate LOX and Eth fill.
+int WIFIDEBUG = 1;  // Don't send/receive data.
 
 // MODEL DEFINED PARAMETERS FOR TEST/HOTFIRE. Pressures in psi //
 float pressureFuel = 120;   //405;  // Set pressure for fuel: 412
@@ -469,7 +469,7 @@ void press() {
     if (PT_O1.rawReading < pressureOx * threshold) {
       mosfetOpenValve(MOSFET_LOX_PRESS);
       if (DEBUG) {
-        PT_O1.rawReading += (0.0005 * GEN_DELAY);
+        PT_O1.rawReading += (0.00075 * GEN_DELAY);
       }
     } else {
       mosfetCloseValve(MOSFET_LOX_PRESS);
@@ -478,7 +478,7 @@ void press() {
     if (PT_E1.rawReading < pressureFuel * threshold) {
       mosfetOpenValve(MOSFET_ETH_PRESS);
       if (DEBUG) {
-        PT_E1.rawReading += (0.0005 * GEN_DELAY);
+        PT_E1.rawReading += (0.001 * GEN_DELAY);
       }
     } else {
       mosfetCloseValve(MOSFET_ETH_PRESS);
@@ -490,14 +490,14 @@ void press() {
 
 // Disconnect harnessings and check state of rocket.
 void quick_disconnect() {
+  mosfetCloseValve(MOSFET_ETH_PRESS); //close press valves
+  mosfetCloseValve(MOSFET_LOX_PRESS);
   mosfetOpenValve(MOSFET_QD_LOX);
   mosfetOpenValve(MOSFET_QD_ETH);
   // vent valves/vent the lines themselves
   // vent the pressure solenoid for 1 full second
   //if millis() >= (QDStart+1000){
   // then, disconnect the lines from the rocket itself
-  //mosfetOpenValve(MOSFET_QD_LOX);
-  //mosfetOpenValve(MOSFET_QD_ETH);
   // }
   CheckAbort();
 }
