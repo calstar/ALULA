@@ -17,11 +17,11 @@ BUFFER_SIZE = 100
 write_buffer = []
 
 deque_list = [deque(maxlen=data_len) for _ in range(num_plots + 3)]
-x, PT_O1, PT_O2, PT_E1, PT_E2, PT_C1, TC1, TC2, TC3, TC4, LC_combined, LC1, LC2, LC3,  = deque_list
+x, PT_O1, PT_O2, PT_E1, PT_E2, PT_C1, LC_combined, LC1, LC2, LC3, TC1, TC2, TC3, TC4 = deque_list
 
-plot_titles = ["PT_O1", "PT_O2", "PT_E1", "PT_E2", "PT_C1", "TC1", "TC2", "TC3", "TC4", "LC Combined", "LCs"]
+plot_titles = ["PT_O1", "PT_O2", "PT_E1", "PT_E2", "PT_C1", "LC Combined", "TC1", "TC2", "TC3", "TC4", "LCs"]
 
-fig, axs = plt.subplots(3, 4)
+fig, axs = plt.subplots(4, 3)
 
 axs_list = axs.flatten()
 lines = [ax.plot([], [])[0] for ax in axs_list[:-1]]
@@ -54,7 +54,7 @@ def collection():
             try:
                 decoded_bytes = data[:len(data)-2].decode("utf-8")
                 values = decoded_bytes.split(" ")
-                #print(values)
+                print(values)
 
             
                 write_buffer.append(values)
@@ -88,32 +88,46 @@ t1.start()
 def animate(i):
     ax = None
     
-    min_x = max(x[-1] - 5, 0)
-    max_x = x[-1]
+    if len(x) > 0:
+        min_x = max(x[-1] - 5, 0)
+        max_x = x[-1]
 
-    fig.suptitle(f"TIME ELAPSED {max_x}s  COM_STATE: {values[13]}  DAQ_STATE: {values[14]}", fontsize=12)
-    plt.tight_layout()
+        fig.suptitle(f"TIME ELAPSED {max_x}s  COM_STATE: {values[11]}  DAQ_STATE: {values[12]}", fontsize=12)
+        plt.tight_layout()
 
-    for j, ax in enumerate(axs_list[:-2]):
-        line = lines[j]
-        line.set_data(x, deque_list[j+1])
-        readings_val= deque_list[j+1][-1]
+        for j, ax in enumerate(axs_list[:-1]):
+            line = lines[j]
+            if j < 6:  # For all plots up to and including LC_combined
+                line.set_data(x, deque_list[j+1])
+                title_data = deque_list[j+1][-1]
+            elif j == 6:  # For TC1
+                line.set_data(x, deque_list[10])  # TC1
+                title_data = deque_list[10][-1]
+            elif j == 7:  # For TC2
+                line.set_data(x, deque_list[11])  # TC2
+                title_data = deque_list[11][-1]
+            elif j == 8:  # For TC3
+                line.set_data(x, deque_list[12])  # TC2
+                title_data = deque_list[12][-1]
+            elif j == 9:  # For TC4
+                line.set_data(x, deque_list[13])  # TC2
+                title_data = deque_list[13][-1]
 
+            ax.set_xlim(min_x, max_x)
+            ax.set_title(f"{plot_titles[j]}: {title_data:.2f}", fontsize=12)
+            ax.relim()
+            ax.autoscale_view()
+
+        ax = axs_list[-1]
+        ax.clear()
+        ax.plot(x, LC1, label="LC1", color='blue')
+        ax.plot(x, LC2, label="LC2", color='red')
+        ax.plot(x, LC3, label="LC3", color='green')
+        ax.set_title(plot_titles[-1], fontsize=12)
         ax.set_xlim(min_x, max_x)
-        ax.set_title(f"{plot_titles[j]}: {readings_val:.2f}", fontsize=12)
+        ax.legend(loc='upper left', fontsize=8)
         ax.relim()
         ax.autoscale_view()
-
-    ax = axs_list[-2]
-    ax.clear()
-    ax.plot(x, LC1, label="LC1", color='blue')
-    ax.plot(x, LC2, label="LC2", color='red')
-    ax.plot(x, LC3, label="LC3", color='green')
-    ax.set_title(f"{plot_titles[-1]}: {LC1[-1]:.2f}, {LC2[-1]:.2f}, {LC3[-1]:.2f}", fontsize=12)
-    ax.set_xlim(min_x, max_x)
-    ax.legend(loc='upper left', fontsize=8)
-    ax.relim()
-    ax.autoscale_view()
 
     return lines + [ax]
 
