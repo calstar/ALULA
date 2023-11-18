@@ -147,11 +147,11 @@ public:
 #define HX_CLK 27
 
 // PRESSURE TRANSDUCERS, Y[psi] = c1*x^2 + c2*x + c3
-struct_hx711 PT_O1{ {}, HX_CLK, 36, .c1 = -2.677e-8, .c2 = 0.01049, .c3 = -103.6}; 
-struct_hx711 PT_O2{ {}, HX_CLK, 39, .c1 = -2.164e-8, .c2 = 0.00924, .c3 = -106.2}; 
-struct_hx711 PT_E1{ {}, HX_CLK, 34, .c1 = -2.510e-8, .c2 = 0.01016, .c3 = -117.7}; 
-struct_hx711 PT_E2{ {}, HX_CLK, 35, .c1 = -2.431e-8, .c2 = 0.00980, .c3 = -93.97}; 
-struct_hx711 PT_C1{ {}, HX_CLK, 32, .c1 = -1.858e-8, .c2 = 0.008493, .c3 = -117.4}; 
+struct_hx711 PT_O1{ {}, HX_CLK, 36, .c1 = -2.677e-8, .c2 = 0.01049, .c3 = -123.6}; 
+struct_hx711 PT_O2{ {}, HX_CLK, 39, .c1 = -2.164e-8, .c2 = 0.00924, .c3 = -132.2}; 
+struct_hx711 PT_E1{ {}, HX_CLK, 34, .c1 = -2.510e-8, .c2 = 0.01016, .c3 = -137.7}; 
+struct_hx711 PT_E2{ {}, HX_CLK, 35, .c1 = -2.431e-8, .c2 = 0.00980, .c3 = -113.97}; 
+struct_hx711 PT_C1{ {}, HX_CLK, 32, .c1 = -1.858e-8, .c2 = 0.008493, .c3 = -132.4}; 
 
 // LOADCELLS
 struct_hx711 LC_1{ {}, HX_CLK, 33, .c1 = 0, .c2 = 0.0149, .c3 = -103.6}; 
