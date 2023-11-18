@@ -154,9 +154,9 @@ struct_hx711 PT_E2{ {}, HX_CLK, 35, .c1 = -2.431e-8, .c2 = 0.00980, .c3 = -113.9
 struct_hx711 PT_C1{ {}, HX_CLK, 32, .c1 = -1.858e-8, .c2 = 0.008493, .c3 = -132.4}; 
 
 // LOADCELLS
-struct_hx711 LC_1{ {}, HX_CLK, 33, .c1 = 0, .c2 = 0.0149, .c3 = -103.6}; 
-struct_hx711 LC_2{ {}, HX_CLK, 25, .c1 = 0, .c2 = 0.0149, .c3 = -103.6}; 
-struct_hx711 LC_3{ {}, HX_CLK, 26, .c1 = 0, .c2 = 0.0149, .c3 = -103.6}; 
+struct_hx711 LC_1{ {}, HX_CLK, 33, .c1 = 0, .c2 = 1, .c3 = 0}; 
+struct_hx711 LC_2{ {}, HX_CLK, 25, .c1 = 0, .c2 = 1, .c3 = 0}; 
+struct_hx711 LC_3{ {}, HX_CLK, 26, .c1 = 0, .c2 = 1, .c3 = 0}; 
 
 #define TC_CLK 14
 #define TC4_CLK 18
