@@ -69,7 +69,7 @@ def collection():
                     LC1.append(float(values[6]))
                     LC2.append(float(values[7]))
                     LC3.append(float(values[8]))
-                    LC_combined.append(float(values[6]) + float(values[7]) + float(values[8]))
+                    LC_combined.append(-0.31888 * (float(values[6]) + float(values[7]) + float(values[8])) + 52501.829)
                     TC1.append(float(values[9]))
                     TC2.append(float(values[10]))
                     TC3.append(float(values[11]))
@@ -92,7 +92,7 @@ def animate(i):
         min_x = max(x[-1] - 5, 0)
         max_x = x[-1]
 
-        fig.suptitle(f"TIME ELAPSED {max_x}s  COM_STATE: {values[11]}  DAQ_STATE: {values[12]}", fontsize=12)
+        fig.suptitle(f"TIME ELAPSED {max_x}s  COM_STATE: {values[13]}  DAQ_STATE: {values[14]}", fontsize=12)
         plt.tight_layout()
 
         for j, ax in enumerate(axs_list[:-1]):
