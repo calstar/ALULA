@@ -27,7 +27,7 @@ axs_list = axs.flatten()
 lines = [ax.plot([], [])[0] for ax in axs_list[:-1]]
 
 # directory = os.getcwd() + "command_acquisition\FALL2023"
-# print(directory)
+#  print(directory)
 file_base = f"HOTFIRE_{time.strftime('%Y-%m-%d', time.gmtime())}"
 file_ext = ".csv"
 test_num = 1
