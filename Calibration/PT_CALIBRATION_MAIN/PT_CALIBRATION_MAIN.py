@@ -9,7 +9,7 @@ import csv
 import math
 
 def read_serial():
-    port_num = "/dev/cu.usbserial-0001"
+    port_num = "COM14"
     esp32 = Serial(port=port_num, baudrate=115200)
 
     try:

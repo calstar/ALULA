@@ -22,17 +22,17 @@ This code runs on the DAQ ESP32 and has a couple of main tasks.
 
 // Set i2c address
 PCF8575 pcf8575(0x20);
-
+    
 //::::::Global Variables::::::://
 
 // DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE.
 // MOSFET must not trigger while in debug.
 int DEBUG = 0;      // Simulate LOX and Eth fill.
-int WIFIDEBUG = 1;  // Don't send/receive data.
-
+int WIFIDEBUG = 0;  // Don't send/receive data.
+ 
 // MODEL DEFINED PARAMETERS FOR TEST/HOTFIRE. Pressures in psi //
-float pressureFuel = 405;   //405;  // Set pressure for fuel: 412
-float pressureOx = 460;     //460;  // Set pressure for lox: 445
+float pressureFuel = 425;   //
+float pressureOx = 480;     //
 float threshold = 0.995;   // re-psressurrization threshold (/1x)
 float ventTo = 5;          // c2se solenoids at this pressure to preserve lifetime.
 #define abortPressure 525  // Cutoff pressure to automatically trigger abort
@@ -144,14 +144,13 @@ public:
 };
 
 
-#define HX_CLK 27
 
 // PRESSURE TRANSDUCERS, Y[psi] = c1*x^2 + c2*x + c3
-struct_hx711 PT_O1{ {}, HX_CLK, 36, .c1 = -2.677e-8, .c2 = 0.01049, .c3 = -123.6}; 
-struct_hx711 PT_O2{ {}, HX_CLK, 39, .c1 = -2.164e-8, .c2 = 0.00924, .c3 = -132.2}; 
-struct_hx711 PT_E1{ {}, HX_CLK, 34, .c1 = -2.510e-8, .c2 = 0.01016, .c3 = -137.7}; 
-struct_hx711 PT_E2{ {}, HX_CLK, 35, .c1 = -2.431e-8, .c2 = 0.00980, .c3 = -113.97}; 
-struct_hx711 PT_C1{ {}, HX_CLK, 32, .c1 = -1.858e-8, .c2 = 0.008493, .c3 = -132.4}; 
+struct_hx711 PT_O1{ {}, HX_CLK, 36, .c1 = -2.677e-8, .c2 = 0.01049, .c3 = -93.6}; 
+struct_hx711 PT_O2{ {}, HX_CLK, 39, .c1 = -2.164e-8, .c2 = 0.00924, .c3 = -102.2}; 
+struct_hx711 PT_E1{ {}, HX_CLK, 34, .c1 = -2.510e-8, .c2 = 0.01016, .c3 = -107.7}; 
+struct_hx711 PT_E2{ {}, HX_CLK, 35, .c1 = -2.431e-8, .c2 = 0.00980, .c3 = -78.97}; 
+struct_hx711 PT_C1{ {}, HX_CLK, 32, .c1 = -1.858e-8, .c2 = 0.008493, .c3 = -107.4}; 
 
 // LOADCELLS
 struct_hx711 LC_1{ {}, HX_CLK, 33, .c1 = 0, .c2 = 1, .c3 = 0}; 
@@ -269,7 +268,7 @@ esp_now_peer_info_t peerInfo;
 // HEADERLESS BOARD {0x7C, 0x87, 0xCE, 0xF0 0x69, 0xAC}
 // NEWEST COM BOARD IN EVA {0x24, 0x62, 0xAB, 0xD2, 0x85, 0xDC}
 // uint8_t broadcastAddress[] = {0x24, 0x62, 0xAB, 0xD2, 0x85, 0xDC};
-uint8_t broadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x4F, 0xAF, 0x40};
+uint8_t broadcastAddress[] = {0xB0, 0xA7, 0x32, 0xDE, 0xC1, 0xFC};
 // uint8_t broadcastAddress[] = {0x48, 0xE7, 0x29, 0xA3, 0x0D, 0xA8}; // TEST
 // uint8_t broadcastAddress[] = { 0x48, 0xE7, 0x29, 0xA3, 0x0D, 0xA8 }; // TEST COM
 // {0x7C, 0x87, 0xCE, 0xF0, 0x69, 0xAC};
@@ -299,15 +298,15 @@ void setup() {
 
   // HX711.
   PT_O1.scale.begin(PT_O1.gpio, PT_O1.clk);
-  PT_O1.scale.set_gain(64);
+  PT_O1.scale.set_gain(128);
   PT_O2.scale.begin(PT_O2.gpio, PT_O2.clk);
-  PT_O2.scale.set_gain(64);
+  PT_O2.scale.set_gain(128);
   PT_E1.scale.begin(PT_E1.gpio, PT_E1.clk);
-  PT_E1.scale.set_gain(64);
+  PT_E1.scale.set_gain(128);
   PT_E2.scale.begin(PT_E2.gpio, PT_E2.clk);
-  PT_E2.scale.set_gain(64);
+  PT_E2.scale.set_gain(128);
   PT_C1.scale.begin(PT_C1.gpio, PT_C1.clk);
-  PT_C1.scale.set_gain(64);
+  PT_C1.scale.set_gain(128);
   LC_1.scale.begin(LC_1.gpio, LC_1.clk);
   LC_1.scale.set_gain(64);
   LC_2.scale.begin(LC_2.gpio, LC_2.clk);

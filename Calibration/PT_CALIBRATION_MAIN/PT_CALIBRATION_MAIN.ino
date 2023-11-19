@@ -74,37 +74,37 @@ void setup() {
 
 //set gains for pt pins
   scale1.begin(PTDOUT1, CLKPT1); //LOX tank
-  scale1.set_gain(64);
+  scale1.set_gain(128);
      //Sets the pin as an input
 
 // set gains for pt pins
   scale2.begin(PTDOUT2, CLKPT2);
-  scale2.set_gain(64);
+  scale2.set_gain(128);
 
   //set gains for pt pins
   scale3.begin(PTDOUT3, CLKPT3); //ethanol tank
-  scale3.set_gain(64);
+  scale3.set_gain(128);
 
   //set gains for pt pins
   scale4.begin(PTDOUT4, CLKPT4); //ethanol injector
-  scale4.set_gain(64);
+  scale4.set_gain(128);
 
   //set gains for pt pins
   scale5.begin(PTDOUT5, CLKPT5); //chamber
-  scale5.set_gain(64);
+  scale5.set_gain(128);
 
 
   //set gains for pt pins
   scale6.begin(PTDOUT6, CLKPT6); //chamber
-  scale6.set_gain(64);
+  scale6.set_gain(128);
 
   //set gains for pt pins
   scale7.begin(PTDOUT7, CLKPT7); //chamber
-  scale7.set_gain(64);
+  scale7.set_gain(128);
 
   //set gains for pt pins
   scale8.begin(PTDOUT8, CLKPT8); //chamber
-  scale8.set_gain(64);
+  scale8.set_gain(128);
   Serial.begin(115200);
 }
 
