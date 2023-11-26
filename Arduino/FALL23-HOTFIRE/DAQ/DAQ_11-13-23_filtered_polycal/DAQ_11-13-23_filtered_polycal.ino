@@ -470,7 +470,7 @@ void press() {
     if (PT_O1.rawReading < pressureOx * threshold) {
       mosfetOpenValve(MOSFET_LOX_PRESS);
       if (DEBUG) {
-        PT_O1.rawReading += (0.00075 * GEN_DELAY);
+        PT_O1.rawReading += (0.0075);
       }
     } else {
       mosfetCloseValve(MOSFET_LOX_PRESS);
@@ -479,7 +479,7 @@ void press() {
     if (PT_E1.rawReading < pressureFuel * threshold) {
       mosfetOpenValve(MOSFET_ETH_PRESS);
       if (DEBUG) {
-        PT_E1.rawReading += (0.001 * GEN_DELAY);
+        PT_E1.rawReading += (0.01);
       }
     } else {
       mosfetCloseValve(MOSFET_ETH_PRESS);
