@@ -143,7 +143,7 @@ public:
   }
 };
 
-
+#define HX_CLK 27
 
 // PRESSURE TRANSDUCERS, Y[psi] = c1*x^2 + c2*x + c3
 struct_hx711 PT_O1{ {}, HX_CLK, 36, .c1 = -2.677e-8, .c2 = 0.01049, .c3 = -93.6}; 

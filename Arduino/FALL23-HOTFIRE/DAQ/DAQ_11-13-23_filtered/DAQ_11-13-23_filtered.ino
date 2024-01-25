@@ -19,7 +19,6 @@ This code runs on the DAQ ESP32 and has a couple of main tasks.
 #include <EasyPCF8575.h>
 #include "RunningMedian.h"
 #include "PCF8575.h"  // https://github.com/xreef/PCF8575_library
-
 // Set i2c address
 PCF8575 pcf8575(0x20);
 
