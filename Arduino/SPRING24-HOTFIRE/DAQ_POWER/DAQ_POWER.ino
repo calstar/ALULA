@@ -26,8 +26,8 @@ PCF8575 pcf8575(0x20);
 
 // DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE.
 // MOSFET must not trigger while in debug.
-int DEBUG = 0;      // Simulate LOX and Eth fill.
-int WIFIDEBUG = 0;  // Don't send/receive data.
+int DEBUG = 1;      // Simulate LOX and Eth fill.
+int WIFIDEBUG = 1;  // Don't send/receive data.
 
 // MODEL DEFINED PARAMETERS FOR TEST/HOTFIRE. Pressures in psi //
 float pressureFuel = 390;   //405;  // Set pressure for fuel: 412
