@@ -281,6 +281,8 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
   COMState = Commands.COMState;
 }
 
+//NEED TO ADD SENSEBOARD DATARECEIVE FUNCTION
+
 
 
 
@@ -489,8 +491,7 @@ void press() {
 void quick_disconnect() {
   mosfetCloseValve(MOSFET_ETH_PRESS); //close press valves
   mosfetCloseValve(MOSFET_LOX_PRESS);
-  mosfetOpenValve(MOSFET_QD_LOX);
-  mosfetOpenValve(MOSFET_QD_ETH);
+
   // vent valves/vent the lines themselves
   // vent the pressure solenoid for 1 full second
   //if millis() >= (QDStart+1000){

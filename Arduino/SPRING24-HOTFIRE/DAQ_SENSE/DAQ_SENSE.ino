@@ -29,14 +29,9 @@ PCF8575 pcf8575(0x20);
 int DEBUG = 1;      // Simulate LOX and Eth fill.
 int WIFIDEBUG = 1;  // Don't send/receive data.
 
-// MODEL DEFINED PARAMETERS FOR TEST/HOTFIRE. Pressures in psi //
-float pressureFuel = 390;   //405;  // Set pressure for fuel: 412
-float pressureOx = 450;     //460;  // Set pressure for lox: 445
-float threshold = 0.995;   // re-psressurrization threshold (/1x)
-float ventTo = 5;          // c2se solenoids at this pressure to preserve lifetime.
-#define abortPressure 525  // Cutoff pressure to automatically trigger abort
-#define period 0.5         // Sets period for bang-bang control
-float sendDelay = 250;     // Sets frequency of data collection. 1/(sendDelay*10^-3) is frequency in Hz
+
+float readDelay = 25;     // Frequency of data collection [ms]
+float sendDelay = readDelay;
 // END OF USER DEFINED PARAMETERS //
 // refer to https://docs.google.com/spreadsheets/d/17NrJWC0AR4Gjejme-EYuIJ5uvEJ98FuyQfYVWI3Qlio/edit#gid=1185803967 for all pinouts
 
@@ -172,45 +167,12 @@ struct_max31855 TC_4{ Adafruit_MAX31855(TC4_CLK, 15, TC4_DO), 15, .offset = 0, .
 
 #define I2C_SCL 22
 
-////////////////////////////// MOSFETS ///////////////////////////////////////////////////////////////////
-#define MOSFET_ETH_MAIN 7    //P07
-#define MOSFET_ETH_PRESS 6   //P06
-#define MOSFET_VENT_ETH 5    //P05
-#define MOSFET_EXTRA 4       //CAN USE THIS PIN FOR ANYTHING JUST CHANGE ASSIGNMENT AND HARNESS
-#define MOSFET_QD_LOX 3      //P03
-#define MOSFET_IGNITER 8     //P10
-#define MOSFET_LOX_MAIN 9    //P11
-#define MOSFET_LOX_PRESS 10  //P12
-#define MOSFET_VENT_LOX 11   //P13
-#define MOSFET_QD_ETH 12     //P14
-
 
 // Initialize mosfets' io expander.
 //#define MOSFET_PCF_ADDR 0x20
 //EasyPCF8575 mosfet_pcf;
 bool mosfet_pcf_found;
-
-//::::::STATE VARIABLES::::::://
-enum STATES { IDLE,
-              ARMED,
-              PRESS,
-              QD,
-              IGNITION,
-              HOTFIRE,
-              ABORT };
-String state_names[] = { "Idle", "Armed", "Press", "QD", "Ignition", "HOTFIRE", "Abort" };
-int COMState;
-int DAQState;
-bool ethComplete = false;
-bool oxComplete = false;
-bool oxVentComplete = false;
-bool ethVentComplete = false;
 int hotfireStart;
-
-// Delay between loops.
-#define IDLE_DELAY 250
-#define GEN_DELAY 20
-
 
 //::::DEFINE READOUT VARIABLES:::://
 String serialMessage;
@@ -235,24 +197,13 @@ typedef struct struct_message {
   float TC_2;
   float TC_3;
   float TC_4;
-  int COMState;
-  int DAQState;
   short int queueLength;
-  bool ethComplete;
-  bool oxComplete;
-  // bool oxvent;
-  // bool ethVent;
-  // bool VentComplete;
 } struct_message;
 
 // Create a struct_message called Packet to be sent.
 struct_message Packet;
 // Create a queue for Packet in case Packets are dropped.
 struct_message PacketQueue[120];
-
-// Create a struct_message to hold incoming commands
-struct_message Commands;
-
 
 //::::::Broadcast Variables::::::://
 esp_now_peer_info_t peerInfo;
@@ -275,21 +226,11 @@ uint8_t broadcastAddress[] = {0xB0, 0xA7, 0x32, 0xDE, 0xC1, 0xFC};
 //  sendTime = millis();
 // }
 
-// Callback when data is received
-void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
-  memcpy(&Commands, incomingData, sizeof(Commands));
-  COMState = Commands.COMState;
-}
-
-
-
 
 // Initialize all sensors and parameters.
 void setup() {
   // pinMode(ONBOARD_LED,OUTPUT);
-
   Serial.begin(115200);
-
   while (!Serial) delay(1);  // wait for Serial on Leonardo/Zero, etc.
 
   // HX711.
@@ -315,19 +256,6 @@ void setup() {
   pinMode(TC_2.cs, OUTPUT);
   pinMode(TC_3.cs, OUTPUT);
   pinMode(TC_4.cs, OUTPUT);
-
-  // MOSFET.
-  //  mosfet_pcf.startI2C(I2C_SDA, I2C_SCL, MOSFET_PCF_ADDR); // Only SEARCH, if using normal pins in Arduino
-  mosfet_pcf_found = true;
-
-  // Set pinMode to OUTPUT
-  for (int i = 0; i < 16; i++) {
-    pcf8575.pinMode(i, OUTPUT);
-  }
-  pcf8575.begin();
-  mosfet_pcf_found = true;
-  mosfetCloseAllValves();  // make sure everything is off by default (NMOS: Down = Off, Up = On)
-  delay(500);              // startup time to make sure its good for personal testing
 
   // Broadcast setup.
   // Set device as a Wi-Fi Station
@@ -361,7 +289,6 @@ void setup() {
   }
 
   sendTime = millis();
-  DAQState = IDLE;
 }
 
 
@@ -369,14 +296,9 @@ void setup() {
 
 // Main Structure of State Machine.
 void loop() {
-  fetchCOMState();
-  if (DEBUG || COMState == ABORT) {
-    syncDAQState();
-  }
-  //  Serial.print("testing");
+  //  Serial.print("looping");
   logData();
-  //  Serial.print("made it");
-  sendDelay = GEN_DELAY;
+  //  Serial.print("logged");
   switch (DAQState) {
     case (IDLE):
       sendDelay = IDLE_DELAY;
