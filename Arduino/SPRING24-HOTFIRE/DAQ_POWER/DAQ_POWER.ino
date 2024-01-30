@@ -44,6 +44,7 @@ float sendDelay = 250;     // Sets frequency of data collection. 1/(sendDelay*10
 //::::::DEFINE INSTRUMENT PINOUTS::::::://
 #define TimeOut 100
 
+/*
 struct MovingMedianFilter {
 private:
   const unsigned BUFFER_SIZE = 5;
@@ -103,7 +104,7 @@ public:
     filteredReading = -1;
     rawReading = -1;
   }
-};
+};*/
 
 struct struct_hx711 : struct_data_board<HX711> {
 public:
@@ -138,7 +139,8 @@ public:
   }
 };
 
-
+//sensor data that will be initialized in the daq_sense
+/*
 #define HX_CLK 27
 
 struct_hx711 PT_O1{ {}, HX_CLK, 36, .offset = -115.9, .slope = 0.0110 }; //.offset = -71.93, .slope = 0.00822
@@ -165,7 +167,7 @@ struct_max31855 TC_1{ Adafruit_MAX31855(TC_CLK, 17, TC_DO), 17, .offset = 0, .sl
 struct_max31855 TC_2{ Adafruit_MAX31855(TC_CLK, 16, TC_DO), 16, .offset = 0, .slope = 1 };
 struct_max31855 TC_3{ Adafruit_MAX31855(TC_CLK, 4, TC_DO), 4, .offset = 0, .slope = 1 };
 struct_max31855 TC_4{ Adafruit_MAX31855(TC4_CLK, 15, TC4_DO), 15, .offset = 0, .slope = 1 };
-
+*//
 
 // GPIO expander
 #define I2C_SDA 21
@@ -200,6 +202,7 @@ enum STATES { IDLE,
               ABORT };
 String state_names[] = { "Idle", "Armed", "Press", "QD", "Ignition", "HOTFIRE", "Abort" };
 int COMState;
+int DAQSenseState;
 int DAQState;
 bool ethComplete = false;
 bool oxComplete = false;
@@ -236,7 +239,8 @@ typedef struct struct_message {
   float TC_3;
   float TC_4;
   int COMState;
-  int DAQState;
+  int DAQSenseState; // daq sense board
+  int DAQState; 
   short int queueLength;
   bool ethComplete;
   bool oxComplete;
@@ -275,18 +279,25 @@ uint8_t broadcastAddress[] = {0xB0, 0xA7, 0x32, 0xDE, 0xC1, 0xFC};
 //  sendTime = millis();
 // }
 
-// Callback when data is received
+// Callback when data is received, should we add this to the daq_sense board?
 void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
   memcpy(&Commands, incomingData, sizeof(Commands));
   COMState = Commands.COMState;
 }
 
-//NEED TO ADD SENSEBOARD DATARECEIVE FUNCTION
 
+//NEED TO ADD SENSEBOARD DATARECEIVE FUNCTION
+void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
+  memcpy(&Commands, incomingData, sizeof(Commands));
+  if (COMState != IDLE){
+    DAQSenseState = Commands.DAQSenseState;
+  }
+}
 
 
 
 // Initialize all sensors and parameters.
+/*
 void setup() {
   // pinMode(ONBOARD_LED,OUTPUT);
 
@@ -317,7 +328,7 @@ void setup() {
   pinMode(TC_2.cs, OUTPUT);
   pinMode(TC_3.cs, OUTPUT);
   pinMode(TC_4.cs, OUTPUT);
-
+*/
   // MOSFET.
   //  mosfet_pcf.startI2C(I2C_SDA, I2C_SCL, MOSFET_PCF_ADDR); // Only SEARCH, if using normal pins in Arduino
   mosfet_pcf_found = true;
@@ -372,6 +383,7 @@ void setup() {
 // Main Structure of State Machine.
 void loop() {
   fetchCOMState();
+  
   if (DEBUG || COMState == ABORT) {
     syncDAQState();
   }
@@ -577,13 +589,15 @@ void fetchCOMState() {
     int SERIALState = Serial.read() - 48;
     if (SERIALState >= 0 && SERIALState <= 9) {
       COMState = SERIALState;
+      DAQSenseState = SERIALState;
     }
   }
 }
 
-// Sync state of DAQ board with COM board.
+// Sync state of DAQ board with DAQ board.
 void syncDAQState() {
-  DAQState = COMState;
+  //DAQState = COMState;
+  DAQState = DAQSenseState;
 }
 
 void CheckAbort() {
