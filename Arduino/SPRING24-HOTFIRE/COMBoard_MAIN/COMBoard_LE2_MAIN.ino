@@ -14,8 +14,8 @@ This code runs on the COM ESP32 and has a couple of main tasks.
 #include "freertos/FreeRTOS.h"
 #include "freertos/Task.h"
 
-//IF YOU WANT TO DEBUG, SET THIS TO 1. IF NOT SET ZERO
-int DEBUG = 0;
+//IF YOU WANT TO DEBUG, SET THIS TO True, if not, set False
+bool DEBUG = true;
 
 Switch SWITCH_ARMED = Switch(14);  //correct
 Switch SWITCH_PRESS = Switch(12);  //correct
@@ -34,40 +34,25 @@ Switch SWITCH_ABORT = Switch(18);
 
 float pressTime = 0;
 
- String success;
+String success;
 String message;
- int COMState;
-int incomingByte = 0;
-int incomingMessageTime;
- float incomingPT1 = 4; //PT errors when initialized to zero
-float incomingPT2 = 4;
-float incomingPT3 = 4;
-float incomingPT4 = 4;
- float incomingPT5 = 4;
- float incomingLC1 = 4;
- float incomingLC2 = 4;
- float incomingLC3 = 4;
- float incomingTC1 = 4;
- float incomingTC2 = 4;
- float incomingTC3 = 4;
- float incomingTC4 = 4;
- float incomingCap1 = 0;
- float incomingCap2 = 0;
- bool pressComplete = false;
- bool ethComplete = false;
- bool oxComplete = false;
- short int queueSize = 0;
+int COMState;
+
+bool pressComplete = false;
+bool ethComplete = false;
+bool oxComplete = false;
+short int queueSize = 0;
 
 esp_now_peer_info_t peerInfo;
 
 //TIMING VARIABLES
- int state;
+int state;
 int serialState;
- int manualState;
- int DAQState;
- int loopStartTime;
+int manualState;
+int DAQState;
+int loopStartTime;
 int sendDelay = 50;   //Measured in ms
-enum STATES {IDLE, ARMED, PRESS, QD, IGNITION, HOTFIRE, ABORT};
+enum STATES {IDLE, ARMED, PRESS, QD, EQD, IGNITION, HOTFIRE, ABORT};
 //#define DEBUG_IDLE 90
 //#define DEBUG_ARMED 91
 //#define DEBUG_PRESS 92
@@ -157,7 +142,7 @@ void setup() {
   WiFi.mode(WIFI_STA);
 
   //initialize ESP32
-   if (esp_now_init() != ESP_OK) {
+  if (esp_now_init() != ESP_OK) {
     Serial.println("Error initializing ESP-NOW");
     return;
   }
@@ -180,50 +165,54 @@ void setup() {
   esp_now_register_recv_cb(OnDataRecv);
 
   // Used for debugging
-  // Serial.println(WiFi.macAddress());
+  Serial.print("My MAC Address ");
+  Serial.println(WiFi.macAddress());
+
   state = IDLE;
   serialState = IDLE;
 }
 
 
-void loop(){
-    loopStartTime=millis();
-    if (Serial.available() > 0) {
+void loop() {
+  loopStartTime=millis();
+  if (Serial.available() > 0) {
     // read the incoming byte:
     state = (int)Serial.parseInt();
   }
-  // Serial.print("I received: ");
+
   SWITCH_ARMED.poll();
   SWITCH_PRESS.poll();
   SWITCH_QD.poll();
   SWITCH_IGNITION.poll();
   SWITCH_HOTFIRE.poll();
   SWITCH_ABORT.poll();
-  if (DEBUG ==1) {
-  Serial.print("COM State: ");
-  Serial.print(state);
-  Serial.print(";      DAQ State: ");
-  Serial.println(DAQState);
-  if(!SWITCH_PRESS.on() && !SWITCH_ARMED.on() && !SWITCH_ABORT.on() && !SWITCH_QD.on() && !SWITCH_IGNITION.on() && !SWITCH_HOTFIRE.on()) {serialState=IDLE;}
+    
+  if (DEBUG) {
+    Serial.print("COM State: ");
+    Serial.print(state);
+    Serial.print(" \tDAQ State: ");
+    Serial.println(DAQState);
+    if(!SWITCH_PRESS.on() && !SWITCH_ARMED.on() && !SWITCH_ABORT.on() && !SWITCH_QD.on() && !SWITCH_IGNITION.on() && !SWITCH_HOTFIRE.on()) {serialState=IDLE;}
   }
 
   switch (state) {
-//
-// if (DEBUG ==1) {
-//  Serial.println(state);
-// }
+    if (DEBUG ==1) {
+     Serial.println(state);
+    }
 
   case (IDLE): //Includes polling
     idle();
-    if (SWITCH_ABORT.on()) {serialState=ABORT;}
+    dataSendCheck();
+    checkAbort();
+
     if (SWITCH_ARMED.on()) {serialState=ARMED;}
     state = serialState;
     break;
 
   case (ARMED):
     dataSendCheck();
+    checkAbort();
     if (DAQState == ARMED) {digitalWrite(LED_ARMED, HIGH);}
-    if (SWITCH_ABORT.on()) {serialState=ABORT;}
     if (SWITCH_PRESS.on()) {serialState=PRESS;}
     if(!SWITCH_ARMED.on()) {serialState=IDLE;}
 
@@ -231,23 +220,21 @@ void loop(){
     break;
 
   case (PRESS):
-   // press();
-    if (SWITCH_ABORT.on()) {serialState=ABORT;}
+    dataSendCheck();
+    checkAbort();
     if (DAQState == PRESS) {digitalWrite(LED_PRESS, HIGH);}
     if (ethComplete) {digitalWrite(LED_PRESSETH, HIGH);}
     if (oxComplete) {digitalWrite(LED_PRESSLOX, HIGH);}
     if (!ethComplete) {digitalWrite(LED_PRESSETH, LOW);}
     if (!oxComplete) {digitalWrite(LED_PRESSLOX, LOW);}
-    if (SWITCH_QD.on()) {serialState=QD;}  //add pressComplete && later
-    //add return to idle functionality hyer
-    dataSendCheck();
+    if (SWITCH_QD.on()) {serialState=QD;}
     state = serialState;
     if(!SWITCH_PRESS.on() && !SWITCH_ARMED.on()) {serialState=IDLE;}
     break;
 
   case (QD):
     //quick_disconnect();
-    if (SWITCH_ABORT.on()) {serialState=ABORT;}
+    checkAbort();
     if (DAQState == QD) {digitalWrite(LED_QD, HIGH);}
     if (SWITCH_IGNITION.on()) {serialState=IGNITION;}
     state = serialState;
@@ -258,7 +245,7 @@ void loop(){
 
   case (IGNITION):
     //ignition();
-    if (SWITCH_ABORT.on()) {serialState=ABORT;}
+    checkAbort();
     if (DAQState == IGNITION) {digitalWrite(LED_IGNITION, HIGH);}
     if (SWITCH_HOTFIRE.on()) {serialState=HOTFIRE;}
     if(!SWITCH_QD.on() && !SWITCH_PRESS.on() && !SWITCH_ARMED.on() && !SWITCH_IGNITION.on()) {serialState=IDLE;}
@@ -267,9 +254,7 @@ void loop(){
     break;
 
   case (HOTFIRE):
-    // hotfire();
-
-    if (SWITCH_ABORT.on()) {serialState=ABORT;}
+    checkAbort();
     if (DAQState == HOTFIRE) {digitalWrite(LED_HOTFIRE, HIGH);}
     dataSendCheck();
 
@@ -300,7 +285,7 @@ void loop(){
 //    break;
   }
 
-  }
+}
 
  void turnoffLEDs() {
     digitalWrite(LED_ARMED, LOW);
@@ -314,14 +299,17 @@ void loop(){
  }
 
 void idle() {
-  dataSendCheck();
   turnoffLEDs();
 }
 
-
-
 void dataSendCheck() {
     dataSend();
+}
+
+void checkAbort() {
+  if (SWITCH_ABORT.on()) {
+    serialState = ABORT;
+  }
 }
 
 void dataSend() {
