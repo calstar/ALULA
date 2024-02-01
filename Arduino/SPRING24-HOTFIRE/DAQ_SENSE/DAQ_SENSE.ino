@@ -99,7 +99,7 @@ public:
     rawReading = -1;
   }
 };
-
+/*
 struct struct_hx711 : struct_data_board<HX711> {
 public:
   int clk;
@@ -132,7 +132,10 @@ public:
     return scale.readCelsius();
   }
 };
+*/
 
+
+//sensor stuff
 
 #define HX_CLK 27
 
@@ -198,9 +201,9 @@ typedef struct struct_message {
   float TC_3;
   float TC_4;
   short int queueLength;
-} struct_message;
+}struct_message;
 
-// Create a struct_message called Packet to be sent.
+// Create a struct_message called Packet to be sent to the DAQ Power.
 struct_message Packet;
 // Create a queue for Packet in case Packets are dropped.
 struct_message PacketQueue[120];
@@ -227,7 +230,7 @@ uint8_t broadcastAddress[] = {0xB0, 0xA7, 0x32, 0xDE, 0xC1, 0xFC};
 // }
 
 
-// Initialize all sensors and parameters.
+// Initialize all sensors and parameters. sense board fs
 void setup() {
   // pinMode(ONBOARD_LED,OUTPUT);
   Serial.begin(115200);
@@ -271,7 +274,7 @@ void setup() {
 
   // Once ESPNow is successfully Init, we will register for Send CB to
   // get the status of Trasnmitted packet
-  // esp_now_register_send_cb(OnDataSent);
+esp_now_register_send_cb(OnDataSent);
 
   // Register peer
   memcpy(peerInfo.peer_addr, broadcastAddress, 6);
@@ -293,7 +296,7 @@ void setup() {
 
 
 //::::::STATE MACHINE::::::://
-
+/*
 // Main Structure of State Machine.
 void loop() {
   //  Serial.print("looping");
@@ -439,7 +442,8 @@ void hotfire() {
   }
   //  }
 }
-
+*/
+/*
 void abort_sequence() {
   if (DEBUG) {
     mosfetOpenValve(MOSFET_VENT_LOX);
@@ -507,6 +511,8 @@ void syncDAQState() {
   DAQState = COMState;
 }
 
+
+
 void CheckAbort() {
   if (COMState == ABORT || PT_O1.filteredReading >= abortPressure || PT_E1.filteredReading >= abortPressure) {
     mosfetCloseValve(MOSFET_ETH_PRESS);
@@ -514,6 +520,7 @@ void CheckAbort() {
     DAQState = ABORT;
   }
 }
+*/
 
 void mosfetCloseAllValves() {
   if (mosfet_pcf_found /*&& !DEBUG*/) {
@@ -534,6 +541,8 @@ void mosfetOpenValve(int num) {
     pcf8575.digitalWrite(num, HIGH);
   }
 }
+
+
 
 //::::::DATA LOGGING AND COMMUNICATION::::::://
 void logData() {
