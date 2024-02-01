@@ -19,11 +19,6 @@ This code runs on the DAQ ESP32 and has a couple of main tasks.
 #include <EasyPCF8575.h>
 #include "RunningMedian.h"
 #include "PCF8575.h"  // https://github.com/xreef/PCF8575_library
-
-#define COM_ID 0
-#define DAQ_SENSE_ID 1
-#define DAQ_POWER_ID 2
-
 // Set i2c address
 PCF8575 pcf8575(0x20);
 
@@ -31,8 +26,8 @@ PCF8575 pcf8575(0x20);
 
 // DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE.
 // MOSFET must not trigger while in debug.
-bool DEBUG = true;   // Simulate LOX and Eth fill.
-bool WIFIDEBUG = true;  // Don't send/receive data.
+int DEBUG = 1;      // Simulate LOX and Eth fill.
+int WIFIDEBUG = 1;  // Don't send/receive data.
 
 // MODEL DEFINED PARAMETERS FOR TEST/HOTFIRE. Pressures in psi //
 float pressureFuel = 390;   //405;  // Set pressure for fuel: 412
@@ -41,10 +36,140 @@ float threshold = 0.995;   // re-psressurrization threshold (/1x)
 float ventTo = 5;          // c2se solenoids at this pressure to preserve lifetime.
 #define abortPressure 525  // Cutoff pressure to automatically trigger abort
 #define period 0.5         // Sets period for bang-bang control
+float sendDelay = 250;     // Sets frequency of data collection. 1/(sendDelay*10^-3) is frequency in Hz
+// END OF USER DEFINED PARAMETERS //
 // refer to https://docs.google.com/spreadsheets/d/17NrJWC0AR4Gjejme-EYuIJ5uvEJ98FuyQfYVWI3Qlio/edit#gid=1185803967 for all pinouts
+
+
+//::::::DEFINE INSTRUMENT PINOUTS::::::://
+#define TimeOut 100
+
+struct MovingMedianFilter {
+private:
+  const unsigned BUFFER_SIZE = 5;
+  RunningMedian medianFilter;
+
+public:
+  MovingMedianFilter()
+    : medianFilter(BUFFER_SIZE) {
+  }
+
+  void addReading(float newReading) {
+    medianFilter.add(newReading);
+  }
+
+  float getReading() {
+    return medianFilter.getMedian();
+  }
+
+  void resetReadings() {
+    medianFilter.clear();
+  }
+};
+
+template<class Board>
+struct struct_data_board {
+private:
+  MovingMedianFilter filter = MovingMedianFilter();
+
+public:
+  Board scale;
+  float offset;
+  float slope;
+  float filteredReading = -1;
+  float rawReading = -1;
+
+  struct_data_board(Board scale, float offset, float slope)
+    : scale(scale) {
+    this->scale = scale;
+    this->offset = offset;
+    this->slope = slope;
+  }
+
+  virtual float readRawFromBoard() {
+    return analogRead(36); // This is arbitrary, function should ALWAYS be overriden in child class
+  }
+
+  void readDataFromBoard() {
+    float newReading = readRawFromBoard();
+    filter.addReading(newReading);
+
+    rawReading = slope * newReading + offset;
+    filteredReading = slope * filter.getReading() + offset;
+  }
+
+  void resetReading() {
+    filter.resetReadings();
+    filteredReading = -1;
+    rawReading = -1;
+  }
+};
+
+struct struct_hx711 : struct_data_board<HX711> {
+public:
+  int clk;
+  int gpio;
+
+  struct_hx711(HX711 scale, int clk, int gpio, float offset, float slope)
+    : struct_data_board(scale, offset, slope) {
+    this->clk = clk;
+    this->gpio = gpio;
+  }
+
+  float readRawFromBoard() override {
+    if (scale.wait_ready_timeout(TimeOut)) {
+      return scale.read();
+    }
+    return (rawReading - offset) / slope;
+  }
+};
+
+struct struct_max31855 : struct_data_board<Adafruit_MAX31855> {
+public:
+  int cs;
+
+  struct_max31855(Adafruit_MAX31855 scale, float cs, float offset, float slope)
+    : struct_data_board(scale, offset, slope) {
+    this->cs = cs;
+  }
+
+  float readRawFromBoard() override {
+    return scale.readCelsius();
+  }
+};
+
+
+#define HX_CLK 27
+
+struct_hx711 PT_O1{ {}, HX_CLK, 36, .offset = -115.9, .slope = 0.0110 }; //.offset = -71.93, .slope = 0.00822
+struct_hx711 PT_O2{ {}, HX_CLK, 39, .offset = -81.62, .slope = 0.00710 };
+struct_hx711 PT_E1{ {}, HX_CLK, 34, .offset = -130.26, .slope = 0.0108 };
+struct_hx711 PT_E2{ {}, HX_CLK, 35, .offset = -62.90, .slope = 0.00763 };  // Change GPIO PIN
+struct_hx711 PT_C1{ {}, HX_CLK, 32, .offset = -78.422, .slope = 0.00642};
+
+// LOADCELLS
+struct_hx711 LC_1{ {}, HX_CLK, 33, .offset = 0, .slope = 1 };
+struct_hx711 LC_2{ {}, HX_CLK, 25, .offset = 0, .slope = 1 };
+struct_hx711 LC_3{ {}, HX_CLK, 26, .offset = 0, .slope = 1 };
+
+#define TC_CLK 14
+#define TC4_CLK 18
+#define TC_DO 13
+#define TC4_DO 23
+
+
+#define SD_CLK 18
+#define SD_DO 23
+
+struct_max31855 TC_1{ Adafruit_MAX31855(TC_CLK, 17, TC_DO), 17, .offset = 0, .slope = 1 };
+struct_max31855 TC_2{ Adafruit_MAX31855(TC_CLK, 16, TC_DO), 16, .offset = 0, .slope = 1 };
+struct_max31855 TC_3{ Adafruit_MAX31855(TC_CLK, 4, TC_DO), 4, .offset = 0, .slope = 1 };
+struct_max31855 TC_4{ Adafruit_MAX31855(TC4_CLK, 15, TC4_DO), 15, .offset = 0, .slope = 1 };
+
 
 // GPIO expander
 #define I2C_SDA 21
+
 #define I2C_SCL 22
 
 ////////////////////////////// MOSFETS ///////////////////////////////////////////////////////////////////
@@ -66,28 +191,38 @@ float ventTo = 5;          // c2se solenoids at this pressure to preserve lifeti
 bool mosfet_pcf_found;
 
 //::::::STATE VARIABLES::::::://
-enum STATES { IDLE, ARMED, PRESS, QD, IGNITION, HOTFIRE, ABORT };
-
+enum STATES { IDLE,
+              ARMED,
+              PRESS,
+              QD,
+              IGNITION,
+              HOTFIRE,
+              ABORT };
 String state_names[] = { "Idle", "Armed", "Press", "QD", "Ignition", "HOTFIRE", "Abort" };
-
-int DAQPowerState = IDLE;
-int DAQSenseState = IDLE;
-
+int COMState;
+int DAQState;
 bool ethComplete = false;
 bool oxComplete = false;
 bool oxVentComplete = false;
 bool ethVentComplete = false;
-
 int hotfireStart;
 
-#define SEND_DELAY 20
-float sendTime = 0;
+// Delay between loops.
+#define IDLE_DELAY 250
+#define GEN_DELAY 20
+
+
+//::::DEFINE READOUT VARIABLES:::://
+String serialMessage;
+float sendTime;
+short int queueLength = 0;
+
+// Define variables to store readings to be sent
 
 // Structure example to send data.
 // Must match the receiver structure.
-struct struct_message {
+typedef struct struct_message {
   int messageTime;
-  int sender;
   float PT_O1;
   float PT_O2;
   float PT_E1;
@@ -101,37 +236,87 @@ struct struct_message {
   float TC_3;
   float TC_4;
   int COMState;
-  int DAQSenseState;
-  int DAQPowerState;
-  short int COMQueueLength;
-  short int DAQPowerQueueLength;
+  int DAQState;
+  short int queueLength;
   bool ethComplete;
   bool oxComplete;
-  bool oxVentComplete;
-  bool ethVentComplete;
-};
+  // bool oxvent;
+  // bool ethVent;
+  // bool VentComplete;
+} struct_message;
 
+// Create a struct_message called Packet to be sent.
+struct_message Packet;
+// Create a queue for Packet in case Packets are dropped.
+struct_message PacketQueue[120];
+
+// Create a struct_message to hold incoming commands
+struct_message Commands;
+
+
+//::::::Broadcast Variables::::::://
 esp_now_peer_info_t peerInfo;
+// REPLACE WITH THE MAC Address of your receiver
 
-// Struct that holds data being sent out
-struct_message dataPacket;
-
-// Create a struct_message to hold incoming data
-struct_message DAQSenseCommands;
-
-uint8_t DAQSenseBroadcastAddress[] = {0xB0, 0xA7, 0x32, 0xDE, 0xC1, 0xFC};
+// OLD COM BOARD {0xC4, 0xDD, 0x57, 0x9E, 0x91, 0x6C}
+// COM BOARD {0x7C, 0x9E, 0xBD, 0xD7, 0x2B, 0xE8}
+// HEADERLESS BOARD {0x7C, 0x87, 0xCE, 0xF0 0x69, 0xAC}
+// NEWEST COM BOARD IN EVA {0x24, 0x62, 0xAB, 0xD2, 0x85, 0xDC}
+// uint8_t broadcastAddress[] = {0x24, 0x62, 0xAB, 0xD2, 0x85, 0xDC};
+//uint8_t broadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x4F, 0xAF, 0x40};
+uint8_t broadcastAddress[] = {0xB0, 0xA7, 0x32, 0xDE, 0xC1, 0xFC};
+// uint8_t broadcastAddress[] = {0x48, 0xE7, 0x29, 0xA3, 0x0D, 0xA8}; // TEST
+// uint8_t broadcastAddress[] = { 0x48, 0xE7, 0x29, 0xA3, 0x0D, 0xA8 }; // TEST COM
+// {0x7C, 0x87, 0xCE, 0xF0, 0x69, 0xAC};
+// {0x3C, 0x61, 0x05, 0x4A, 0xD5, 0xE0};
+// {0xC4, 0xDD, 0x57, 0x9E, 0x96, 0x34};
+// Callback when data is sent
+// void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
+//  sendTime = millis();
+// }
 
 // Callback when data is received
 void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
-  memcpy(&DAQSenseCommands, incomingData, sizeof(DAQSenseCommands));
-  DAQSenseState = DAQSenseCommands.DAQSenseState;
+  memcpy(&Commands, incomingData, sizeof(Commands));
+  COMState = Commands.COMState;
 }
+
+//NEED TO ADD SENSEBOARD DATARECEIVE FUNCTION
+
+
+
 
 // Initialize all sensors and parameters.
 void setup() {
+  // pinMode(ONBOARD_LED,OUTPUT);
+
   Serial.begin(115200);
 
   while (!Serial) delay(1);  // wait for Serial on Leonardo/Zero, etc.
+
+  // HX711.
+  PT_O1.scale.begin(PT_O1.gpio, PT_O1.clk);
+  PT_O1.scale.set_gain(64);
+  PT_O2.scale.begin(PT_O2.gpio, PT_O2.clk);
+  PT_O2.scale.set_gain(64);
+  PT_E1.scale.begin(PT_E1.gpio, PT_E1.clk);
+  PT_E1.scale.set_gain(64);
+  PT_E2.scale.begin(PT_E2.gpio, PT_E2.clk);
+  PT_E2.scale.set_gain(64);
+  PT_C1.scale.begin(PT_C1.gpio, PT_C1.clk);
+  PT_C1.scale.set_gain(64);
+  LC_1.scale.begin(LC_1.gpio, LC_1.clk);
+  LC_1.scale.set_gain(64);
+  LC_2.scale.begin(LC_2.gpio, LC_2.clk);
+  LC_2.scale.set_gain(64);
+  LC_3.scale.begin(LC_3.gpio, LC_3.clk);
+  LC_3.scale.set_gain(64);
+
+  // Thermocouple.
+  pinMode(TC_1.cs, OUTPUT);
+  pinMode(TC_2.cs, OUTPUT);
+  pinMode(TC_3.cs, OUTPUT);
+  pinMode(TC_4.cs, OUTPUT);
 
   // MOSFET.
   //  mosfet_pcf.startI2C(I2C_SDA, I2C_SCL, MOSFET_PCF_ADDR); // Only SEARCH, if using normal pins in Arduino
@@ -150,7 +335,6 @@ void setup() {
   // Set device as a Wi-Fi Station
   WiFi.mode(WIFI_STA);
   // Print MAC Accress on startup for easier connections
-  Serial.print("My MAC Address: ");
   Serial.println(WiFi.macAddress());
 
   // Init ESP-NOW
@@ -159,8 +343,12 @@ void setup() {
     return;
   }
 
+  // Once ESPNow is successfully Init, we will register for Send CB to
+  // get the status of Trasnmitted packet
+  // esp_now_register_send_cb(OnDataSent);
+
   // Register peer
-  memcpy(peerInfo.peer_addr, DAQSenseBroadcastAddress, 6);
+  memcpy(peerInfo.peer_addr, broadcastAddress, 6);
   peerInfo.channel = 0;
   peerInfo.encrypt = false;
 
@@ -170,9 +358,12 @@ void setup() {
     return;
   }
   // Register for a callback function that will be called when data is received
-  esp_now_register_recv_cb(OnDataRecv);
+  if (!WIFIDEBUG) {
+    esp_now_register_recv_cb(OnDataRecv);
+  }
 
-  DAQPowerState = IDLE;
+  sendTime = millis();
+  DAQState = IDLE;
 }
 
 
@@ -180,22 +371,28 @@ void setup() {
 
 // Main Structure of State Machine.
 void loop() {
-  if (DEBUG || DAQSenseState == ABORT) {
+  fetchCOMState();
+  if (DEBUG || COMState == ABORT) {
     syncDAQState();
   }
-  switch (DAQPowerState) {
+  //  Serial.print("testing");
+  logData();
+  //  Serial.print("made it");
+  sendDelay = GEN_DELAY;
+  switch (DAQState) {
     case (IDLE):
-      if (DAQSenseState == ARMED) { syncDAQState(); }
+      sendDelay = IDLE_DELAY;
+      if (COMState == ARMED) { syncDAQState(); }
       idle();
       break;
 
     case (ARMED):  // NEED TO ADD TO CASE OPTIONS //ALLOWS OTHER CASES TO TRIGGER //INITIATE TANK PRESS LIVE READINGS
-      if (DAQSenseState == IDLE || DAQSenseState == PRESS) { syncDAQState(); }
+      if (COMState == IDLE || COMState == PRESS) { syncDAQState(); }
       armed();
       break;
 
     case (PRESS):
-      if (DAQSenseState == IDLE || (DAQSenseState== QD)) {
+      if (COMState == IDLE || (COMState == QD)) {
         syncDAQState();
         int QDStart = millis();
         mosfetCloseAllValves();
@@ -204,7 +401,7 @@ void loop() {
       break;
 
     case (QD):
-      if (DAQSenseState == IDLE || DAQSenseState == IGNITION) {
+      if (COMState == IDLE || COMState == IGNITION) {
         syncDAQState();
         mosfetCloseAllValves();
       }
@@ -212,7 +409,7 @@ void loop() {
       break;
 
     case (IGNITION):
-      if (DAQSenseState == IDLE || DAQSenseState == HOTFIRE) {
+      if (COMState == IDLE || COMState == HOTFIRE) {
         syncDAQState();
         hotfireStart = millis();
       }
@@ -225,13 +422,8 @@ void loop() {
 
     case (ABORT):
       abort_sequence();
-      if (DAQSenseState == IDLE && oxVentComplete && ethVentComplete) { syncDAQState(); }
+      if (COMState == IDLE && oxVentComplete && ethVentComplete) { syncDAQState(); }
       break;
-  }
-  // Send data back to DAQ Sense
-  if (millis() - sendTime > SEND_DELAY) {
-    sendTime = millis();
-    sendData(DAQSenseBroadcastAddress);
   }
 }
 
@@ -243,9 +435,22 @@ void reset() {
   ethComplete = false;
   oxVentComplete = false;
   ethVentComplete = false;
+  PT_O1.resetReading();
+  PT_O2.resetReading();
+  PT_E1.resetReading();
+  PT_E2.resetReading();
+  PT_C1.resetReading();
+  LC_1.resetReading();
+  LC_2.resetReading();
+  LC_3.resetReading();
+  TC_1.resetReading();
+  TC_2.resetReading();
+  TC_3.resetReading();
+  TC_4.resetReading();
 }
 
 void idle() {
+
   mosfetCloseAllValves();
   reset();  // must set oxComplete and ethComplete to false!
 }
@@ -259,28 +464,22 @@ void armed() {
 }
 
 void press() {
-  /*
-  * TODO: HOW DO WE PREVENT FILL SEQUENCE FROM ENDING AFTER SPIKE IN PRESSURE VALUE??
-  * TODO: HOW DO WE PREVENT FILL SEQUENCE FROM ENDING AFTER SPIKE IN PRESSURE VALUE??
-  * TODO: HOW DO WE PREVENT FILL SEQUENCE FROM ENDING AFTER SPIKE IN PRESSURE VALUE??
-  * TODO: HOW DO WE PREVENT FILL SEQUENCE FROM ENDING AFTER SPIKE IN PRESSURE VALUE??
-  * TODO: HOW DO WE PREVENT FILL SEQUENCE FROM ENDING AFTER SPIKE IN PRESSURE VALUE??
-  * TODO: HOW DO WE PREVENT FILL SEQUENCE FROM ENDING AFTER SPIKE IN PRESSURE VALUE??
-  * TODO: HOW DO WE PREVENT FILL SEQUENCE FROM ENDING AFTER SPIKE IN PRESSURE VALUE??
-  * TODO: HOW DO WE PREVENT FILL SEQUENCE FROM ENDING AFTER SPIKE IN PRESSURE VALUE??
-  */
   if (!(oxComplete && ethComplete)) {
-    if (DAQSenseCommands.PT_O1 < pressureOx * threshold) {
+    if (PT_O1.rawReading < pressureOx * threshold) {
       mosfetOpenValve(MOSFET_LOX_PRESS);
-    }
-    else {
+      if (DEBUG) {
+        PT_O1.rawReading += (0.00075 * GEN_DELAY);
+      }
+    } else {
       mosfetCloseValve(MOSFET_LOX_PRESS);
       oxComplete = true;
     }
-    if (DAQSenseCommands.PT_E1 < pressureFuel * threshold) {
+    if (PT_E1.rawReading < pressureFuel * threshold) {
       mosfetOpenValve(MOSFET_ETH_PRESS);
-    }
-    else {
+      if (DEBUG) {
+        PT_E1.rawReading += (0.001 * GEN_DELAY);
+      }
+    } else {
       mosfetCloseValve(MOSFET_ETH_PRESS);
       ethComplete = true;
     }
@@ -321,16 +520,6 @@ void hotfire() {
 }
 
 void abort_sequence() {
-  /*
-  * TODO: DOES ABORT SEQUENCE END AFTER SPIKE IN PRESSURE VALUE??
-  * TODO: DOES ABORT SEQUENCE END AFTER SPIKE IN PRESSURE VALUE??
-  * TODO: DOES ABORT SEQUENCE END AFTER SPIKE IN PRESSURE VALUE??
-  * TODO: DOES ABORT SEQUENCE END AFTER SPIKE IN PRESSURE VALUE??
-  * TODO: DOES ABORT SEQUENCE END AFTER SPIKE IN PRESSURE VALUE??
-  * TODO: DOES ABORT SEQUENCE END AFTER SPIKE IN PRESSURE VALUE??
-  * TODO: DOES ABORT SEQUENCE END AFTER SPIKE IN PRESSURE VALUE??
-  * TODO: DOES ABORT SEQUENCE END AFTER SPIKE IN PRESSURE VALUE??
-  */
   if (DEBUG) {
     mosfetOpenValve(MOSFET_VENT_LOX);
     mosfetOpenValve(MOSFET_VENT_ETH);
@@ -344,41 +533,64 @@ void abort_sequence() {
   mosfetCloseValve(MOSFET_IGNITER);
   //
   int currtime = millis();
-  if (DAQSenseCommands.PT_O1 > 1.3 * ventTo) {  // 1.3 is magic number.
+  if (PT_O1.filteredReading > 1.3 * ventTo) {  // 1.3 is magic number.
     oxVentComplete = false;
   }
-  if (DAQSenseCommands.PT_E1 > 1.3 * ventTo) {  // 1.3 is magic number.
+  if (PT_E1.filteredReading > 1.3 * ventTo) {  // 1.3 is magic number.
     ethVentComplete = false;
   }
 
   if (!(oxVentComplete && ethVentComplete)) {
-    if (DAQSenseCommands.PT_O1 > ventTo) {  // vent only lox down to vent to pressure
+    if (PT_O1.filteredReading > ventTo) {  // vent only lox down to vent to pressure
       mosfetOpenValve(MOSFET_VENT_LOX);
-    }
-    else {                              // lox vented to acceptable hold pressure
+      if (DEBUG) {
+        PT_O1.rawReading = PT_O1.rawReading - (0.0005 * GEN_DELAY);
+      }
+    } else {                              // lox vented to acceptable hold pressure
       mosfetCloseValve(MOSFET_VENT_LOX);  // close lox
       oxVentComplete = true;
     }
-    if (DAQSenseCommands.PT_E1 > ventTo) {
+    if (PT_E1.filteredReading > ventTo) {
       mosfetOpenValve(MOSFET_VENT_ETH);  // vent ethanol
-    } 
-    else {
+      if (DEBUG) {
+        PT_E1.rawReading = PT_E1.rawReading - (0.0005 * GEN_DELAY);
+      }
+    } else {
       mosfetCloseValve(MOSFET_VENT_ETH);
       ethVentComplete = true;
+    }
+  }
+  if (DEBUG) {
+    PT_O1.rawReading = PT_O1.rawReading + (0.00005 * GEN_DELAY);
+    PT_E1.rawReading = PT_E1.rawReading + (0.00005 * GEN_DELAY);
+  }
+}
+
+//// Helper Functions
+//
+//// Get commanded state from COM board.
+void fetchCOMState() {
+  // Actually, COMState will be updated in the OnDataRec function.
+  if (Serial.available() > 0) {
+    // Serial.read reads a single character as ASCII. Number 1 is 49 in ASCII.
+    // Serial sends character and new line character "\n", which is 10 in ASCII.
+    int SERIALState = Serial.read() - 48;
+    if (SERIALState >= 0 && SERIALState <= 9) {
+      COMState = SERIALState;
     }
   }
 }
 
 // Sync state of DAQ board with COM board.
 void syncDAQState() {
-  DAQPowerState = DAQSenseState;
+  DAQState = COMState;
 }
 
 void CheckAbort() {
-  if (DAQSenseState == ABORT || DAQSenseCommands.PT_O1 >= abortPressure || DAQSenseCommands.PT_E1 >= abortPressure) {
+  if (COMState == ABORT || PT_O1.filteredReading >= abortPressure || PT_E1.filteredReading >= abortPressure) {
     mosfetCloseValve(MOSFET_ETH_PRESS);
     mosfetCloseValve(MOSFET_LOX_PRESS);
-    DAQPowerState = ABORT;
+    DAQState = ABORT;
   }
 }
 
@@ -402,27 +614,122 @@ void mosfetOpenValve(int num) {
   }
 }
 
-void sendData(uint8_t broadcastAddress[]) {
-  if (WIFIDEBUG) {
-    return;
-  }
-
-  updateDataPacket();
-  
-  // Send message via ESP-NOW
-  esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&dataPacket, sizeof(dataPacket));
-
-  if (result != ESP_OK) {
-    Serial.println("Error sending the data");
+//::::::DATA LOGGING AND COMMUNICATION::::::://
+void logData() {
+  getReadings();
+  printSensorReadings();
+  if (millis() - sendTime > sendDelay) {
+    sendTime = millis();
+    sendData();
+    // saveData();
   }
 }
 
-void updateDataPacket() {
-  dataPacket.messageTime = millis();
-  dataPacket.sender = DAQ_POWER_ID;
-  dataPacket.DAQPowerState = DAQPowerState;
-  dataPacket.ethComplete = ethComplete;
-  dataPacket.oxComplete = oxComplete;
-  dataPacket.oxVentComplete = oxVentComplete;
-  dataPacket.ethVentComplete = ethVentComplete;
+void getReadings() {
+  if (!DEBUG) {
+    PT_O1.readDataFromBoard();
+    PT_O2.readDataFromBoard();
+    PT_E1.readDataFromBoard();
+    PT_E2.readDataFromBoard();
+    PT_C1.readDataFromBoard();
+    LC_1.readDataFromBoard();
+    LC_2.readDataFromBoard();
+    LC_3.readDataFromBoard();
+    TC_1.readDataFromBoard();
+    TC_2.readDataFromBoard();
+    TC_3.readDataFromBoard();
+    TC_4.readDataFromBoard();
+  }
+}
+
+void printSensorReadings() {
+  serialMessage = " ";
+  serialMessage.concat(millis());
+  serialMessage.concat(" ");
+  serialMessage.concat(PT_O1.filteredReading);
+  serialMessage.concat(" ");
+  serialMessage.concat(PT_O2.filteredReading);
+  serialMessage.concat(" ");
+  serialMessage.concat(PT_E1.filteredReading);
+  serialMessage.concat(" ");
+  serialMessage.concat(PT_E2.filteredReading);
+  serialMessage.concat(" ");
+  serialMessage.concat(PT_C1.filteredReading);
+  serialMessage.concat(" ");
+  serialMessage.concat(LC_1.filteredReading);
+  serialMessage.concat(" ");
+  serialMessage.concat(LC_2.filteredReading);
+  serialMessage.concat(" ");
+  serialMessage.concat(LC_3.filteredReading);
+  serialMessage.concat(" ");
+  serialMessage.concat(TC_1.filteredReading);
+  serialMessage.concat(" ");
+  serialMessage.concat(TC_2.filteredReading);
+  serialMessage.concat(" ");
+  serialMessage.concat(TC_3.filteredReading);
+  serialMessage.concat(" ");
+  serialMessage.concat(TC_4.filteredReading);
+  serialMessage.concat(" ");
+  serialMessage.concat(ethComplete);
+  serialMessage.concat(" ");
+  serialMessage.concat(oxComplete);
+  serialMessage.concat(" ");
+  serialMessage.concat(state_names[DAQState]);
+  //  serialMessage.concat(readingCap1);
+  //  serialMessage.concat(" ");
+  //  serialMessage.concat(readingCap2);
+  serialMessage.concat(" Queue Length: ");
+  serialMessage.concat(queueLength);
+  Serial.println(serialMessage);
+}
+
+// Send data to COM board.
+void sendData() {
+  addPacketToQueue();
+  sendQueue();
+}
+
+void addPacketToQueue() {
+  if (queueLength < 40) {
+    queueLength += 1;
+    PacketQueue[queueLength].messageTime = millis();
+    PacketQueue[queueLength].PT_O1 = PT_O1.rawReading;
+    PacketQueue[queueLength].PT_O2 = PT_O2.rawReading;
+    PacketQueue[queueLength].PT_E1 = PT_E1.rawReading;
+    PacketQueue[queueLength].PT_E2 = PT_E2.rawReading;
+    PacketQueue[queueLength].PT_C1 = PT_C1.rawReading;
+    PacketQueue[queueLength].LC_1 = LC_1.rawReading;
+    PacketQueue[queueLength].LC_2 = LC_2.rawReading;
+    PacketQueue[queueLength].LC_3 = LC_3.rawReading;
+    PacketQueue[queueLength].TC_1 = TC_1.rawReading;
+    PacketQueue[queueLength].TC_2 = TC_2.rawReading;
+    PacketQueue[queueLength].TC_3 = TC_3.rawReading;
+    PacketQueue[queueLength].TC_4 = TC_4.rawReading;
+
+    // PacketQueue[queueLength].TC_3 = TC_3.rawReading; // sinc daq and com when adding tcs
+    PacketQueue[queueLength].queueLength = queueLength;
+    PacketQueue[queueLength].DAQState = DAQState;
+    PacketQueue[queueLength].oxComplete = oxComplete;
+    PacketQueue[queueLength].ethComplete = ethComplete;
+  }
+}
+
+void sendQueue() {
+  if (queueLength < 0) {
+    return;
+  }
+  // Set values to send
+  Packet = PacketQueue[queueLength];
+
+  if (!WIFIDEBUG) {
+    // Send message via ESP-NOW
+    esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&Packet, sizeof(Packet));
+
+    if (result == ESP_OK) {
+      // Serial.println("Sent with success Data Send");
+      queueLength -= 1;
+    } else {
+      Serial.println("Error sending the data");
+    }
+  }
 }
