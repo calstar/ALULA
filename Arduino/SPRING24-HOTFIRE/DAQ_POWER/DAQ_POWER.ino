@@ -80,6 +80,9 @@ bool ethVentComplete = false;
 
 int hotfireStart;
 
+#define SEND_DELAY 20
+float sendTime = 0;
+
 // Structure example to send data.
 // Must match the receiver structure.
 struct struct_message {
@@ -225,7 +228,11 @@ void loop() {
       if (DAQSenseState == IDLE && oxVentComplete && ethVentComplete) { syncDAQState(); }
       break;
   }
-  sendData(DAQSenseBroadcastAddress);
+  // Send data back to DAQ Sense
+  if (millis() - sendTime > SEND_DELAY) {
+    sendTime = millis();
+    sendData(DAQSenseBroadcastAddress);
+  }
 }
 
 // State Functions.
