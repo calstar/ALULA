@@ -118,11 +118,15 @@ typedef struct struct_message {
      bool oxComplete;
 } struct_message;
 
-// Create a struct_message called Readings to recieve sensor readings remotely
-struct_message incomingReadings;
-
-// Create a struct_message to send commands
+struct_message myData;
+//struct_message for incoming SENSE Board Readings
+struct_message SENSE;
+// Create a struct_message for POWER DAQ data.
+struct_message POWER;
+// Create a struct_message to hold outgoing commands
 struct_message Commands;
+
+struct_message boardsStruct[2] = {SENSE, POWER};
 
 
 void setup() {
@@ -331,30 +335,31 @@ void dataSend() {
   esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &Commands, sizeof(Commands));
 }
 
-void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
-  memcpy(&incomingReadings, incomingData, sizeof(incomingReadings));
-  //Serial.print("Bytes received: ");
-//  Serial.println(len);
-  DAQState = incomingReadings.DAQState;
-  incomingPT1 = incomingReadings.PT_O1; //LOX Tank PT
-  incomingPT2 = incomingReadings.PT_O2; //LOX Injector PT
-  incomingPT3 = incomingReadings.PT_E1; //ETH Tank PT
-  incomingPT4 = incomingReadings.PT_E2; //ETH Injector PT
-  incomingPT5 = incomingReadings.PT_C1; //COMBUSTION CHAMBER PT
-  incomingLC1 = incomingReadings.LC_1;
-  incomingLC2 = incomingReadings.LC_2;
-  incomingLC3 = incomingReadings.LC_3;
-  incomingTC1 = incomingReadings.TC_1; //Phenolic-Interface Thermocouple
-  incomingTC2 = incomingReadings.TC_2;
-  incomingTC3 = incomingReadings.TC_3;
-  incomingTC4 = incomingReadings.TC_4;
 
-  // pressComplete = incomingReadings.pressComplete;
-  oxComplete = incomingReadings.oxComplete;
-  ethComplete = incomingReadings.ethComplete;
-  queueSize = incomingReadings.queueLength;
-  receiveDataPrint();
+// Callback when data is received, should we add this to the daq_sense board?
+void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
+  memcpy(&myData, incomingData, sizeof(myData));
+  Serial.printf("Board ID %u: %u bytes\n", myData.id, len);
+  boardsStruct[myData.id-1].messageTime = myData.messageTime;
+  boardsStruct[myData.id-1].PT_O1 = myData.PT_O1;
+  boardsStruct[myData.id-1].PT_O2 = myData.PT_O2;
+  boardsStruct[myData.id-1].PT_E1 = myData.PT_E1;
+  boardsStruct[myData.id-1].PT_E2 = myData.PT_E2;
+  boardsStruct[myData.id-1].PT_C1 = myData.PT_C1;
+  boardsStruct[myData.id-1].LC_1 = myData.LC_1;
+  boardsStruct[myData.id-1].LC_2 = myData.LC_2;
+  boardsStruct[myData.id-1].LC_3 = myData.LC_3;
+  boardsStruct[myData.id-1].TC_1 = myData.TC_1;
+  boardsStruct[myData.id-1].TC_2 = myData.TC_2;
+  boardsStruct[myData.id-1].TC_3 = myData.TC_3;
+  boardsStruct[myData.id-1].TC_4 = myData.TC_4;
+  boardsStruct[myData.id-1].COMState = myData.COMState;
+  boardsStruct[myData.id-1].DAQState = myData.DAQState;
+  boardsStruct[myData.id-1].queueLength = myData.queueLength;
+  boardsStruct[myData.id-1].ethComplete = myData.ethComplete;
+  boardsStruct[myData.id-1].oxComplete = myData.oxComplete;
 }
+
 
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
   // Serial.print("\r\nLast Packet Send Status:\t");
@@ -368,42 +373,40 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
 }
 
 void receiveDataPrint() {
-  message = "";
-  message.concat(millis());
-  message.concat(" ");
-  message.concat(incomingPT1);
-  message.concat(" ");
-  message.concat(incomingPT2);
-  message.concat(" ");
-  message.concat(incomingPT3);
-  message.concat(" ");
-  message.concat(incomingPT4);
-  message.concat(" ");
-  message.concat(incomingPT5);
-  message.concat(" ");
-  message.concat(incomingLC1);
-  message.concat(" ");
-  message.concat(incomingLC2);
-  message.concat(" ");
-  message.concat(incomingLC3);
-  message.concat(" ");
-  message.concat(incomingTC1);
-  message.concat(" ");
-  message.concat(incomingTC2);
-  message.concat(" ");
-  message.concat(incomingTC3);
-  message.concat(" ");
-  message.concat(incomingTC4);
-  message.concat(" ");
-  // message.concat(incomingCap1);
-  // message.concat(" ");
-  // message.concat(incomingCap2);
-  // message.concat(" ");
-  message.concat(Commands.COMState);
-  message.concat(" ");
-  message.concat(DAQState);
-  message.concat(" ");
-  message.concat(queueSize);
-
-  Serial.println(message);
+  serialMessage = " ";
+  serialMessage.concat(millis());
+  serialMessage.concat(" ");
+  serialMessage.concat(SENSE.PT_O1);
+  serialMessage.concat(" ");
+  serialMessage.concat(SENSE.PT_O2);
+  serialMessage.concat(" ");
+  serialMessage.concat(SENSE.PT_E1);
+  serialMessage.concat(" ");
+  serialMessage.concat(SENSE.PT_E2);
+  serialMessage.concat(" ");
+  serialMessage.concat(SENSE.PT_C1);
+  serialMessage.concat(" ");
+  serialMessage.concat(SENSE.LC_1);
+  serialMessage.concat(" ");
+  serialMessage.concat(SENSE.LC_2);
+  serialMessage.concat(" ");
+  serialMessage.concat(SENSE.LC_3);
+  serialMessage.concat(" ");
+  serialMessage.concat(SENSE.TC_1);
+  serialMessage.concat(" ");
+  serialMessage.concat(SENSE.TC_2);
+  serialMessage.concat(" ");
+  serialMessage.concat(SENSE.TC_3);
+  serialMessage.concat(" ");
+  serialMessage.concat(SENSE.TC_4);
+  serialMessage.concat(" ");
+  serialMessage.concat(POWER.ethComplete);
+  serialMessage.concat(" ");
+  serialMessage.concat(POWER.oxComplete);
+  serialMessage.concat(" ");
+  serialMessage.concat(Commands.COMState)
+  serialMessage.concat(Power.DAQState);
+  serialMessage.concat(" Queue Length: ");
+  serialMessage.concat(SENSE.queueLength);
+  Serial.println(serialMessage);
 }

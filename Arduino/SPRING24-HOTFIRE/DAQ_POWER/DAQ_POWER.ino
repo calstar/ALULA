@@ -44,131 +44,6 @@ float sendDelay = 250;     // Sets frequency of data collection. 1/(sendDelay*10
 //::::::DEFINE INSTRUMENT PINOUTS::::::://
 #define TimeOut 100
 
-/*
-struct MovingMedianFilter {
-private:
-  const unsigned BUFFER_SIZE = 5;
-  RunningMedian medianFilter;
-
-public:
-  MovingMedianFilter()
-    : medianFilter(BUFFER_SIZE) {
-  }
-
-  void addReading(float newReading) {
-    medianFilter.add(newReading);
-  }
-
-  float getReading() {
-    return medianFilter.getMedian();
-  }
-
-  void resetReadings() {
-    medianFilter.clear();
-  }
-};
-
-template<class Board>
-struct struct_data_board {
-private:
-  MovingMedianFilter filter = MovingMedianFilter();
-
-public:
-  Board scale;
-  float offset;
-  float slope;
-  float filteredReading = -1;
-  float rawReading = -1;
-
-  struct_data_board(Board scale, float offset, float slope)
-    : scale(scale) {
-    this->scale = scale;
-    this->offset = offset;
-    this->slope = slope;
-  }
-
-  virtual float readRawFromBoard() {
-    return analogRead(36); // This is arbitrary, function should ALWAYS be overriden in child class
-  }
-
-  void readDataFromBoard() {
-    float newReading = readRawFromBoard();
-    filter.addReading(newReading);
-
-    rawReading = slope * newReading + offset;
-    filteredReading = slope * filter.getReading() + offset;
-  }
-
-  void resetReading() {
-    filter.resetReadings();
-    filteredReading = -1;
-    rawReading = -1;
-  }
-};*/
-
-struct struct_hx711 : struct_data_board<HX711> {
-public:
-  int clk;
-  int gpio;
-
-  struct_hx711(HX711 scale, int clk, int gpio, float offset, float slope)
-    : struct_data_board(scale, offset, slope) {
-    this->clk = clk;
-    this->gpio = gpio;
-  }
-
-  float readRawFromBoard() override {
-    if (scale.wait_ready_timeout(TimeOut)) {
-      return scale.read();
-    }
-    return (rawReading - offset) / slope;
-  }
-};
-
-struct struct_max31855 : struct_data_board<Adafruit_MAX31855> {
-public:
-  int cs;
-
-  struct_max31855(Adafruit_MAX31855 scale, float cs, float offset, float slope)
-    : struct_data_board(scale, offset, slope) {
-    this->cs = cs;
-  }
-
-  float readRawFromBoard() override {
-    return scale.readCelsius();
-  }
-};
-
-//sensor data that will be initialized in the daq_sense
-/*
-#define HX_CLK 27
-
-struct_hx711 PT_O1{ {}, HX_CLK, 36, .offset = -115.9, .slope = 0.0110 }; //.offset = -71.93, .slope = 0.00822
-struct_hx711 PT_O2{ {}, HX_CLK, 39, .offset = -81.62, .slope = 0.00710 };
-struct_hx711 PT_E1{ {}, HX_CLK, 34, .offset = -130.26, .slope = 0.0108 };
-struct_hx711 PT_E2{ {}, HX_CLK, 35, .offset = -62.90, .slope = 0.00763 };  // Change GPIO PIN
-struct_hx711 PT_C1{ {}, HX_CLK, 32, .offset = -78.422, .slope = 0.00642};
-
-// LOADCELLS
-struct_hx711 LC_1{ {}, HX_CLK, 33, .offset = 0, .slope = 1 };
-struct_hx711 LC_2{ {}, HX_CLK, 25, .offset = 0, .slope = 1 };
-struct_hx711 LC_3{ {}, HX_CLK, 26, .offset = 0, .slope = 1 };
-
-#define TC_CLK 14
-#define TC4_CLK 18
-#define TC_DO 13
-#define TC4_DO 23
-
-
-#define SD_CLK 18
-#define SD_DO 23
-
-struct_max31855 TC_1{ Adafruit_MAX31855(TC_CLK, 17, TC_DO), 17, .offset = 0, .slope = 1 };
-struct_max31855 TC_2{ Adafruit_MAX31855(TC_CLK, 16, TC_DO), 16, .offset = 0, .slope = 1 };
-struct_max31855 TC_3{ Adafruit_MAX31855(TC_CLK, 4, TC_DO), 4, .offset = 0, .slope = 1 };
-struct_max31855 TC_4{ Adafruit_MAX31855(TC4_CLK, 15, TC4_DO), 15, .offset = 0, .slope = 1 };
-*//
-
 // GPIO expander
 #define I2C_SDA 21
 
@@ -187,6 +62,8 @@ struct_max31855 TC_4{ Adafruit_MAX31855(TC4_CLK, 15, TC4_DO), 15, .offset = 0, .
 #define MOSFET_QD_ETH 12     //P14
 
 
+
+
 // Initialize mosfets' io expander.
 //#define MOSFET_PCF_ADDR 0x20
 //EasyPCF8575 mosfet_pcf;
@@ -202,7 +79,6 @@ enum STATES { IDLE,
               ABORT };
 String state_names[] = { "Idle", "Armed", "Press", "QD", "Ignition", "HOTFIRE", "Abort" };
 int COMState;
-int DAQSenseState;
 int DAQState;
 bool ethComplete = false;
 bool oxComplete = false;
@@ -221,10 +97,31 @@ float sendTime;
 short int queueLength = 0;
 
 // Define variables to store readings to be sent
+struct struct_data_board {
+public:
+float filteredReading = 4;
+float rawReading = 4;
+}
+
+
+struct_data_board PT_O1{{}};
+struct_data_board PT_O2{{}};
+struct_data_board_E1{{}};
+struct_data_board PT_E2{{}};
+struct_data_board PT_C1{{}};
+struct_data_board LC_1{{}};
+struct_data_board LC_2{{}};
+struct_data_board LC_3{{}};
+struct_data_board TC_1{{}};
+struct_data_board TC_2{{}};
+struct_data_board TC_3{{}};
+struct_data_board TC_4{{}};
+
 
 // Structure example to send data.
 // Must match the receiver structure.
 typedef struct struct_message {
+  int id;
   int messageTime;
   float PT_O1;
   float PT_O2;
@@ -239,7 +136,6 @@ typedef struct struct_message {
   float TC_3;
   float TC_4;
   int COMState;
-  int DAQSenseState; // daq sense board
   int DAQState; 
   short int queueLength;
   bool ethComplete;
@@ -249,14 +145,17 @@ typedef struct struct_message {
   // bool VentComplete;
 } struct_message;
 
+struct_message myData;
+//struct_message for incoming SENSE Board Readings
+struct_message SENSE;
+// Create a struct_message to hold incoming commands
+struct_message Commands;
 // Create a struct_message called Packet to be sent.
 struct_message Packet;
 // Create a queue for Packet in case Packets are dropped.
 struct_message PacketQueue[120];
 
-// Create a struct_message to hold incoming commands
-struct_message Commands;
-
+struct_message boardsStruct[2] = {SENSE, Commands};
 
 //::::::Broadcast Variables::::::://
 esp_now_peer_info_t peerInfo;
@@ -281,19 +180,27 @@ uint8_t broadcastAddress[] = {0xB0, 0xA7, 0x32, 0xDE, 0xC1, 0xFC};
 
 // Callback when data is received, should we add this to the daq_sense board?
 void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
-  memcpy(&Commands, incomingData, sizeof(Commands));
-  COMState = Commands.COMState;
+  memcpy(&myData, incomingData, sizeof(myData));
+  Serial.printf("Board ID %u: %u bytes\n", myData.id, len);
+  boardsStruct[myData.id-1].messageTime = myData.messageTime;
+  boardsStruct[myData.id-1].PT_O1 = myData.PT_O1;
+  boardsStruct[myData.id-1].PT_O2 = myData.PT_O2;
+  boardsStruct[myData.id-1].PT_E1 = myData.PT_E1;
+  boardsStruct[myData.id-1].PT_E2 = myData.PT_E2;
+  boardsStruct[myData.id-1].PT_C1 = myData.PT_C1;
+  boardsStruct[myData.id-1].LC_1 = myData.LC_1;
+  boardsStruct[myData.id-1].LC_2 = myData.LC_2;
+  boardsStruct[myData.id-1].LC_3 = myData.LC_3;
+  boardsStruct[myData.id-1].TC_1 = myData.TC_1;
+  boardsStruct[myData.id-1].TC_2 = myData.TC_2;
+  boardsStruct[myData.id-1].TC_3 = myData.TC_3;
+  boardsStruct[myData.id-1].TC_4 = myData.TC_4;
+  boardsStruct[myData.id-1].COMState = myData.COMState;
+  boardsStruct[myData.id-1].DAQState = myData.DAQState;
+  boardsStruct[myData.id-1].queueLength = myData.queueLength;
+  boardsStruct[myData.id-1].ethComplete = myData.ethComplete;
+  boardsStruct[myData.id-1].oxComplete = myData.oxComplete;
 }
-
-
-//NEED TO ADD SENSEBOARD DATARECEIVE FUNCTION
-void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
-  memcpy(&Commands, incomingData, sizeof(Commands));
-  if (COMState != IDLE){
-    DAQSenseState = Commands.DAQSenseState;
-  }
-}
-
 
 
 // Initialize all sensors and parameters.
@@ -383,7 +290,6 @@ void setup() {
 // Main Structure of State Machine.
 void loop() {
   fetchCOMState();
-  
   if (DEBUG || COMState == ABORT) {
     syncDAQState();
   }
@@ -477,19 +383,19 @@ void armed() {
 
 void press() {
   if (!(oxComplete && ethComplete)) {
-    if (PT_O1.rawReading < pressureOx * threshold) {
+    if (SENSE.PT_O1 < pressureOx * threshold) {
       mosfetOpenValve(MOSFET_LOX_PRESS);
       if (DEBUG) {
-        PT_O1.rawReading += (0.00075 * GEN_DELAY);
+        SENSE.PT_O1 += (0.00075 * GEN_DELAY);
       }
     } else {
       mosfetCloseValve(MOSFET_LOX_PRESS);
       oxComplete = true;
     }
-    if (PT_E1.rawReading < pressureFuel * threshold) {
+    if (SENSE.PT_E1 < pressureFuel * threshold) {
       mosfetOpenValve(MOSFET_ETH_PRESS);
       if (DEBUG) {
-        PT_E1.rawReading += (0.001 * GEN_DELAY);
+        SENSE.PT_E1 += (0.001 * GEN_DELAY);
       }
     } else {
       mosfetCloseValve(MOSFET_ETH_PRESS);
@@ -545,27 +451,27 @@ void abort_sequence() {
   mosfetCloseValve(MOSFET_IGNITER);
   //
   int currtime = millis();
-  if (PT_O1.filteredReading > 1.3 * ventTo) {  // 1.3 is magic number.
+  if (SENSE.PT_O1 > 1.3 * ventTo) {  // 1.3 is magic number.
     oxVentComplete = false;
   }
-  if (PT_E1.filteredReading > 1.3 * ventTo) {  // 1.3 is magic number.
+  if (SENSE.PT_E1 > 1.3 * ventTo) {  // 1.3 is magic number.
     ethVentComplete = false;
   }
 
   if (!(oxVentComplete && ethVentComplete)) {
-    if (PT_O1.filteredReading > ventTo) {  // vent only lox down to vent to pressure
+    if (SENSE.PT_O1 > ventTo) {  // vent only lox down to vent to pressure
       mosfetOpenValve(MOSFET_VENT_LOX);
       if (DEBUG) {
-        PT_O1.rawReading = PT_O1.rawReading - (0.0005 * GEN_DELAY);
+        SENSE.PT_O1 = SENSE.PT_O1 - (0.0005 * GEN_DELAY);
       }
     } else {                              // lox vented to acceptable hold pressure
       mosfetCloseValve(MOSFET_VENT_LOX);  // close lox
       oxVentComplete = true;
     }
-    if (PT_E1.filteredReading > ventTo) {
+    if (SENSE.PT_E1 > ventTo) {
       mosfetOpenValve(MOSFET_VENT_ETH);  // vent ethanol
       if (DEBUG) {
-        PT_E1.rawReading = PT_E1.rawReading - (0.0005 * GEN_DELAY);
+        SENSE.PT_E1 = SENSE.PT_E1 - (0.0005 * GEN_DELAY);
       }
     } else {
       mosfetCloseValve(MOSFET_VENT_ETH);
@@ -573,8 +479,8 @@ void abort_sequence() {
     }
   }
   if (DEBUG) {
-    PT_O1.rawReading = PT_O1.rawReading + (0.00005 * GEN_DELAY);
-    PT_E1.rawReading = PT_E1.rawReading + (0.00005 * GEN_DELAY);
+    SENSE.PT_E1 = SENSE.PT_O1 + (0.00005 * GEN_DELAY);
+    SENSE.PT_E1 = SENSE.PT_E1 + (0.00005 * GEN_DELAY);
   }
 }
 
@@ -582,7 +488,7 @@ void abort_sequence() {
 //
 //// Get commanded state from COM board.
 void fetchCOMState() {
-  // Actually, COMState will be updated in the OnDataRec function.
+  COMState = Commands.COMState;
   if (Serial.available() > 0) {
     // Serial.read reads a single character as ASCII. Number 1 is 49 in ASCII.
     // Serial sends character and new line character "\n", which is 10 in ASCII.
@@ -601,7 +507,7 @@ void syncDAQState() {
 }
 
 void CheckAbort() {
-  if (COMState == ABORT || PT_O1.filteredReading >= abortPressure || PT_E1.filteredReading >= abortPressure) {
+  if (COMState == ABORT || SENSE.PT_O1 >= abortPressure || SENSE.PT_E1 >= abortPressure) {
     mosfetCloseValve(MOSFET_ETH_PRESS);
     mosfetCloseValve(MOSFET_LOX_PRESS);
     DAQState = ABORT;
@@ -630,7 +536,6 @@ void mosfetOpenValve(int num) {
 
 //::::::DATA LOGGING AND COMMUNICATION::::::://
 void logData() {
-  getReadings();
   printSensorReadings();
   if (millis() - sendTime > sendDelay) {
     sendTime = millis();
@@ -639,50 +544,33 @@ void logData() {
   }
 }
 
-void getReadings() {
-  if (!DEBUG) {
-    PT_O1.readDataFromBoard();
-    PT_O2.readDataFromBoard();
-    PT_E1.readDataFromBoard();
-    PT_E2.readDataFromBoard();
-    PT_C1.readDataFromBoard();
-    LC_1.readDataFromBoard();
-    LC_2.readDataFromBoard();
-    LC_3.readDataFromBoard();
-    TC_1.readDataFromBoard();
-    TC_2.readDataFromBoard();
-    TC_3.readDataFromBoard();
-    TC_4.readDataFromBoard();
-  }
-}
-
 void printSensorReadings() {
   serialMessage = " ";
   serialMessage.concat(millis());
   serialMessage.concat(" ");
-  serialMessage.concat(PT_O1.filteredReading);
+  serialMessage.concat(SENSE.PT_O1);
   serialMessage.concat(" ");
-  serialMessage.concat(PT_O2.filteredReading);
+  serialMessage.concat(SENSE.PT_O2);
   serialMessage.concat(" ");
-  serialMessage.concat(PT_E1.filteredReading);
+  serialMessage.concat(SENSE.PT_E1);
   serialMessage.concat(" ");
-  serialMessage.concat(PT_E2.filteredReading);
+  serialMessage.concat(SENSE.PT_E2);
   serialMessage.concat(" ");
-  serialMessage.concat(PT_C1.filteredReading);
+  serialMessage.concat(SENSE.PT_C1);
   serialMessage.concat(" ");
-  serialMessage.concat(LC_1.filteredReading);
+  serialMessage.concat(SENSE.LC_1);
   serialMessage.concat(" ");
-  serialMessage.concat(LC_2.filteredReading);
+  serialMessage.concat(SENSE.LC_2);
   serialMessage.concat(" ");
-  serialMessage.concat(LC_3.filteredReading);
+  serialMessage.concat(SENSE.LC_3);
   serialMessage.concat(" ");
-  serialMessage.concat(TC_1.filteredReading);
+  serialMessage.concat(SENSE.TC_1);
   serialMessage.concat(" ");
-  serialMessage.concat(TC_2.filteredReading);
+  serialMessage.concat(SENSE.TC_2);
   serialMessage.concat(" ");
-  serialMessage.concat(TC_3.filteredReading);
+  serialMessage.concat(SENSE.TC_3);
   serialMessage.concat(" ");
-  serialMessage.concat(TC_4.filteredReading);
+  serialMessage.concat(SENSE.TC_4);
   serialMessage.concat(" ");
   serialMessage.concat(ethComplete);
   serialMessage.concat(" ");
@@ -707,18 +595,18 @@ void addPacketToQueue() {
   if (queueLength < 40) {
     queueLength += 1;
     PacketQueue[queueLength].messageTime = millis();
-    PacketQueue[queueLength].PT_O1 = PT_O1.rawReading;
-    PacketQueue[queueLength].PT_O2 = PT_O2.rawReading;
-    PacketQueue[queueLength].PT_E1 = PT_E1.rawReading;
-    PacketQueue[queueLength].PT_E2 = PT_E2.rawReading;
-    PacketQueue[queueLength].PT_C1 = PT_C1.rawReading;
-    PacketQueue[queueLength].LC_1 = LC_1.rawReading;
-    PacketQueue[queueLength].LC_2 = LC_2.rawReading;
-    PacketQueue[queueLength].LC_3 = LC_3.rawReading;
-    PacketQueue[queueLength].TC_1 = TC_1.rawReading;
-    PacketQueue[queueLength].TC_2 = TC_2.rawReading;
-    PacketQueue[queueLength].TC_3 = TC_3.rawReading;
-    PacketQueue[queueLength].TC_4 = TC_4.rawReading;
+    PacketQueue[queueLength].PT_O1 = SENSE.PT_O1;
+    PacketQueue[queueLength].PT_O2 = SENSE.PT_O2;
+    PacketQueue[queueLength].PT_E1 = SENSE.PT_E1;
+    PacketQueue[queueLength].PT_E2 = SENSE.PT_E2;
+    PacketQueue[queueLength].PT_C1 = SENSE.PT_C1;
+    PacketQueue[queueLength].LC_1 = SENSE.LC_1;
+    PacketQueue[queueLength].LC_2 = SENSE.LC_2;
+    PacketQueue[queueLength].LC_3 = SENSE.LC_3;
+    PacketQueue[queueLength].TC_1 = SENSE.TC_1;
+    PacketQueue[queueLength].TC_2 = SENSE.TC_2;
+    PacketQueue[queueLength].TC_3 = SENSE.TC_3;
+    PacketQueue[queueLength].TC_4 = SENSE.TC_4;
 
     // PacketQueue[queueLength].TC_3 = TC_3.rawReading; // sinc daq and com when adding tcs
     PacketQueue[queueLength].queueLength = queueLength;

@@ -29,6 +29,11 @@ PCF8575 pcf8575(0x20);
 int DEBUG = 1;      // Simulate LOX and Eth fill.
 int WIFIDEBUG = 1;  // Don't send/receive data.
 
+//vars for unifying structure between P/S
+int COMState = 0;
+int DAQState = 0;
+bool ethComplete = false;
+bool oxComplete = false;
 
 float readDelay = 25;     // Frequency of data collection [ms]
 float sendDelay = readDelay;
@@ -99,7 +104,7 @@ public:
     rawReading = -1;
   }
 };
-/*
+
 struct struct_hx711 : struct_data_board<HX711> {
 public:
   int clk;
@@ -132,7 +137,7 @@ public:
     return scale.readCelsius();
   }
 };
-*/
+
 
 
 //sensor stuff
@@ -171,11 +176,6 @@ struct_max31855 TC_4{ Adafruit_MAX31855(TC4_CLK, 15, TC4_DO), 15, .offset = 0, .
 #define I2C_SCL 22
 
 
-// Initialize mosfets' io expander.
-//#define MOSFET_PCF_ADDR 0x20
-//EasyPCF8575 mosfet_pcf;
-bool mosfet_pcf_found;
-int hotfireStart;
 
 //::::DEFINE READOUT VARIABLES:::://
 String serialMessage;
@@ -200,7 +200,11 @@ typedef struct struct_message {
   float TC_2;
   float TC_3;
   float TC_4;
+  int COMState;
+  int DAQState; 
   short int queueLength;
+  bool ethComplete;
+  bool oxComplete;
 }struct_message;
 
 // Create a struct_message called Packet to be sent to the DAQ Power.
@@ -225,9 +229,11 @@ uint8_t broadcastAddress[] = {0xB0, 0xA7, 0x32, 0xDE, 0xC1, 0xFC};
 // {0x3C, 0x61, 0x05, 0x4A, 0xD5, 0xE0};
 // {0xC4, 0xDD, 0x57, 0x9E, 0x96, 0x34};
 // Callback when data is sent
-// void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
-//  sendTime = millis();
-// }
+void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
+ sendTime = millis();
+}
+
+
 
 
 // Initialize all sensors and parameters. sense board fs
@@ -274,7 +280,7 @@ void setup() {
 
   // Once ESPNow is successfully Init, we will register for Send CB to
   // get the status of Trasnmitted packet
-esp_now_register_send_cb(OnDataSent);
+  esp_now_register_send_cb(OnDataSent);
 
   // Register peer
   memcpy(peerInfo.peer_addr, broadcastAddress, 6);
@@ -286,78 +292,23 @@ esp_now_register_send_cb(OnDataSent);
     Serial.println("Failed to add peer");
     return;
   }
-  // Register for a callback function that will be called when data is received
-  if (!WIFIDEBUG) {
-    esp_now_register_recv_cb(OnDataRecv);
-  }
 
   sendTime = millis();
 }
 
 
-//::::::STATE MACHINE::::::://
-/*
-// Main Structure of State Machine.
+//::::::STATE MACHINE:::::::///
+// Main Structure of State Machine
 void loop() {
   //  Serial.print("looping");
   logData();
   //  Serial.print("logged");
-  switch (DAQState) {
-    case (IDLE):
-      sendDelay = IDLE_DELAY;
-      if (COMState == ARMED) { syncDAQState(); }
-      idle();
-      break;
-
-    case (ARMED):  // NEED TO ADD TO CASE OPTIONS //ALLOWS OTHER CASES TO TRIGGER //INITIATE TANK PRESS LIVE READINGS
-      if (COMState == IDLE || COMState == PRESS) { syncDAQState(); }
-      armed();
-      break;
-
-    case (PRESS):
-      if (COMState == IDLE || (COMState == QD)) {
-        syncDAQState();
-        int QDStart = millis();
-        mosfetCloseAllValves();
-      }
-      press();
-      break;
-
-    case (QD):
-      if (COMState == IDLE || COMState == IGNITION) {
-        syncDAQState();
-        mosfetCloseAllValves();
-      }
-      quick_disconnect();
-      break;
-
-    case (IGNITION):
-      if (COMState == IDLE || COMState == HOTFIRE) {
-        syncDAQState();
-        hotfireStart = millis();
-      }
-      ignition();
-      break;
-
-    case (HOTFIRE):
-      hotfire();
-      break;
-
-    case (ABORT):
-      abort_sequence();
-      if (COMState == IDLE && oxVentComplete && ethVentComplete) { syncDAQState(); }
-      break;
-  }
 }
 
 // State Functions.
 
 // Everything should be off.
 void reset() {
-  oxComplete = false;
-  ethComplete = false;
-  oxVentComplete = false;
-  ethVentComplete = false;
   PT_O1.resetReading();
   PT_O2.resetReading();
   PT_E1.resetReading();
@@ -371,177 +322,6 @@ void reset() {
   TC_3.resetReading();
   TC_4.resetReading();
 }
-
-void idle() {
-
-  mosfetCloseAllValves();
-  reset();  // must set oxComplete and ethComplete to false!
-}
-
-// Oxygen and fuel should not flow yet.
-// This function is the same as idle?
-void armed() {
-  // mosfetCloseValve(MOSFET_LOX_PRESS);
-  // mosfetCloseValve(MOSFET_ETH_PRESS);
-  mosfetCloseAllValves();
-}
-
-void press() {
-  if (!(oxComplete && ethComplete)) {
-    if (PT_O1.rawReading < pressureOx * threshold) {
-      mosfetOpenValve(MOSFET_LOX_PRESS);
-      if (DEBUG) {
-        PT_O1.rawReading += (0.00075 * GEN_DELAY);
-      }
-    } else {
-      mosfetCloseValve(MOSFET_LOX_PRESS);
-      oxComplete = true;
-    }
-    if (PT_E1.rawReading < pressureFuel * threshold) {
-      mosfetOpenValve(MOSFET_ETH_PRESS);
-      if (DEBUG) {
-        PT_E1.rawReading += (0.001 * GEN_DELAY);
-      }
-    } else {
-      mosfetCloseValve(MOSFET_ETH_PRESS);
-      ethComplete = true;
-    }
-  }
-  CheckAbort();
-}
-
-// Disconnect harnessings and check state of rocket.
-void quick_disconnect() {
-  mosfetCloseValve(MOSFET_ETH_PRESS); //close press valves
-  mosfetCloseValve(MOSFET_LOX_PRESS);
-  mosfetOpenValve(MOSFET_QD_LOX);
-  mosfetOpenValve(MOSFET_QD_ETH);
-  // vent valves/vent the lines themselves
-  // vent the pressure solenoid for 1 full second
-  //if millis() >= (QDStart+1000){
-  // then, disconnect the lines from the rocket itself
-  // }
-  CheckAbort();
-}
-
-void ignition() {
-  mosfetOpenValve(MOSFET_IGNITER);
-}
-
-void hotfire() {
-  mosfetCloseValve(MOSFET_IGNITER);
-  mosfetOpenValve(MOSFET_ETH_MAIN);
-  //
-  //  if (millis() >= hotfireStart+3000) {
-  //    mosfetCloseValve(MOSFET_LOX_MAIN);
-  //  } else {
-
-  if (millis() >= hotfireStart + 5) {
-    mosfetOpenValve(MOSFET_LOX_MAIN);
-    // Serial.print(hotfireStart);
-  }
-  //  }
-}
-*/
-/*
-void abort_sequence() {
-  if (DEBUG) {
-    mosfetOpenValve(MOSFET_VENT_LOX);
-    mosfetOpenValve(MOSFET_VENT_ETH);
-//    delay(50);
-  }
-  // Waits for LOX pressure to decrease before venting Eth through pyro
-  mosfetCloseValve(MOSFET_LOX_PRESS);
-  mosfetCloseValve(MOSFET_ETH_PRESS);
-  mosfetCloseValve(MOSFET_LOX_MAIN);
-  mosfetCloseValve(MOSFET_ETH_MAIN);
-  mosfetCloseValve(MOSFET_IGNITER);
-  //
-  int currtime = millis();
-  if (PT_O1.filteredReading > 1.3 * ventTo) {  // 1.3 is magic number.
-    oxVentComplete = false;
-  }
-  if (PT_E1.filteredReading > 1.3 * ventTo) {  // 1.3 is magic number.
-    ethVentComplete = false;
-  }
-
-  if (!(oxVentComplete && ethVentComplete)) {
-    if (PT_O1.filteredReading > ventTo) {  // vent only lox down to vent to pressure
-      mosfetOpenValve(MOSFET_VENT_LOX);
-      if (DEBUG) {
-        PT_O1.rawReading = PT_O1.rawReading - (0.0005 * GEN_DELAY);
-      }
-    } else {                              // lox vented to acceptable hold pressure
-      mosfetCloseValve(MOSFET_VENT_LOX);  // close lox
-      oxVentComplete = true;
-    }
-    if (PT_E1.filteredReading > ventTo) {
-      mosfetOpenValve(MOSFET_VENT_ETH);  // vent ethanol
-      if (DEBUG) {
-        PT_E1.rawReading = PT_E1.rawReading - (0.0005 * GEN_DELAY);
-      }
-    } else {
-      mosfetCloseValve(MOSFET_VENT_ETH);
-      ethVentComplete = true;
-    }
-  }
-  if (DEBUG) {
-    PT_O1.rawReading = PT_O1.rawReading + (0.00005 * GEN_DELAY);
-    PT_E1.rawReading = PT_E1.rawReading + (0.00005 * GEN_DELAY);
-  }
-}
-
-//// Helper Functions
-//
-//// Get commanded state from COM board.
-void fetchCOMState() {
-  // Actually, COMState will be updated in the OnDataRec function.
-  if (Serial.available() > 0) {
-    // Serial.read reads a single character as ASCII. Number 1 is 49 in ASCII.
-    // Serial sends character and new line character "\n", which is 10 in ASCII.
-    int SERIALState = Serial.read() - 48;
-    if (SERIALState >= 0 && SERIALState <= 9) {
-      COMState = SERIALState;
-    }
-  }
-}
-
-// Sync state of DAQ board with COM board.
-void syncDAQState() {
-  DAQState = COMState;
-}
-
-
-
-void CheckAbort() {
-  if (COMState == ABORT || PT_O1.filteredReading >= abortPressure || PT_E1.filteredReading >= abortPressure) {
-    mosfetCloseValve(MOSFET_ETH_PRESS);
-    mosfetCloseValve(MOSFET_LOX_PRESS);
-    DAQState = ABORT;
-  }
-}
-*/
-
-void mosfetCloseAllValves() {
-  if (mosfet_pcf_found /*&& !DEBUG*/) {
-    for (int i = 0; i < 16; i++) {
-      pcf8575.digitalWrite(i, LOW);
-    }
-  }
-}
-
-void mosfetCloseValve(int num) {
-  if (mosfet_pcf_found /* && !DEBUG*/) {
-    pcf8575.digitalWrite(num, LOW);
-  }
-}
-
-void mosfetOpenValve(int num) {
-  if (mosfet_pcf_found) {
-    pcf8575.digitalWrite(num, HIGH);
-  }
-}
-
 
 
 //::::::DATA LOGGING AND COMMUNICATION::::::://
@@ -600,11 +380,6 @@ void printSensorReadings() {
   serialMessage.concat(" ");
   serialMessage.concat(TC_4.filteredReading);
   serialMessage.concat(" ");
-  serialMessage.concat(ethComplete);
-  serialMessage.concat(" ");
-  serialMessage.concat(oxComplete);
-  serialMessage.concat(" ");
-  serialMessage.concat(state_names[DAQState]);
   //  serialMessage.concat(readingCap1);
   //  serialMessage.concat(" ");
   //  serialMessage.concat(readingCap2);
@@ -637,8 +412,9 @@ void addPacketToQueue() {
     PacketQueue[queueLength].TC_4 = TC_4.rawReading;
 
     // PacketQueue[queueLength].TC_3 = TC_3.rawReading; // sinc daq and com when adding tcs
-    PacketQueue[queueLength].queueLength = queueLength;
     PacketQueue[queueLength].DAQState = DAQState;
+    PacketQueue[queueLength].DAQState = COMState;
+    PacketQueue[queueLength].queueLength = queueLength;
     PacketQueue[queueLength].oxComplete = oxComplete;
     PacketQueue[queueLength].ethComplete = ethComplete;
   }

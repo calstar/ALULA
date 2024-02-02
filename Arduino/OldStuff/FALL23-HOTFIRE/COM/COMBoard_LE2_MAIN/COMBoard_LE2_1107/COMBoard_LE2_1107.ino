@@ -34,29 +34,29 @@ Switch SWITCH_ABORT = Switch(18);
 
 float pressTime = 0;
 
- String success;
+String success;
 String message;
- int COMState;
+int COMState;
 int incomingByte = 0;
 int incomingMessageTime;
- float incomingPT1 = 4; //PT errors when initialized to zero
+float incomingPT1 = 4; //PT errors when initialized to zero
 float incomingPT2 = 4;
 float incomingPT3 = 4;
 float incomingPT4 = 4;
- float incomingPT5 = 4;
- float incomingLC1 = 4;
- float incomingLC2 = 4;
- float incomingLC3 = 4;
- float incomingTC1 = 4;
- float incomingTC2 = 4;
- float incomingTC3 = 4;
- float incomingTC4 = 4;
- float incomingCap1 = 0;
- float incomingCap2 = 0;
- bool pressComplete = false;
- bool ethComplete = false;
- bool oxComplete = false;
- short int queueSize = 0;
+float incomingPT5 = 4;
+float incomingLC1 = 4;
+float incomingLC2 = 4;
+float incomingLC3 = 4;
+float incomingTC1 = 4;
+float incomingTC2 = 4;
+float incomingTC3 = 4;
+float incomingTC4 = 4;
+float incomingCap1 = 0;
+float incomingCap2 = 0;
+bool pressComplete = false;
+bool ethComplete = false;
+bool oxComplete = false;
+short int queueSize = 0;
 
 esp_now_peer_info_t peerInfo;
 
