@@ -15,7 +15,7 @@ This code runs on the COM ESP32 and has a couple of main tasks.
 #include "freertos/Task.h"
 
 //IF YOU WANT TO DEBUG, SET THIS TO 1. IF NOT SET ZERO
-int DEBUG = 0;
+int DEBUG = 1;
 
 Switch SWITCH_ARMED = Switch(14);  //correct
 Switch SWITCH_PRESS = Switch(12);  //correct
@@ -34,29 +34,30 @@ Switch SWITCH_ABORT = Switch(18);
 
 float pressTime = 0;
 
- String success;
+String success;
 String message;
- int COMState;
+String serialMessage;
+int COMState;
 int incomingByte = 0;
 int incomingMessageTime;
- float incomingPT1 = 4; //PT errors when initialized to zero
+float incomingPT1 = 4; //PT errors when initialized to zero
 float incomingPT2 = 4;
 float incomingPT3 = 4;
 float incomingPT4 = 4;
- float incomingPT5 = 4;
- float incomingLC1 = 4;
- float incomingLC2 = 4;
- float incomingLC3 = 4;
- float incomingTC1 = 4;
- float incomingTC2 = 4;
- float incomingTC3 = 4;
- float incomingTC4 = 4;
- float incomingCap1 = 0;
- float incomingCap2 = 0;
- bool pressComplete = false;
- bool ethComplete = false;
- bool oxComplete = false;
- short int queueSize = 0;
+float incomingPT5 = 4;
+float incomingLC1 = 4;
+float incomingLC2 = 4;
+float incomingLC3 = 4;
+float incomingTC1 = 4;
+float incomingTC2 = 4;
+float incomingTC3 = 4;
+float incomingTC4 = 4;
+float incomingCap1 = 0;
+float incomingCap2 = 0;
+bool pressComplete = false;
+bool ethComplete = false;
+bool oxComplete = false;
+short int queueSize = 0;
 
 esp_now_peer_info_t peerInfo;
 
@@ -84,8 +85,6 @@ float loopTime = 0;
 float sendTime = 0;
 float receiveTime = 0;
 
-//::::::Broadcast Variables::::::://
-esp_now_peer_info_t peerInfo;
 //ENSURE IP ADDRESS IS CORRECT FOR DEVICE IN USE!!!
 //DAQ Breadboard {0x24, 0x62, 0xAB, 0xD2, 0x85, 0xDC}
 //DAQ Protoboard {0x0C, 0xDC, 0x7E, 0xCB, 0x05, 0xC4}
@@ -378,7 +377,7 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
 }
 
 void receiveDataPrint() {
-  serialMessage = " ";
+  serialMessage.concat(" ");
   serialMessage.concat(millis());
   serialMessage.concat(" ");
   serialMessage.concat(SENSE.PT_O1);
@@ -409,8 +408,9 @@ void receiveDataPrint() {
   serialMessage.concat(" ");
   serialMessage.concat(POWER.oxComplete);
   serialMessage.concat(" ");
-  serialMessage.concat(Commands.COMState)
-  serialMessage.concat(Power.DAQState);
+  serialMessage.concat(Commands.COMState);
+  serialMessage.concat(" ");
+  serialMessage.concat(POWER.DAQState);
   serialMessage.concat(" Queue Length: ");
   serialMessage.concat(SENSE.queueLength);
   Serial.println(serialMessage);
