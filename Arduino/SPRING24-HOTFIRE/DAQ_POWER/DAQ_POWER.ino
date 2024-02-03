@@ -62,8 +62,6 @@ float sendDelay = 250;     // Sets frequency of data collection. 1/(sendDelay*10
 #define MOSFET_QD_ETH 12     //P14
 
 
-
-
 // Initialize mosfets' io expander.
 //#define MOSFET_PCF_ADDR 0x20
 //EasyPCF8575 mosfet_pcf;
@@ -156,6 +154,7 @@ struct_message Packet;
 struct_message PacketQueue[120];
 
 struct_message boardsStruct[2] = {SENSE, Commands};
+float Board_ID = 2; //POWER DAQ Board ID
 
 //::::::Broadcast Variables::::::://
 esp_now_peer_info_t peerInfo;
@@ -594,6 +593,7 @@ void sendData() {
 void addPacketToQueue() {
   if (queueLength < 40) {
     queueLength += 1;
+    PacketQueue[queueLength].id = Board_ID; //POWER ID = 1
     PacketQueue[queueLength].messageTime = millis();
     PacketQueue[queueLength].PT_O1 = SENSE.PT_O1;
     PacketQueue[queueLength].PT_O2 = SENSE.PT_O2;
