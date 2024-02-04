@@ -22,6 +22,10 @@ This code runs on the DAQ ESP32 and has a couple of main tasks.
 // Set i2c address
 PCF8575 pcf8575(0x20);
 
+#define COM_ID 1
+#define DAQ_POWER_ID 2
+#define DAQ_SENSE_ID 3
+
 //::::::Global Variables::::::://
 
 // DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE.
@@ -101,21 +105,6 @@ float filteredReading = 4;
 float rawReading = 4;
 }
 
-
-struct_data_board PT_O1{{}};
-struct_data_board PT_O2{{}};
-struct_data_board_E1{{}};
-struct_data_board PT_E2{{}};
-struct_data_board PT_C1{{}};
-struct_data_board LC_1{{}};
-struct_data_board LC_2{{}};
-struct_data_board LC_3{{}};
-struct_data_board TC_1{{}};
-struct_data_board TC_2{{}};
-struct_data_board TC_3{{}};
-struct_data_board TC_4{{}};
-
-
 // Structure example to send data.
 // Must match the receiver structure.
 typedef struct struct_message {
@@ -143,18 +132,8 @@ typedef struct struct_message {
   // bool VentComplete;
 } struct_message;
 
-struct_message myData;
-//struct_message for incoming SENSE Board Readings
-struct_message SENSE;
-// Create a struct_message to hold incoming commands
-struct_message Commands;
-// Create a struct_message called Packet to be sent.
-struct_message Packet;
-// Create a queue for Packet in case Packets are dropped.
-struct_message PacketQueue[120];
-
-struct_message boardsStruct[2] = {SENSE, Commands};
-float Board_ID = 2; //POWER DAQ Board ID
+struct_message COMCommands;
+struct_message DAQSenseCommands;
 
 //::::::Broadcast Variables::::::://
 esp_now_peer_info_t peerInfo;
@@ -166,7 +145,7 @@ esp_now_peer_info_t peerInfo;
 // NEWEST COM BOARD IN EVA {0x24, 0x62, 0xAB, 0xD2, 0x85, 0xDC}
 // uint8_t broadcastAddress[] = {0x24, 0x62, 0xAB, 0xD2, 0x85, 0xDC};
 //uint8_t broadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x4F, 0xAF, 0x40};
-uint8_t broadcastAddress[] = {0xB0, 0xA7, 0x32, 0xDE, 0xC1, 0xFC};
+uint8_t COMBroadcastAddress[] = {0xB0, 0xA7, 0x32, 0xDE, 0xC1, 0xFC};
 // uint8_t broadcastAddress[] = {0x48, 0xE7, 0x29, 0xA3, 0x0D, 0xA8}; // TEST
 // uint8_t broadcastAddress[] = { 0x48, 0xE7, 0x29, 0xA3, 0x0D, 0xA8 }; // TEST COM
 // {0x7C, 0x87, 0xCE, 0xF0, 0x69, 0xAC};
@@ -179,32 +158,22 @@ uint8_t broadcastAddress[] = {0xB0, 0xA7, 0x32, 0xDE, 0xC1, 0xFC};
 
 // Callback when data is received, should we add this to the daq_sense board?
 void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
+  struct_message myData;
   memcpy(&myData, incomingData, sizeof(myData));
+  if (myData.id == COM_ID) {
+    COMCommands = myData;
+  }
+  else if (myData.id == DAQ_SENSE_ID) {
+    DAQSenseCommands = myData;
+  }
   Serial.printf("Board ID %u: %u bytes\n", myData.id, len);
-  boardsStruct[myData.id-1].messageTime = myData.messageTime;
-  boardsStruct[myData.id-1].PT_O1 = myData.PT_O1;
-  boardsStruct[myData.id-1].PT_O2 = myData.PT_O2;
-  boardsStruct[myData.id-1].PT_E1 = myData.PT_E1;
-  boardsStruct[myData.id-1].PT_E2 = myData.PT_E2;
-  boardsStruct[myData.id-1].PT_C1 = myData.PT_C1;
-  boardsStruct[myData.id-1].LC_1 = myData.LC_1;
-  boardsStruct[myData.id-1].LC_2 = myData.LC_2;
-  boardsStruct[myData.id-1].LC_3 = myData.LC_3;
-  boardsStruct[myData.id-1].TC_1 = myData.TC_1;
-  boardsStruct[myData.id-1].TC_2 = myData.TC_2;
-  boardsStruct[myData.id-1].TC_3 = myData.TC_3;
-  boardsStruct[myData.id-1].TC_4 = myData.TC_4;
-  boardsStruct[myData.id-1].COMState = myData.COMState;
-  boardsStruct[myData.id-1].DAQState = myData.DAQState;
-  boardsStruct[myData.id-1].queueLength = myData.queueLength;
-  boardsStruct[myData.id-1].ethComplete = myData.ethComplete;
-  boardsStruct[myData.id-1].oxComplete = myData.oxComplete;
 }
 
 
 // Initialize all sensors and parameters.
-/*
+
 void setup() {
+/*
   // pinMode(ONBOARD_LED,OUTPUT);
 
   Serial.begin(115200);
@@ -265,7 +234,7 @@ void setup() {
   // esp_now_register_send_cb(OnDataSent);
 
   // Register peer
-  memcpy(peerInfo.peer_addr, broadcastAddress, 6);
+  memcpy(peerInfo.peer_addr, COMBroadcastAddress, 6);
   peerInfo.channel = 0;
   peerInfo.encrypt = false;
 
@@ -352,18 +321,6 @@ void reset() {
   ethComplete = false;
   oxVentComplete = false;
   ethVentComplete = false;
-  PT_O1.resetReading();
-  PT_O2.resetReading();
-  PT_E1.resetReading();
-  PT_E2.resetReading();
-  PT_C1.resetReading();
-  LC_1.resetReading();
-  LC_2.resetReading();
-  LC_3.resetReading();
-  TC_1.resetReading();
-  TC_2.resetReading();
-  TC_3.resetReading();
-  TC_4.resetReading();
 }
 
 void idle() {
@@ -382,19 +339,19 @@ void armed() {
 
 void press() {
   if (!(oxComplete && ethComplete)) {
-    if (SENSE.PT_O1 < pressureOx * threshold) {
+    if (DAQSenseCommands.PT_O1 < pressureOx * threshold) {
       mosfetOpenValve(MOSFET_LOX_PRESS);
       if (DEBUG) {
-        SENSE.PT_O1 += (0.00075 * GEN_DELAY);
+        DAQSenseCommands.PT_O1 += (0.00075 * GEN_DELAY);
       }
     } else {
       mosfetCloseValve(MOSFET_LOX_PRESS);
       oxComplete = true;
     }
-    if (SENSE.PT_E1 < pressureFuel * threshold) {
+    if (DAQSenseCommands.PT_E1 < pressureFuel * threshold) {
       mosfetOpenValve(MOSFET_ETH_PRESS);
       if (DEBUG) {
-        SENSE.PT_E1 += (0.001 * GEN_DELAY);
+        DAQSenseCommands.PT_E1 += (0.001 * GEN_DELAY);
       }
     } else {
       mosfetCloseValve(MOSFET_ETH_PRESS);
@@ -450,27 +407,27 @@ void abort_sequence() {
   mosfetCloseValve(MOSFET_IGNITER);
   //
   int currtime = millis();
-  if (SENSE.PT_O1 > 1.3 * ventTo) {  // 1.3 is magic number.
+  if (DAQSenseCommands.PT_O1 > 1.3 * ventTo) {  // 1.3 is magic number.
     oxVentComplete = false;
   }
-  if (SENSE.PT_E1 > 1.3 * ventTo) {  // 1.3 is magic number.
+  if (DAQSenseCommands.PT_E1 > 1.3 * ventTo) {  // 1.3 is magic number.
     ethVentComplete = false;
   }
 
   if (!(oxVentComplete && ethVentComplete)) {
-    if (SENSE.PT_O1 > ventTo) {  // vent only lox down to vent to pressure
+    if (DAQSenseCommands.PT_O1 > ventTo) {  // vent only lox down to vent to pressure
       mosfetOpenValve(MOSFET_VENT_LOX);
       if (DEBUG) {
-        SENSE.PT_O1 = SENSE.PT_O1 - (0.0005 * GEN_DELAY);
+        DAQSenseCommands.PT_O1 = DAQSenseCommands.PT_O1 - (0.0005 * GEN_DELAY);
       }
     } else {                              // lox vented to acceptable hold pressure
       mosfetCloseValve(MOSFET_VENT_LOX);  // close lox
       oxVentComplete = true;
     }
-    if (SENSE.PT_E1 > ventTo) {
+    if (DAQSenseCommands.PT_E1 > ventTo) {
       mosfetOpenValve(MOSFET_VENT_ETH);  // vent ethanol
       if (DEBUG) {
-        SENSE.PT_E1 = SENSE.PT_E1 - (0.0005 * GEN_DELAY);
+        DAQSenseCommands.PT_E1 = DAQSenseCommands.PT_E1 - (0.0005 * GEN_DELAY);
       }
     } else {
       mosfetCloseValve(MOSFET_VENT_ETH);
@@ -478,8 +435,8 @@ void abort_sequence() {
     }
   }
   if (DEBUG) {
-    SENSE.PT_E1 = SENSE.PT_O1 + (0.00005 * GEN_DELAY);
-    SENSE.PT_E1 = SENSE.PT_E1 + (0.00005 * GEN_DELAY);
+    DAQSenseCommands.PT_E1 = DAQSenseCommands.PT_O1 + (0.00005 * GEN_DELAY);
+    DAQSenseCommands.PT_E1 = DAQSenseCommands.PT_E1 + (0.00005 * GEN_DELAY);
   }
 }
 
@@ -506,7 +463,7 @@ void syncDAQState() {
 }
 
 void CheckAbort() {
-  if (COMState == ABORT || SENSE.PT_O1 >= abortPressure || SENSE.PT_E1 >= abortPressure) {
+  if (COMState == ABORT || DAQSenseCommands.PT_O1 >= abortPressure || DAQSenseCommands.PT_E1 >= abortPressure) {
     mosfetCloseValve(MOSFET_ETH_PRESS);
     mosfetCloseValve(MOSFET_LOX_PRESS);
     DAQState = ABORT;
@@ -547,29 +504,29 @@ void printSensorReadings() {
   serialMessage = " ";
   serialMessage.concat(millis());
   serialMessage.concat(" ");
-  serialMessage.concat(SENSE.PT_O1);
+  serialMessage.concat(DAQSenseCommands.PT_O1);
   serialMessage.concat(" ");
-  serialMessage.concat(SENSE.PT_O2);
+  serialMessage.concat(DAQSenseCommands.PT_O2);
   serialMessage.concat(" ");
-  serialMessage.concat(SENSE.PT_E1);
+  serialMessage.concat(DAQSenseCommands.PT_E1);
   serialMessage.concat(" ");
-  serialMessage.concat(SENSE.PT_E2);
+  serialMessage.concat(DAQSenseCommands.PT_E2);
   serialMessage.concat(" ");
-  serialMessage.concat(SENSE.PT_C1);
+  serialMessage.concat(DAQSenseCommands.PT_C1);
   serialMessage.concat(" ");
-  serialMessage.concat(SENSE.LC_1);
+  serialMessage.concat(DAQSenseCommands.LC_1);
   serialMessage.concat(" ");
-  serialMessage.concat(SENSE.LC_2);
+  serialMessage.concat(DAQSenseCommands.LC_2);
   serialMessage.concat(" ");
-  serialMessage.concat(SENSE.LC_3);
+  serialMessage.concat(DAQSenseCommands.LC_3);
   serialMessage.concat(" ");
-  serialMessage.concat(SENSE.TC_1);
+  serialMessage.concat(DAQSenseCommands.TC_1);
   serialMessage.concat(" ");
-  serialMessage.concat(SENSE.TC_2);
+  serialMessage.concat(DAQSenseCommands.TC_2);
   serialMessage.concat(" ");
-  serialMessage.concat(SENSE.TC_3);
+  serialMessage.concat(DAQSenseCommands.TC_3);
   serialMessage.concat(" ");
-  serialMessage.concat(SENSE.TC_4);
+  serialMessage.concat(DAQSenseCommands.TC_4);
   serialMessage.concat(" ");
   serialMessage.concat(ethComplete);
   serialMessage.concat(" ");
@@ -595,18 +552,18 @@ void addPacketToQueue() {
     queueLength += 1;
     PacketQueue[queueLength].id = Board_ID; //POWER ID = 1
     PacketQueue[queueLength].messageTime = millis();
-    PacketQueue[queueLength].PT_O1 = SENSE.PT_O1;
-    PacketQueue[queueLength].PT_O2 = SENSE.PT_O2;
-    PacketQueue[queueLength].PT_E1 = SENSE.PT_E1;
-    PacketQueue[queueLength].PT_E2 = SENSE.PT_E2;
-    PacketQueue[queueLength].PT_C1 = SENSE.PT_C1;
-    PacketQueue[queueLength].LC_1 = SENSE.LC_1;
-    PacketQueue[queueLength].LC_2 = SENSE.LC_2;
-    PacketQueue[queueLength].LC_3 = SENSE.LC_3;
-    PacketQueue[queueLength].TC_1 = SENSE.TC_1;
-    PacketQueue[queueLength].TC_2 = SENSE.TC_2;
-    PacketQueue[queueLength].TC_3 = SENSE.TC_3;
-    PacketQueue[queueLength].TC_4 = SENSE.TC_4;
+    PacketQueue[queueLength].PT_O1 = DAQSenseCommands.PT_O1;
+    PacketQueue[queueLength].PT_O2 = DAQSenseCommands.PT_O2;
+    PacketQueue[queueLength].PT_E1 = DAQSenseCommands.PT_E1;
+    PacketQueue[queueLength].PT_E2 = DAQSenseCommands.PT_E2;
+    PacketQueue[queueLength].PT_C1 = DAQSenseCommands.PT_C1;
+    PacketQueue[queueLength].LC_1 = DAQSenseCommands.LC_1;
+    PacketQueue[queueLength].LC_2 = DAQSenseCommands.LC_2;
+    PacketQueue[queueLength].LC_3 = DAQSenseCommands.LC_3;
+    PacketQueue[queueLength].TC_1 = DAQSenseCommands.TC_1;
+    PacketQueue[queueLength].TC_2 = DAQSenseCommands.TC_2;
+    PacketQueue[queueLength].TC_3 = DAQSenseCommands.TC_3;
+    PacketQueue[queueLength].TC_4 = DAQSenseCommands.TC_4;
 
     // PacketQueue[queueLength].TC_3 = TC_3.rawReading; // sinc daq and com when adding tcs
     PacketQueue[queueLength].queueLength = queueLength;

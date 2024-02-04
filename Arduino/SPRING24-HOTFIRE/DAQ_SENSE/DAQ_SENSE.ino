@@ -42,6 +42,44 @@ float sendDelay = readDelay;
 
 
 //::::::DEFINE INSTRUMENT PINOUTS::::::://
+
+
+#define MAX_QUEUE_LENGTH 40
+
+template <class T>
+struct Queue {
+private:
+  int queueLength = 0;
+  T queue[MAX_QUEUE_LENGTH];
+
+public:
+  Queue() {
+    queueLength = 0;
+  }
+
+  void addPacket(T packet) {
+    if (queueLength < MAX_QUEUE_LENGTH) {
+      queue[queueLength] = packet;
+      queueLength++;
+    }
+    else {
+      queue[queueLength - 1] = packet;
+    }
+  }
+
+  T peekPacket() {
+    return queue[queueLength - 1];
+  }
+
+  T popPacket() {
+    return queue[--queueLength];
+  }
+
+  int size() {
+    return queueLength;
+  }
+};
+
 #define TimeOut 100
 
 struct MovingMedianFilter {
@@ -208,9 +246,7 @@ typedef struct struct_message {
 }struct_message;
 
 // Create a struct_message called Packet to be sent to the DAQ Power.
-struct_message Packet;
-// Create a queue for Packet in case Packets are dropped.
-struct_message PacketQueue[120];
+struct_message dataPacket;
 
 //::::::Broadcast Variables::::::://
 esp_now_peer_info_t peerInfo;
@@ -222,7 +258,6 @@ esp_now_peer_info_t peerInfo;
 // NEWEST COM BOARD IN EVA {0x24, 0x62, 0xAB, 0xD2, 0x85, 0xDC}
 // uint8_t broadcastAddress[] = {0x24, 0x62, 0xAB, 0xD2, 0x85, 0xDC};
 //uint8_t broadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x4F, 0xAF, 0x40};
-uint8_t broadcastAddress[] = {0xB0, 0xA7, 0x32, 0xDE, 0xC1, 0xFC};
 // uint8_t broadcastAddress[] = {0x48, 0xE7, 0x29, 0xA3, 0x0D, 0xA8}; // TEST
 // uint8_t broadcastAddress[] = { 0x48, 0xE7, 0x29, 0xA3, 0x0D, 0xA8 }; // TEST COM
 // {0x7C, 0x87, 0xCE, 0xF0, 0x69, 0xAC};
@@ -233,7 +268,11 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
  sendTime = millis();
 }
 
+uint8_t COMBroadcastAddress[] = {0xB0, 0xA7, 0x32, 0xDE, 0xC1, 0xFC};
+uint8_t DAQPowerBroadcastAddress[] = {0xB0, 0xA7, 0x32, 0xDE, 0xC1, 0xFC};
 
+Queue<struct_message> COMQueue = Queue<struct_message>();
+Queue<struct_message> DAQPowerQueue = Queue<struct_message>();
 
 
 // Initialize all sensors and parameters. sense board fs
@@ -283,9 +322,18 @@ void setup() {
   esp_now_register_send_cb(OnDataSent);
 
   // Register peer
-  memcpy(peerInfo.peer_addr, broadcastAddress, 6);
   peerInfo.channel = 0;
   peerInfo.encrypt = false;
+
+  memcpy(peerInfo.peer_addr, COMBroadcastAddress, 6);
+
+  // Add peer
+  if (esp_now_add_peer(&peerInfo) != ESP_OK) {
+    Serial.println("Failed to add peer");
+    return;
+  }
+
+  memcpy(peerInfo.peer_addr, DAQPowerBroadcastAddress, 6);
 
   // Add peer
   if (esp_now_add_peer(&peerInfo) != ESP_OK) {
@@ -323,37 +371,92 @@ void reset() {
   TC_4.resetReading();
 }
 
-
 //::::::DATA LOGGING AND COMMUNICATION::::::://
 void logData() {
   getReadings();
-  printSensorReadings();
   if (millis() - sendTime > sendDelay) {
     sendTime = millis();
     sendData();
-    // saveData();
   }
 }
 
 void getReadings() {
-  if (!DEBUG) {
-    PT_O1.readDataFromBoard();
-    PT_O2.readDataFromBoard();
-    PT_E1.readDataFromBoard();
-    PT_E2.readDataFromBoard();
-    PT_C1.readDataFromBoard();
-    LC_1.readDataFromBoard();
-    LC_2.readDataFromBoard();
-    LC_3.readDataFromBoard();
-    TC_1.readDataFromBoard();
-    TC_2.readDataFromBoard();
-    TC_3.readDataFromBoard();
-    TC_4.readDataFromBoard();
+  if (DEBUG) { return; }
+
+  PT_O1.readDataFromBoard();
+  PT_O2.readDataFromBoard();
+  PT_E1.readDataFromBoard();
+  PT_E2.readDataFromBoard();
+  PT_C1.readDataFromBoard();
+  LC_1.readDataFromBoard();
+  LC_2.readDataFromBoard();
+  LC_3.readDataFromBoard();
+  TC_1.readDataFromBoard();
+  TC_2.readDataFromBoard();
+  TC_3.readDataFromBoard();
+  TC_4.readDataFromBoard();
+}
+
+// Send data to COM board.
+void sendData() {
+  updateDataPacket();
+  COMQueue.addPacket(dataPacket);
+  DAQPowerQueue.addPacket(dataPacket);
+  sendQueue(DAQPowerQueue, DAQPowerBroadcastAddress);
+  sendQueue(COMQueue, COMBroadcastAddress);
+}
+
+void updateDataPacket() {
+  dataPacket.messageTime = millis();
+  dataPacket.sender = DAQ_SENSE_ID;
+  dataPacket.PT_O1 = PT_O1.rawReading;
+  dataPacket.PT_O2 = PT_O2.rawReading;
+  dataPacket.PT_E1 = PT_E1.rawReading;
+  dataPacket.PT_E2 = PT_E2.rawReading;
+  dataPacket.PT_C1 = PT_C1.rawReading;
+  dataPacket.LC_1 = LC_1.rawReading;
+  dataPacket.LC_2 = LC_2.rawReading;
+  dataPacket.LC_3 = LC_3.rawReading;
+  dataPacket.TC_1 = TC_1.rawReading;
+  dataPacket.TC_2 = TC_2.rawReading;
+  dataPacket.TC_3 = TC_3.rawReading;
+  dataPacket.TC_4 = TC_4.rawReading;
+
+  dataPacket.COMState = COMCommands.COMState;
+  dataPacket.DAQSenseState = DAQSenseState;
+  dataPacket.DAQPowerState = DAQPowerState;
+  dataPacket.COMQueueLength = COMQueue.size();
+  dataPacket.DAQPowerQueueLength = DAQPowerQueue.size();
+  dataPacket.ethComplete = DAQPowerCommands.ethComplete;
+  dataPacket.oxComplete = DAQPowerCommands.oxComplete;
+  dataPacket.oxVentComplete = DAQPowerCommands.oxVentComplete;
+  dataPacket.ethVentComplete = DAQPowerCommands.ethVentComplete;
+}
+
+void sendQueue(Queue<struct_message> queue, uint8_t broadcastAddress[]) {
+  if (WIFIDEBUG) {
+    return;
+  }
+
+  if (queue.size() == 0) {
+    return;
+  }
+  // Set values to send
+  struct_message Packet = queue.peekPacket();
+
+
+  // Send message via ESP-NOW
+  esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&Packet, sizeof(Packet));
+
+  if (result == ESP_OK) {
+    queue.popPacket();
+  } else {
+    Serial.println("Error sending the data");
   }
 }
 
 void printSensorReadings() {
-  serialMessage = " ";
+  String serialMessage = " ";
   serialMessage.concat(millis());
   serialMessage.concat(" ");
   serialMessage.concat(PT_O1.filteredReading);
@@ -379,63 +482,22 @@ void printSensorReadings() {
   serialMessage.concat(TC_3.filteredReading);
   serialMessage.concat(" ");
   serialMessage.concat(TC_4.filteredReading);
-  serialMessage.concat(" ");
+  serialMessage.concat("\nEth comp: ");
+  serialMessage.concat(DAQPowerCommands.ethComplete ? "True" : "False");
+  serialMessage.concat(" Ox comp: ");
+  serialMessage.concat(DAQPowerCommands.oxComplete  ? "True" : "False");
+  serialMessage.concat("\n COM State: ");
+  serialMessage.concat(stateNames[COMState]);
+  serialMessage.concat("   Sense State: ");
+  serialMessage.concat(stateNames[DAQSenseState]);
+  serialMessage.concat("   Power State: ");
+  serialMessage.concat(stateNames[DAQPowerState]);
   //  serialMessage.concat(readingCap1);
   //  serialMessage.concat(" ");
   //  serialMessage.concat(readingCap2);
-  serialMessage.concat(" Queue Length: ");
-  serialMessage.concat(queueLength);
+  serialMessage.concat("\nCOM Q Length: ");
+  serialMessage.concat(COMQueue.size());
+  serialMessage.concat("  DAQPower Q Length: ");
+  serialMessage.concat(DAQPowerQueue.size());
   Serial.println(serialMessage);
-}
-
-// Send data to COM board.
-void sendData() {
-  addPacketToQueue();
-  sendQueue();
-}
-
-void addPacketToQueue() {
-  if (queueLength < 40) {
-    queueLength += 1;
-    PacketQueue[queueLength].messageTime = millis();
-    PacketQueue[queueLength].PT_O1 = PT_O1.rawReading;
-    PacketQueue[queueLength].PT_O2 = PT_O2.rawReading;
-    PacketQueue[queueLength].PT_E1 = PT_E1.rawReading;
-    PacketQueue[queueLength].PT_E2 = PT_E2.rawReading;
-    PacketQueue[queueLength].PT_C1 = PT_C1.rawReading;
-    PacketQueue[queueLength].LC_1 = LC_1.rawReading;
-    PacketQueue[queueLength].LC_2 = LC_2.rawReading;
-    PacketQueue[queueLength].LC_3 = LC_3.rawReading;
-    PacketQueue[queueLength].TC_1 = TC_1.rawReading;
-    PacketQueue[queueLength].TC_2 = TC_2.rawReading;
-    PacketQueue[queueLength].TC_3 = TC_3.rawReading;
-    PacketQueue[queueLength].TC_4 = TC_4.rawReading;
-
-    // PacketQueue[queueLength].TC_3 = TC_3.rawReading; // sinc daq and com when adding tcs
-    PacketQueue[queueLength].DAQState = DAQState;
-    PacketQueue[queueLength].DAQState = COMState;
-    PacketQueue[queueLength].queueLength = queueLength;
-    PacketQueue[queueLength].oxComplete = oxComplete;
-    PacketQueue[queueLength].ethComplete = ethComplete;
-  }
-}
-
-void sendQueue() {
-  if (queueLength < 0) {
-    return;
-  }
-  // Set values to send
-  Packet = PacketQueue[queueLength];
-
-  if (!WIFIDEBUG) {
-    // Send message via ESP-NOW
-    esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&Packet, sizeof(Packet));
-
-    if (result == ESP_OK) {
-      // Serial.println("Sent with success Data Send");
-      queueLength -= 1;
-    } else {
-      Serial.println("Error sending the data");
-    }
-  }
 }
