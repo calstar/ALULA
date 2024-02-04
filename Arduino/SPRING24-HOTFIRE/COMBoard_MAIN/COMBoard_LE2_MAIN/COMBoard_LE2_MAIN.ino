@@ -17,6 +17,11 @@ This code runs on the COM ESP32 and has a couple of main tasks.
 //IF YOU WANT TO DEBUG, SET THIS TO 1. IF NOT SET ZERO
 int DEBUG = 1;
 
+
+#define COM_ID 1
+#define DAQ_POWER_ID 2
+#define DAQ_SENSE_ID 3
+
 Switch SWITCH_ARMED = Switch(14);  //correct
 Switch SWITCH_PRESS = Switch(12);  //correct
 Switch SWITCH_QD = Switch(26);   //  correct
@@ -127,33 +132,19 @@ struct_message SENSE;
 struct_message POWER;
 // Create a struct_message to hold outgoing commands
 struct_message Commands;
-
-struct_message boardsStruct[2] = {SENSE, POWER};
-float Board_ID = 2; //POWER DAQ Board ID
-
+// Callback when data is received, should we add this to the daq_sense board?
 
 // Callback when data is received, should we add this to the daq_sense board?
 void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
+  struct_message myData;
   memcpy(&myData, incomingData, sizeof(myData));
+  if (myData.id == DAQ_SENSE_ID) {
+    SENSE = myData;
+  }
+  else if (myData.id == DAQ_POWER_ID) {
+    POWER = myData;
+  }
   Serial.printf("Board ID %u: %u bytes\n", myData.id, len);
-  boardsStruct[myData.id-1].messageTime = myData.messageTime;
-  boardsStruct[myData.id-1].PT_O1 = myData.PT_O1;
-  boardsStruct[myData.id-1].PT_O2 = myData.PT_O2;
-  boardsStruct[myData.id-1].PT_E1 = myData.PT_E1;
-  boardsStruct[myData.id-1].PT_E2 = myData.PT_E2;
-  boardsStruct[myData.id-1].PT_C1 = myData.PT_C1;
-  boardsStruct[myData.id-1].LC_1 = myData.LC_1;
-  boardsStruct[myData.id-1].LC_2 = myData.LC_2;
-  boardsStruct[myData.id-1].LC_3 = myData.LC_3;
-  boardsStruct[myData.id-1].TC_1 = myData.TC_1;
-  boardsStruct[myData.id-1].TC_2 = myData.TC_2;
-  boardsStruct[myData.id-1].TC_3 = myData.TC_3;
-  boardsStruct[myData.id-1].TC_4 = myData.TC_4;
-  boardsStruct[myData.id-1].COMState = myData.COMState;
-  boardsStruct[myData.id-1].DAQState = myData.DAQState;
-  boardsStruct[myData.id-1].queueLength = myData.queueLength;
-  boardsStruct[myData.id-1].ethComplete = myData.ethComplete;
-  boardsStruct[myData.id-1].oxComplete = myData.oxComplete;
 }
 
 
@@ -359,7 +350,7 @@ void dataSendCheck() {
 void dataSend() {
   // Set values to send
   Commands.COMState = state;
-  Commands.id = Board_ID;
+  Commands.id = COM_ID;
   // Send message via ESP-NOW
   esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &Commands, sizeof(Commands));
 }

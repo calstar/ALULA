@@ -151,6 +151,10 @@ uint8_t COMBroadcastAddress[] = {0xB0, 0xA7, 0x32, 0xDE, 0xC1, 0xFC};
 //  sendTime = millis();
 // }
 
+struct_message PacketQueue[120];
+struct_message Packet;
+
+
 // Callback when data is received, should we add this to the daq_sense board?
 void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
   struct_message myData;
@@ -332,6 +336,7 @@ void armed() {
   mosfetCloseAllValves();
 }
 
+
 void press() {
   if (!(oxComplete && ethComplete)) {
     if (DAQSenseCommands.PT_O1 < pressureOx * threshold) {
@@ -439,14 +444,13 @@ void abort_sequence() {
 //
 //// Get commanded state from COM board.
 void fetchCOMState() {
-  COMState = Commands.COMState;
+  COMState = COMCommands.COMState;
   if (Serial.available() > 0) {
     // Serial.read reads a single character as ASCII. Number 1 is 49 in ASCII.
     // Serial sends character and new line character "\n", which is 10 in ASCII.
     int SERIALState = Serial.read() - 48;
     if (SERIALState >= 0 && SERIALState <= 9) {
       COMState = SERIALState;
-      DAQSenseState = SERIALState;
     }
   }
 }
@@ -454,7 +458,7 @@ void fetchCOMState() {
 // Sync state of DAQ board with DAQ board.
 void syncDAQState() {
   //DAQState = COMState;
-  DAQState = DAQSenseState;
+  DAQState = COMState;
 }
 
 void CheckAbort() {
@@ -545,21 +549,8 @@ void sendData() {
 void addPacketToQueue() {
   if (queueLength < 40) {
     queueLength += 1;
-    PacketQueue[queueLength].id = Board_ID; //POWER ID = 1
+    PacketQueue[queueLength].id = DAQ_POWER_ID;
     PacketQueue[queueLength].messageTime = millis();
-    PacketQueue[queueLength].PT_O1 = DAQSenseCommands.PT_O1;
-    PacketQueue[queueLength].PT_O2 = DAQSenseCommands.PT_O2;
-    PacketQueue[queueLength].PT_E1 = DAQSenseCommands.PT_E1;
-    PacketQueue[queueLength].PT_E2 = DAQSenseCommands.PT_E2;
-    PacketQueue[queueLength].PT_C1 = DAQSenseCommands.PT_C1;
-    PacketQueue[queueLength].LC_1 = DAQSenseCommands.LC_1;
-    PacketQueue[queueLength].LC_2 = DAQSenseCommands.LC_2;
-    PacketQueue[queueLength].LC_3 = DAQSenseCommands.LC_3;
-    PacketQueue[queueLength].TC_1 = DAQSenseCommands.TC_1;
-    PacketQueue[queueLength].TC_2 = DAQSenseCommands.TC_2;
-    PacketQueue[queueLength].TC_3 = DAQSenseCommands.TC_3;
-    PacketQueue[queueLength].TC_4 = DAQSenseCommands.TC_4;
-
     // PacketQueue[queueLength].TC_3 = TC_3.rawReading; // sinc daq and com when adding tcs
     PacketQueue[queueLength].queueLength = queueLength;
     PacketQueue[queueLength].DAQState = DAQState;
@@ -571,13 +562,12 @@ void addPacketToQueue() {
 void sendQueue() {
   if (queueLength < 0) {
     return;
-  }
   // Set values to send
   Packet = PacketQueue[queueLength];
 
   if (!WIFIDEBUG) {
     // Send message via ESP-NOW
-    esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&Packet, sizeof(Packet));
+    esp_err_t result = esp_now_send(COMBroadcastAddress, (uint8_t *)&Packet, sizeof(Packet));
 
     if (result == ESP_OK) {
       // Serial.println("Sent with success Data Send");
@@ -586,4 +576,5 @@ void sendQueue() {
       Serial.println("Error sending the data");
     }
   }
+}
 }
