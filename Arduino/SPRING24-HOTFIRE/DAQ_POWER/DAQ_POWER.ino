@@ -31,7 +31,7 @@ PCF8575 pcf8575(0x20);
 // DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE.
 // MOSFET must not trigger while in debug.
 int DEBUG = 1;      // Simulate LOX and Eth fill.
-int WIFIDEBUG = 1;  // Don't send/receive data.
+int WIFIDEBUG = 0;  // Don't send/receive data.
 
 // MODEL DEFINED PARAMETERS FOR TEST/HOTFIRE. Pressures in psi //
 float pressureFuel = 390;   //405;  // Set pressure for fuel: 412
@@ -140,7 +140,7 @@ esp_now_peer_info_t peerInfo;
 // NEWEST COM BOARD IN EVA {0x24, 0x62, 0xAB, 0xD2, 0x85, 0xDC}
 // uint8_t broadcastAddress[] = {0x24, 0x62, 0xAB, 0xD2, 0x85, 0xDC};
 //uint8_t broadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x4F, 0xAF, 0x40};
-uint8_t COMBroadcastAddress[] = {0xB0, 0xA7, 0x32, 0xDE, 0xC1, 0xFC};
+uint8_t COMBroadcastAddress[] = {0xC8, 0xF0, 0x9E, 0xE1, 0xEC, 0x94};
 // uint8_t broadcastAddress[] = {0x48, 0xE7, 0x29, 0xA3, 0x0D, 0xA8}; // TEST
 // uint8_t broadcastAddress[] = { 0x48, 0xE7, 0x29, 0xA3, 0x0D, 0xA8 }; // TEST COM
 // {0x7C, 0x87, 0xCE, 0xF0, 0x69, 0xAC};
@@ -172,6 +172,7 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
 // Initialize all sensors and parameters.
 
 void setup() {
+  Serial.println("i love ishir");
 /*
   // pinMode(ONBOARD_LED,OUTPUT);
 
