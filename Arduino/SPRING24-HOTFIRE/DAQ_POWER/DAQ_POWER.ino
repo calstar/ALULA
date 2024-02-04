@@ -30,7 +30,7 @@ PCF8575 pcf8575(0x20);
 
 // DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE.
 // MOSFET must not trigger while in debug.
-int DEBUG = 1;      // Simulate LOX and Eth fill.
+int DEBUG = 0;      // Simulate LOX and Eth fill.
 int WIFIDEBUG = 0;  // Don't send/receive data.
 
 // MODEL DEFINED PARAMETERS FOR TEST/HOTFIRE. Pressures in psi //
@@ -40,7 +40,7 @@ float threshold = 0.995;   // re-psressurrization threshold (/1x)
 float ventTo = 5;          // c2se solenoids at this pressure to preserve lifetime.
 #define abortPressure 525  // Cutoff pressure to automatically trigger abort
 #define period 0.5         // Sets period for bang-bang control
-float sendDelay = 250;     // Sets frequency of data collection. 1/(sendDelay*10^-3) is frequency in Hz
+float sendDelay = 25;     // Sets frequency of data collection. 1/(sendDelay*10^-3) is frequency in Hz
 // END OF USER DEFINED PARAMETERS //
 // refer to https://docs.google.com/spreadsheets/d/17NrJWC0AR4Gjejme-EYuIJ5uvEJ98FuyQfYVWI3Qlio/edit#gid=1185803967 for all pinouts
 
@@ -89,8 +89,8 @@ bool ethVentComplete = false;
 int hotfireStart;
 
 // Delay between loops.
-#define IDLE_DELAY 250
-#define GEN_DELAY 20
+#define IDLE_DELAY 25
+#define GEN_DELAY 25
 
 
 //::::DEFINE READOUT VARIABLES:::://
@@ -129,7 +129,6 @@ typedef struct struct_message {
 
 struct_message COMCommands;
 struct_message DAQSenseCommands;
-
 //::::::Broadcast Variables::::::://
 esp_now_peer_info_t peerInfo;
 // REPLACE WITH THE MAC Address of your receiver
@@ -154,16 +153,17 @@ uint8_t COMBroadcastAddress[] = {0xC8, 0xF0, 0x9E, 0xE1, 0xEC, 0x94};
 struct_message PacketQueue[120];
 struct_message Packet;
 
-
 // Callback when data is received, should we add this to the daq_sense board?
 void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
   struct_message myData;
   memcpy(&myData, incomingData, sizeof(myData));
   if (myData.id == COM_ID) {
     COMCommands = myData;
+    // Serial.print(myData.id);
   }
   else if (myData.id == DAQ_SENSE_ID) {
     DAQSenseCommands = myData;
+    // Serial.print(myData.id);
   }
   Serial.printf("Board ID %u: %u bytes\n", myData.id, len);
 }
@@ -172,50 +172,11 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
 // Initialize all sensors and parameters.
 
 void setup() {
-  Serial.println("i love ishir");
-/*
   // pinMode(ONBOARD_LED,OUTPUT);
-
   Serial.begin(115200);
+  Serial.println("i love ishir");
 
   while (!Serial) delay(1);  // wait for Serial on Leonardo/Zero, etc.
-
-  // HX711.
-  PT_O1.scale.begin(PT_O1.gpio, PT_O1.clk);
-  PT_O1.scale.set_gain(64);
-  PT_O2.scale.begin(PT_O2.gpio, PT_O2.clk);
-  PT_O2.scale.set_gain(64);
-  PT_E1.scale.begin(PT_E1.gpio, PT_E1.clk);
-  PT_E1.scale.set_gain(64);
-  PT_E2.scale.begin(PT_E2.gpio, PT_E2.clk);
-  PT_E2.scale.set_gain(64);
-  PT_C1.scale.begin(PT_C1.gpio, PT_C1.clk);
-  PT_C1.scale.set_gain(64);
-  LC_1.scale.begin(LC_1.gpio, LC_1.clk);
-  LC_1.scale.set_gain(64);
-  LC_2.scale.begin(LC_2.gpio, LC_2.clk);
-  LC_2.scale.set_gain(64);
-  LC_3.scale.begin(LC_3.gpio, LC_3.clk);
-  LC_3.scale.set_gain(64);
-
-  // Thermocouple.
-  pinMode(TC_1.cs, OUTPUT);
-  pinMode(TC_2.cs, OUTPUT);
-  pinMode(TC_3.cs, OUTPUT);
-  pinMode(TC_4.cs, OUTPUT);
-*/
-  // MOSFET.
-  //  mosfet_pcf.startI2C(I2C_SDA, I2C_SCL, MOSFET_PCF_ADDR); // Only SEARCH, if using normal pins in Arduino
-  mosfet_pcf_found = true;
-
-  // Set pinMode to OUTPUT
-  for (int i = 0; i < 16; i++) {
-    pcf8575.pinMode(i, OUTPUT);
-  }
-  pcf8575.begin();
-  mosfet_pcf_found = true;
-  mosfetCloseAllValves();  // make sure everything is off by default (NMOS: Down = Off, Up = On)
-  delay(500);              // startup time to make sure its good for personal testing
 
   // Broadcast setup.
   // Set device as a Wi-Fi Station
@@ -531,6 +492,8 @@ void printSensorReadings() {
   serialMessage.concat(ethComplete);
   serialMessage.concat(" ");
   serialMessage.concat(oxComplete);
+  serialMessage.concat(" ");
+  serialMessage.concat(COMCommands.COMState);
   serialMessage.concat(" ");
   serialMessage.concat(state_names[DAQState]);
   //  serialMessage.concat(readingCap1);
