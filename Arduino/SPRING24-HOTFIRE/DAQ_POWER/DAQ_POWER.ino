@@ -129,6 +129,7 @@ typedef struct struct_message {
 
 struct_message COMCommands;
 struct_message DAQSenseCommands;
+struct_message TEST;
 //::::::Broadcast Variables::::::://
 esp_now_peer_info_t peerInfo;
 // REPLACE WITH THE MAC Address of your receiver
@@ -139,7 +140,7 @@ esp_now_peer_info_t peerInfo;
 // NEWEST COM BOARD IN EVA {0x24, 0x62, 0xAB, 0xD2, 0x85, 0xDC}
 // uint8_t broadcastAddress[] = {0x24, 0x62, 0xAB, 0xD2, 0x85, 0xDC};
 //uint8_t broadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x4F, 0xAF, 0x40};
-uint8_t COMBroadcastAddress[] = {0xC8, 0xF0, 0x9E, 0xE1, 0xEC, 0x94};
+uint8_t COMBroadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x51, 0xEC, 0x94};
 // uint8_t broadcastAddress[] = {0x48, 0xE7, 0x29, 0xA3, 0x0D, 0xA8}; // TEST
 // uint8_t broadcastAddress[] = { 0x48, 0xE7, 0x29, 0xA3, 0x0D, 0xA8 }; // TEST COM
 // {0x7C, 0x87, 0xCE, 0xF0, 0x69, 0xAC};
@@ -159,7 +160,7 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
   memcpy(&myData, incomingData, sizeof(myData));
   if (myData.id == COM_ID) {
     COMCommands = myData;
-    Serial.print(myData.id);
+    // Serial.print(myData.id);
   }
   else if (myData.id == DAQ_SENSE_ID) {
     DAQSenseCommands = myData;
@@ -523,22 +524,23 @@ void addPacketToQueue() {
   }
 }
 
-void sendQueue() {
+void sendQueue() { 
+  
   if (queueLength < 0) {
     return;
+  }
   // Set values to send
   Packet = PacketQueue[queueLength];
-
+  
   if (!WIFIDEBUG) {
     // Send message via ESP-NOW
     esp_err_t result = esp_now_send(COMBroadcastAddress, (uint8_t *)&Packet, sizeof(Packet));
 
     if (result == ESP_OK) {
-      // Serial.println("Sent with success Data Send");
+      Serial.println("Sent with success Data Send");
       queueLength -= 1;
     } else {
       Serial.println("Error sending the data");
     }
   }
-}
 }
