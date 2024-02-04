@@ -19,34 +19,28 @@ This code runs on the DAQ ESP32 and has a couple of main tasks.
 #include <EasyPCF8575.h>
 #include "RunningMedian.h"
 #include "PCF8575.h"  // https://github.com/xreef/PCF8575_library
-// Set i2c address
-PCF8575 pcf8575(0x20);
 
-#define COM_ID 1
+// These are sender ids, this is just a convention, should be same across all scripts
+#define COM_ID 0
+#define DAQ_SENSE_ID 1
 #define DAQ_POWER_ID 2
-#define DAQ_SENSE_ID 3
-
-//::::::Global Variables::::::://
 
 // DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE.
 // MOSFET must not trigger while in debug.
-int DEBUG = 1;      // Simulate LOX and Eth fill.
-int WIFIDEBUG = 0;  // Don't send/receive data.
-
-//vars for unifying structure between P/S
-int COMState = 0;
-int DAQState = 0;
-bool ethComplete = false;
-bool oxComplete = false;
-
-float readDelay = 25;     // Frequency of data collection [ms]
-float sendDelay = readDelay;
-// END OF USER DEFINED PARAMETERS //
+bool DEBUG = false;   // Simulate LOX and Eth fill.
+bool WIFIDEBUG = false; // Don't send/receive data.
 // refer to https://docs.google.com/spreadsheets/d/17NrJWC0AR4Gjejme-EYuIJ5uvEJ98FuyQfYVWI3Qlio/edit#gid=1185803967 for all pinouts
 
+#define DATA_TIMEOUT 100
 
-//::::::DEFINE INSTRUMENT PINOUTS::::::://
+#define IDLE_DELAY 250
+#define GEN_DELAY 20
 
+float readDelay = 20;     // Frequency of data collection [ms]
+float sendDelay = IDLE_DELAY; // Frequency of sending data [ms]
+
+enum STATES { IDLE, ARMED, PRESS, QD, IGNITION, HOTFIRE, ABORT };
+String stateNames[] = { "Idle", "Armed", "Press", "QD", "Ignition", "HOTFIRE", "Abort" };
 
 #define MAX_QUEUE_LENGTH 40
 
@@ -84,8 +78,6 @@ public:
   }
 };
 
-#define TimeOut 100
-
 struct MovingMedianFilter {
 private:
   const unsigned BUFFER_SIZE = 5;
@@ -120,6 +112,7 @@ public:
   float slope;
   float filteredReading = -1;
   float rawReading = -1;
+  float unshiftedRawReading = -1; // Raw reading before slope offset transformation is applied to it
 
   struct_data_board(Board scale, float offset, float slope)
     : scale(scale) {
@@ -129,13 +122,14 @@ public:
   }
 
   virtual float readRawFromBoard() {
-    return analogRead(36); // This is arbitrary, function should ALWAYS be overriden in child class
+    return analogRead(36); // This is arbitrary, function should ALWAYS be overriden in child class (could make this class abstract but thats annoying)
   }
 
   void readDataFromBoard() {
     float newReading = readRawFromBoard();
     filter.addReading(newReading);
 
+    unshiftedRawReading = newReading;
     rawReading = slope * newReading + offset;
     filteredReading = slope * filter.getReading() + offset;
   }
@@ -144,6 +138,7 @@ public:
     filter.resetReadings();
     filteredReading = -1;
     rawReading = -1;
+    unshiftedRawReading = -1;
   }
 };
 
@@ -159,7 +154,7 @@ public:
   }
 
   float readRawFromBoard() override {
-    if (scale.wait_ready_timeout(TimeOut)) {
+    if (scale.wait_ready_timeout(DATA_TIMEOUT)) {
       return scale.read();
     }
     return (rawReading - offset) / slope;
@@ -180,10 +175,6 @@ public:
   }
 };
 
-
-
-//sensor stuff
-
 #define HX_CLK 27
 
 struct_hx711 PT_O1{ {}, HX_CLK, 36, .offset = -115.9, .slope = 0.0110 }; //.offset = -71.93, .slope = 0.00822
@@ -202,7 +193,6 @@ struct_hx711 LC_3{ {}, HX_CLK, 26, .offset = 0, .slope = 1 };
 #define TC_DO 13
 #define TC4_DO 23
 
-
 #define SD_CLK 18
 #define SD_DO 23
 
@@ -211,26 +201,18 @@ struct_max31855 TC_2{ Adafruit_MAX31855(TC_CLK, 16, TC_DO), 16, .offset = 0, .sl
 struct_max31855 TC_3{ Adafruit_MAX31855(TC_CLK, 4, TC_DO), 4, .offset = 0, .slope = 1 };
 struct_max31855 TC_4{ Adafruit_MAX31855(TC4_CLK, 15, TC4_DO), 15, .offset = 0, .slope = 1 };
 
-
-// GPIO expander
-#define I2C_SDA 21
-
-#define I2C_SCL 22
-
-
-
 //::::DEFINE READOUT VARIABLES:::://
-String serialMessage;
 float sendTime;
-short int queueLength = 0;
 
-// Define variables to store readings to be sent
+int COMState = IDLE;
+int DAQSenseState = IDLE;
+int DAQPowerState = IDLE;
 
 // Structure example to send data.
 // Must match the receiver structure.
-typedef struct struct_message {
-  int id;
+struct struct_message {
   int messageTime;
+  int sender;
   float PT_O1;
   float PT_O2;
   float PT_E1;
@@ -244,48 +226,48 @@ typedef struct struct_message {
   float TC_3;
   float TC_4;
   int COMState;
-  int DAQState; 
-  short int queueLength;
+  int DAQSenseState;
+  int DAQPowerState;
+  short int COMQueueLength;
+  short int DAQPowerQueueLength;
   bool ethComplete;
   bool oxComplete;
-  // bool oxvent;
-  // bool ethVent;
-  // bool VentComplete;
-} struct_message;
+  bool oxVentComplete;
+  bool ethVentComplete;
+};
 
-// Create a struct_message called Packet to be sent to the DAQ Power.
 struct_message dataPacket;
 
-//::::::Broadcast Variables::::::://
-esp_now_peer_info_t peerInfo;
-// REPLACE WITH THE MAC Address of your receiver
+// Received Commands from COM
+struct_message COMCommands;
+struct_message DAQPowerCommands;
 
-// OLD COM BOARD {0xC4, 0xDD, 0x57, 0x9E, 0x91, 0x6C}
-// COM BOARD {0x7C, 0x9E, 0xBD, 0xD7, 0x2B, 0xE8}
-// HEADERLESS BOARD {0x7C, 0x87, 0xCE, 0xF0 0x69, 0xAC}
-// NEWEST COM BOARD IN EVA {0x24, 0x62, 0xAB, 0xD2, 0x85, 0xDC}
-// uint8_t broadcastAddress[] = {0x24, 0x62, 0xAB, 0xD2, 0x85, 0xDC};
-//uint8_t broadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x4F, 0xAF, 0x40};
-// uint8_t broadcastAddress[] = {0x48, 0xE7, 0x29, 0xA3, 0x0D, 0xA8}; // TEST
-// uint8_t broadcastAddress[] = { 0x48, 0xE7, 0x29, 0xA3, 0x0D, 0xA8 }; // TEST COM
-// {0x7C, 0x87, 0xCE, 0xF0, 0x69, 0xAC};
-// {0x3C, 0x61, 0x05, 0x4A, 0xD5, 0xE0};
-// {0xC4, 0xDD, 0x57, 0x9E, 0x96, 0x34};
-// Callback when data is sent
-void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
- sendTime = millis();
-}
-
-uint8_t COMBroadcastAddress[] = {0xB0, 0xA7, 0x32, 0xDE, 0xC1, 0xFC};
-uint8_t DAQPowerBroadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x4F, 0x3C, 0xA4};
-
+// Create a queue for Packet in case Packets are dropped.
 Queue<struct_message> COMQueue = Queue<struct_message>();
 Queue<struct_message> DAQPowerQueue = Queue<struct_message>();
 
+//::::::Broadcast Variables::::::://
+esp_now_peer_info_t peerInfo;
 
-// Initialize all sensors and parameters. sense board fs
+uint8_t COMBroadcastAddress[] = {0xB0, 0xA7, 0x32, 0xDE, 0xC1, 0xFC};
+uint8_t DAQPowerBroadcastAddress[] = {0xB0, 0xA7, 0x32, 0xDE, 0xC1, 0xFC};
+
+void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
+  struct_message Packet;
+  memcpy(&Packet, incomingData, sizeof(Packet));
+
+  if (Packet.sender == COM_ID) {
+    COMCommands = Packet;
+    COMState = Packet.COMState;
+  }
+  else if (Packet.sender == DAQ_POWER_ID) {
+    DAQPowerCommands = Packet;
+    DAQPowerState = Packet.DAQPowerState;
+  }
+}
+
+// Initialize all sensors and parameters.
 void setup() {
-  // pinMode(ONBOARD_LED,OUTPUT);
   Serial.begin(115200);
   while (!Serial) delay(1);  // wait for Serial on Leonardo/Zero, etc.
 
@@ -317,6 +299,7 @@ void setup() {
   // Set device as a Wi-Fi Station
   WiFi.mode(WIFI_STA);
   // Print MAC Accress on startup for easier connections
+  Serial.print("My MAC Address :");
   Serial.println(WiFi.macAddress());
 
   // Init ESP-NOW
@@ -325,41 +308,73 @@ void setup() {
     return;
   }
 
-    // Register peer
+  // Register peer
   peerInfo.channel = 0;
   peerInfo.encrypt = false;
 
-  // Once ESPNow is successfully Init, we will register for Send CB to
-  // get the status of Trasnmitted packet
-  esp_now_register_send_cb(OnDataSent);
+  // Add peer
+  memcpy(peerInfo.peer_addr, COMBroadcastAddress, 6);
+  if (esp_now_add_peer(&peerInfo) != ESP_OK) {
+    Serial.println("Failed to add peer");
+    return;
+  }
 
   memcpy(peerInfo.peer_addr, DAQPowerBroadcastAddress, 6);
-
-  // Add peer
   if (esp_now_add_peer(&peerInfo) != ESP_OK) {
-    Serial.println("Failed to add peer DAQ POWER");
+    Serial.println("Failed to add peer");
     return;
   }
 
-  memcpy(peerInfo.peer_addr, COMBroadcastAddress, 6);
-
-  // Add peer
-  if (esp_now_add_peer(&peerInfo) != ESP_OK) {
-    Serial.println("Failed to add peer COM");
-    return;
-  }
-
+  // Register for a callback function that will be called when data is received
+  esp_now_register_recv_cb(OnDataRecv);
 
   sendTime = millis();
 }
 
+//::::::STATE MACHINE::::::://
 
-//::::::STATE MACHINE:::::::///
-// Main Structure of State Machine
+// Main Structure of State Machine.
 void loop() {
-  //  Serial.print("looping");
+  if (DEBUG || COMState == ABORT) {
+    syncDAQState();
+  }
+  switch (DAQSenseState) {
+    case (IDLE):
+      if (COMState == ARMED) { syncDAQState(); }
+      idle();
+      break;
+
+    case (ARMED):
+      if (COMState == IDLE || COMState == PRESS) { syncDAQState(); }
+      armed();
+      break;
+
+    case (PRESS):
+      if (COMState == IDLE || (COMState == QD)) { syncDAQState(); }
+      press();
+      break;
+
+    case (QD):
+      if (COMState == IDLE || COMState == IGNITION) { syncDAQState(); }
+      quick_disconnect();
+      break;
+
+    case (IGNITION):
+      if (COMState == IDLE || COMState == HOTFIRE) { syncDAQState(); }
+      ignition();
+      break;
+
+    case (HOTFIRE):
+      hotfire();
+      break;
+
+    case (ABORT):
+      abort_sequence();
+      if (COMState == IDLE) { syncDAQState(); }
+      break;
+  }
+
   logData();
-  //  Serial.print("logged");
 }
 
 // State Functions.
@@ -380,10 +395,43 @@ void reset() {
   TC_4.resetReading();
 }
 
+void idle() {
+  sendDelay = IDLE_DELAY;
+  reset();
+}
+
+void armed() {
+  sendDelay = GEN_DELAY;
+}
+
+void press() {
+  sendDelay = GEN_DELAY;
+}
+
+void quick_disconnect() {
+  sendDelay = GEN_DELAY;
+}
+
+void ignition() {
+  sendDelay = GEN_DELAY;
+}
+
+void hotfire() {
+  sendDelay = GEN_DELAY;
+}
+
+void abort_sequence() {
+  sendDelay = GEN_DELAY;
+}
+
+// Sync state of DAQ board with COM board.
+void syncDAQState() {
+  DAQSenseState = COMState;
+}
+
 //::::::DATA LOGGING AND COMMUNICATION::::::://
 void logData() {
   getReadings();
-  printSensorReadings();
   if (millis() - sendTime > sendDelay) {
     sendTime = millis();
     sendData();
@@ -418,7 +466,7 @@ void sendData() {
 
 void updateDataPacket() {
   dataPacket.messageTime = millis();
-  dataPacket.id = DAQ_SENSE_ID;
+  dataPacket.sender = DAQ_SENSE_ID;
   dataPacket.PT_O1 = PT_O1.rawReading;
   dataPacket.PT_O2 = PT_O2.rawReading;
   dataPacket.PT_E1 = PT_E1.rawReading;
@@ -431,6 +479,16 @@ void updateDataPacket() {
   dataPacket.TC_2 = TC_2.rawReading;
   dataPacket.TC_3 = TC_3.rawReading;
   dataPacket.TC_4 = TC_4.rawReading;
+
+  dataPacket.COMState = COMCommands.COMState;
+  dataPacket.DAQSenseState = DAQSenseState;
+  dataPacket.DAQPowerState = DAQPowerState;
+  dataPacket.COMQueueLength = COMQueue.size();
+  dataPacket.DAQPowerQueueLength = DAQPowerQueue.size();
+  dataPacket.ethComplete = DAQPowerCommands.ethComplete;
+  dataPacket.oxComplete = DAQPowerCommands.oxComplete;
+  dataPacket.oxVentComplete = DAQPowerCommands.oxVentComplete;
+  dataPacket.ethVentComplete = DAQPowerCommands.ethVentComplete;
 }
 
 void sendQueue(Queue<struct_message> queue, uint8_t broadcastAddress[]) {
@@ -483,15 +541,15 @@ void printSensorReadings() {
   serialMessage.concat(" ");
   serialMessage.concat(TC_4.filteredReading);
   serialMessage.concat("\nEth comp: ");
-  // serialMessage.concat(DAQPowerCommands.ethComplete ? "True" : "False");
+  serialMessage.concat(DAQPowerCommands.ethComplete ? "True" : "False");
   serialMessage.concat(" Ox comp: ");
-  // serialMessage.concat(DAQPowerCommands.oxComplete  ? "True" : "False");
+  serialMessage.concat(DAQPowerCommands.oxComplete  ? "True" : "False");
   serialMessage.concat("\n COM State: ");
-  // serialMessage.concat(stateNames[COMState]);
+  serialMessage.concat(stateNames[COMState]);
   serialMessage.concat("   Sense State: ");
-  // serialMessage.concat(stateNames[DAQSenseState]);
+  serialMessage.concat(stateNames[DAQSenseState]);
   serialMessage.concat("   Power State: ");
-  // serialMessage.concat(stateNames[DAQPowerState]);
+  serialMessage.concat(stateNames[DAQPowerState]);
   //  serialMessage.concat(readingCap1);
   //  serialMessage.concat(" ");
   //  serialMessage.concat(readingCap2);
@@ -501,3 +559,4 @@ void printSensorReadings() {
   serialMessage.concat(DAQPowerQueue.size());
   Serial.println(serialMessage);
 }
+

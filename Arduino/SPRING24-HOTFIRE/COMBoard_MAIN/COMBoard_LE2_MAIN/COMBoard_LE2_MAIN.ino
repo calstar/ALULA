@@ -15,7 +15,12 @@ This code runs on the COM ESP32 and has a couple of main tasks.
 #include "freertos/Task.h"
 
 //IF YOU WANT TO DEBUG, SET THIS TO 1. IF NOT SET ZERO
-int DEBUG = 0;
+int DEBUG = 1;
+
+
+#define COM_ID 1
+#define DAQ_POWER_ID 2
+#define DAQ_SENSE_ID 3
 
 Switch SWITCH_ARMED = Switch(14);  //correct
 Switch SWITCH_PRESS = Switch(12);  //correct
@@ -34,29 +39,30 @@ Switch SWITCH_ABORT = Switch(18);
 
 float pressTime = 0;
 
- String success;
+String success;
 String message;
- int COMState;
+String serialMessage;
+int COMState;
 int incomingByte = 0;
 int incomingMessageTime;
- float incomingPT1 = 4; //PT errors when initialized to zero
+float incomingPT1 = 4; //PT errors when initialized to zero
 float incomingPT2 = 4;
 float incomingPT3 = 4;
 float incomingPT4 = 4;
- float incomingPT5 = 4;
- float incomingLC1 = 4;
- float incomingLC2 = 4;
- float incomingLC3 = 4;
- float incomingTC1 = 4;
- float incomingTC2 = 4;
- float incomingTC3 = 4;
- float incomingTC4 = 4;
- float incomingCap1 = 0;
- float incomingCap2 = 0;
- bool pressComplete = false;
- bool ethComplete = false;
- bool oxComplete = false;
- short int queueSize = 0;
+float incomingPT5 = 4;
+float incomingLC1 = 4;
+float incomingLC2 = 4;
+float incomingLC3 = 4;
+float incomingTC1 = 4;
+float incomingTC2 = 4;
+float incomingTC3 = 4;
+float incomingTC4 = 4;
+float incomingCap1 = 0;
+float incomingCap2 = 0;
+bool pressComplete = false;
+bool ethComplete = false;
+bool oxComplete = false;
+short int queueSize = 0;
 
 esp_now_peer_info_t peerInfo;
 
@@ -97,6 +103,7 @@ uint8_t broadcastAddress[] = {0xB0, 0xA7, 0x32, 0xDE, 0xD3, 0x1C}; //Core board 
 //Structure example to send data
 //Must match the receiver structure
 typedef struct struct_message {
+     int id;
      int messageTime;
      float PT_O1;
      float PT_O2;
@@ -118,11 +125,27 @@ typedef struct struct_message {
      bool oxComplete;
 } struct_message;
 
-// Create a struct_message called Readings to recieve sensor readings remotely
-struct_message incomingReadings;
-
-// Create a struct_message to send commands
+struct_message myData;
+//struct_message for incoming SENSE Board Readings
+struct_message SENSE;
+// Create a struct_message for POWER DAQ data.
+struct_message POWER;
+// Create a struct_message to hold outgoing commands
 struct_message Commands;
+// Callback when data is received, should we add this to the daq_sense board?
+
+// Callback when data is received, should we add this to the daq_sense board?
+void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
+  struct_message myData;
+  memcpy(&myData, incomingData, sizeof(myData));
+  if (myData.id == DAQ_SENSE_ID) {
+    SENSE = myData;
+  }
+  else if (myData.id == DAQ_POWER_ID) {
+    POWER = myData;
+  }
+  Serial.printf("Board ID %u: %u bytes\n", myData.id, len);
+}
 
 
 void setup() {
@@ -327,34 +350,11 @@ void dataSendCheck() {
 void dataSend() {
   // Set values to send
   Commands.COMState = state;
+  Commands.id = COM_ID;
   // Send message via ESP-NOW
   esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &Commands, sizeof(Commands));
 }
 
-void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
-  memcpy(&incomingReadings, incomingData, sizeof(incomingReadings));
-  //Serial.print("Bytes received: ");
-//  Serial.println(len);
-  DAQState = incomingReadings.DAQState;
-  incomingPT1 = incomingReadings.PT_O1; //LOX Tank PT
-  incomingPT2 = incomingReadings.PT_O2; //LOX Injector PT
-  incomingPT3 = incomingReadings.PT_E1; //ETH Tank PT
-  incomingPT4 = incomingReadings.PT_E2; //ETH Injector PT
-  incomingPT5 = incomingReadings.PT_C1; //COMBUSTION CHAMBER PT
-  incomingLC1 = incomingReadings.LC_1;
-  incomingLC2 = incomingReadings.LC_2;
-  incomingLC3 = incomingReadings.LC_3;
-  incomingTC1 = incomingReadings.TC_1; //Phenolic-Interface Thermocouple
-  incomingTC2 = incomingReadings.TC_2;
-  incomingTC3 = incomingReadings.TC_3;
-  incomingTC4 = incomingReadings.TC_4;
-
-  // pressComplete = incomingReadings.pressComplete;
-  oxComplete = incomingReadings.oxComplete;
-  ethComplete = incomingReadings.ethComplete;
-  queueSize = incomingReadings.queueLength;
-  receiveDataPrint();
-}
 
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
   // Serial.print("\r\nLast Packet Send Status:\t");
@@ -368,42 +368,41 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
 }
 
 void receiveDataPrint() {
-  message = "";
-  message.concat(millis());
-  message.concat(" ");
-  message.concat(incomingPT1);
-  message.concat(" ");
-  message.concat(incomingPT2);
-  message.concat(" ");
-  message.concat(incomingPT3);
-  message.concat(" ");
-  message.concat(incomingPT4);
-  message.concat(" ");
-  message.concat(incomingPT5);
-  message.concat(" ");
-  message.concat(incomingLC1);
-  message.concat(" ");
-  message.concat(incomingLC2);
-  message.concat(" ");
-  message.concat(incomingLC3);
-  message.concat(" ");
-  message.concat(incomingTC1);
-  message.concat(" ");
-  message.concat(incomingTC2);
-  message.concat(" ");
-  message.concat(incomingTC3);
-  message.concat(" ");
-  message.concat(incomingTC4);
-  message.concat(" ");
-  // message.concat(incomingCap1);
-  // message.concat(" ");
-  // message.concat(incomingCap2);
-  // message.concat(" ");
-  message.concat(Commands.COMState);
-  message.concat(" ");
-  message.concat(DAQState);
-  message.concat(" ");
-  message.concat(queueSize);
-
-  Serial.println(message);
+  serialMessage.concat(" ");
+  serialMessage.concat(millis());
+  serialMessage.concat(" ");
+  serialMessage.concat(SENSE.PT_O1);
+  serialMessage.concat(" ");
+  serialMessage.concat(SENSE.PT_O2);
+  serialMessage.concat(" ");
+  serialMessage.concat(SENSE.PT_E1);
+  serialMessage.concat(" ");
+  serialMessage.concat(SENSE.PT_E2);
+  serialMessage.concat(" ");
+  serialMessage.concat(SENSE.PT_C1);
+  serialMessage.concat(" ");
+  serialMessage.concat(SENSE.LC_1);
+  serialMessage.concat(" ");
+  serialMessage.concat(SENSE.LC_2);
+  serialMessage.concat(" ");
+  serialMessage.concat(SENSE.LC_3);
+  serialMessage.concat(" ");
+  serialMessage.concat(SENSE.TC_1);
+  serialMessage.concat(" ");
+  serialMessage.concat(SENSE.TC_2);
+  serialMessage.concat(" ");
+  serialMessage.concat(SENSE.TC_3);
+  serialMessage.concat(" ");
+  serialMessage.concat(SENSE.TC_4);
+  serialMessage.concat(" ");
+  serialMessage.concat(POWER.ethComplete);
+  serialMessage.concat(" ");
+  serialMessage.concat(POWER.oxComplete);
+  serialMessage.concat(" ");
+  serialMessage.concat(Commands.COMState);
+  serialMessage.concat(" ");
+  serialMessage.concat(POWER.DAQState);
+  serialMessage.concat(" Queue Length: ");
+  serialMessage.concat(SENSE.queueLength);
+  Serial.println(serialMessage);
 }
