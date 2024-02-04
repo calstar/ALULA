@@ -22,6 +22,10 @@ This code runs on the DAQ ESP32 and has a couple of main tasks.
 // Set i2c address
 PCF8575 pcf8575(0x20);
 
+#define COM_ID 1
+#define DAQ_POWER_ID 2
+#define DAQ_SENSE_ID 3
+
 //::::::Global Variables::::::://
 
 // DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE.
@@ -225,6 +229,7 @@ short int queueLength = 0;
 // Structure example to send data.
 // Must match the receiver structure.
 typedef struct struct_message {
+  int id;
   int messageTime;
   float PT_O1;
   float PT_O2;
@@ -243,7 +248,10 @@ typedef struct struct_message {
   short int queueLength;
   bool ethComplete;
   bool oxComplete;
-}struct_message;
+  // bool oxvent;
+  // bool ethVent;
+  // bool VentComplete;
+} struct_message;
 
 // Create a struct_message called Packet to be sent to the DAQ Power.
 struct_message dataPacket;
@@ -408,7 +416,7 @@ void sendData() {
 
 void updateDataPacket() {
   dataPacket.messageTime = millis();
-  dataPacket.sender = DAQ_SENSE_ID;
+  dataPacket.id = DAQ_SENSE_ID;
   dataPacket.PT_O1 = PT_O1.rawReading;
   dataPacket.PT_O2 = PT_O2.rawReading;
   dataPacket.PT_E1 = PT_E1.rawReading;
@@ -421,16 +429,6 @@ void updateDataPacket() {
   dataPacket.TC_2 = TC_2.rawReading;
   dataPacket.TC_3 = TC_3.rawReading;
   dataPacket.TC_4 = TC_4.rawReading;
-
-  dataPacket.COMState = COMCommands.COMState;
-  dataPacket.DAQSenseState = DAQSenseState;
-  dataPacket.DAQPowerState = DAQPowerState;
-  dataPacket.COMQueueLength = COMQueue.size();
-  dataPacket.DAQPowerQueueLength = DAQPowerQueue.size();
-  dataPacket.ethComplete = DAQPowerCommands.ethComplete;
-  dataPacket.oxComplete = DAQPowerCommands.oxComplete;
-  dataPacket.oxVentComplete = DAQPowerCommands.oxVentComplete;
-  dataPacket.ethVentComplete = DAQPowerCommands.ethVentComplete;
 }
 
 void sendQueue(Queue<struct_message> queue, uint8_t broadcastAddress[]) {
@@ -483,15 +481,15 @@ void printSensorReadings() {
   serialMessage.concat(" ");
   serialMessage.concat(TC_4.filteredReading);
   serialMessage.concat("\nEth comp: ");
-  serialMessage.concat(DAQPowerCommands.ethComplete ? "True" : "False");
+  // serialMessage.concat(DAQPowerCommands.ethComplete ? "True" : "False");
   serialMessage.concat(" Ox comp: ");
-  serialMessage.concat(DAQPowerCommands.oxComplete  ? "True" : "False");
+  // serialMessage.concat(DAQPowerCommands.oxComplete  ? "True" : "False");
   serialMessage.concat("\n COM State: ");
-  serialMessage.concat(stateNames[COMState]);
+  // serialMessage.concat(stateNames[COMState]);
   serialMessage.concat("   Sense State: ");
-  serialMessage.concat(stateNames[DAQSenseState]);
+  // serialMessage.concat(stateNames[DAQSenseState]);
   serialMessage.concat("   Power State: ");
-  serialMessage.concat(stateNames[DAQPowerState]);
+  // serialMessage.concat(stateNames[DAQPowerState]);
   //  serialMessage.concat(readingCap1);
   //  serialMessage.concat(" ");
   //  serialMessage.concat(readingCap2);

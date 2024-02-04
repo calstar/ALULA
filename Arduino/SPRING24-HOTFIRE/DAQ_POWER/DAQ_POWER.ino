@@ -98,12 +98,7 @@ String serialMessage;
 float sendTime;
 short int queueLength = 0;
 
-// Define variables to store readings to be sent
-struct struct_data_board {
-public:
-float filteredReading = 4;
-float rawReading = 4;
-}
+
 
 // Structure example to send data.
 // Must match the receiver structure.
