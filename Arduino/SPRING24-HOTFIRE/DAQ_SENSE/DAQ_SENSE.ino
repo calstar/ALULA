@@ -31,7 +31,7 @@ PCF8575 pcf8575(0x20);
 // DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE.
 // MOSFET must not trigger while in debug.
 int DEBUG = 1;      // Simulate LOX and Eth fill.
-int WIFIDEBUG = 1;  // Don't send/receive data.
+int WIFIDEBUG = 0;  // Don't send/receive data.
 
 //vars for unifying structure between P/S
 int COMState = 0;
@@ -277,7 +277,7 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
 }
 
 uint8_t COMBroadcastAddress[] = {0xB0, 0xA7, 0x32, 0xDE, 0xC1, 0xFC};
-uint8_t DAQPowerBroadcastAddress[] = {0xB0, 0xA7, 0x32, 0xDE, 0xC1, 0xFC};
+uint8_t DAQPowerBroadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x4F, 0x3C, 0xA4};
 
 Queue<struct_message> COMQueue = Queue<struct_message>();
 Queue<struct_message> DAQPowerQueue = Queue<struct_message>();
@@ -325,29 +325,30 @@ void setup() {
     return;
   }
 
-  // Once ESPNow is successfully Init, we will register for Send CB to
-  // get the status of Trasnmitted packet
-  esp_now_register_send_cb(OnDataSent);
-
-  // Register peer
+    // Register peer
   peerInfo.channel = 0;
   peerInfo.encrypt = false;
 
-  memcpy(peerInfo.peer_addr, COMBroadcastAddress, 6);
-
-  // Add peer
-  if (esp_now_add_peer(&peerInfo) != ESP_OK) {
-    Serial.println("Failed to add peer");
-    return;
-  }
+  // Once ESPNow is successfully Init, we will register for Send CB to
+  // get the status of Trasnmitted packet
+  esp_now_register_send_cb(OnDataSent);
 
   memcpy(peerInfo.peer_addr, DAQPowerBroadcastAddress, 6);
 
   // Add peer
   if (esp_now_add_peer(&peerInfo) != ESP_OK) {
-    Serial.println("Failed to add peer");
+    Serial.println("Failed to add peer DAQ POWER");
     return;
   }
+
+  memcpy(peerInfo.peer_addr, COMBroadcastAddress, 6);
+
+  // Add peer
+  if (esp_now_add_peer(&peerInfo) != ESP_OK) {
+    Serial.println("Failed to add peer COM");
+    return;
+  }
+
 
   sendTime = millis();
 }
@@ -382,6 +383,7 @@ void reset() {
 //::::::DATA LOGGING AND COMMUNICATION::::::://
 void logData() {
   getReadings();
+  printSensorReadings();
   if (millis() - sendTime > sendDelay) {
     sendTime = millis();
     sendData();
