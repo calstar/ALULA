@@ -159,7 +159,7 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
   memcpy(&myData, incomingData, sizeof(myData));
   if (myData.id == COM_ID) {
     COMCommands = myData;
-    // Serial.print(myData.id);
+    Serial.print(myData.id);
   }
   else if (myData.id == DAQ_SENSE_ID) {
     DAQSenseCommands = myData;
@@ -269,7 +269,7 @@ void loop() {
 
     case (ABORT):
       abort_sequence();
-      if (COMState == IDLE && oxVentComplete && ethVentComplete) { syncDAQState(); }
+      if (COMState == IDLE) { syncDAQState(); }
       break;
   }
 }
