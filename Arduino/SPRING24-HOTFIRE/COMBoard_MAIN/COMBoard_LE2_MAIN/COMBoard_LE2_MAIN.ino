@@ -16,7 +16,7 @@ This code runs on the COM ESP32 and has a couple of main tasks.
 
 //IF YOU WANT TO DEBUG, SET THIS TO 1. IF NOT SET ZERO
 int DEBUG = 1;
-
+bool SWITCHES = false;
 
 #define COM_ID 1
 #define DAQ_POWER_ID 2
@@ -67,11 +67,11 @@ short int queueSize = 0;
 esp_now_peer_info_t peerInfo;
 
 //TIMING VARIABLES
- int state;
+int state;
 int serialState;
- int manualState;
- int DAQState;
- int loopStartTime;
+int manualState;
+int DAQState;
+int loopStartTime;
 int sendDelay = 50;   //Measured in ms
 enum STATES {IDLE, ARMED, PRESS, QD, IGNITION, HOTFIRE, ABORT};
 //#define DEBUG_IDLE 90
@@ -95,8 +95,7 @@ float receiveTime = 0;
 //DAQ Protoboard {0x0C, 0xDC, 0x7E, 0xCB, 0x05, 0xC4}
 //NON BUSTED DAQ {0x7C, 0x9E, 0xBD, 0xD8, 0xFC, 0x14}
 // {0xC4, 0xDD, 0x57, 0x9E, 0x96, 0x34};
-// uint8_t broadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x50, 0x23, 0x34}; //Core board 1
-uint8_t broadcastAddress[] = {0xB0, 0xA7, 0x32, 0xDE, 0xD3, 0x1C}; //Core board 2
+uint8_t broadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x4F, 0x3C, 0xA4}; //Core board 1
 //uint8_t broadcastAddress[] = {0x08, 0x3A, 0xF2, 0xB7, 0xEE, 0x00}; //TEST
 //{0x30, 0xC6, 0xF7, 0x2A, 0x28, 0x04}
 
@@ -213,7 +212,7 @@ void loop(){
     loopStartTime=millis();
     if (Serial.available() > 0) {
     // read the incoming byte:
-    state = (int)Serial.parseInt();
+    serialState = Serial.read()-48; //serial monitor input must be set to "No Line Ending"
   }
   // Serial.print("I received: ");
   SWITCH_ARMED.poll();
@@ -227,9 +226,7 @@ void loop(){
   Serial.print(state);
   Serial.print(";      DAQ State: ");
   Serial.println(DAQState);
-  if(!SWITCH_PRESS.on() && !SWITCH_ARMED.on() && !SWITCH_ABORT.on() && !SWITCH_QD.on() && !SWITCH_IGNITION.on() && !SWITCH_HOTFIRE.on()) {serialState=IDLE;}
   }
-
   switch (state) {
 //
 // if (DEBUG ==1) {
@@ -237,7 +234,8 @@ void loop(){
 // }
 
   case (IDLE): //Includes polling
-    idle();
+    dataSendCheck();
+    turnoffLEDs();
     if (SWITCH_ABORT.on()) {serialState=ABORT;}
     if (SWITCH_ARMED.on()) {serialState=ARMED;}
     state = serialState;
@@ -248,8 +246,7 @@ void loop(){
     if (DAQState == ARMED) {digitalWrite(LED_ARMED, HIGH);}
     if (SWITCH_ABORT.on()) {serialState=ABORT;}
     if (SWITCH_PRESS.on()) {serialState=PRESS;}
-    if(!SWITCH_ARMED.on()) {serialState=IDLE;}
-
+    if(!SWITCH_ARMED.on() && SWITCHES) {serialState=IDLE;}
     state = serialState;
     break;
 
@@ -264,8 +261,8 @@ void loop(){
     if (SWITCH_QD.on()) {serialState=QD;}  //add pressComplete && later
     //add return to idle functionality hyer
     dataSendCheck();
+    if(!SWITCH_PRESS.on() && !SWITCH_ARMED.on() && SWITCHES) {serialState=IDLE;}
     state = serialState;
-    if(!SWITCH_PRESS.on() && !SWITCH_ARMED.on()) {serialState=IDLE;}
     break;
 
   case (QD):
@@ -273,9 +270,9 @@ void loop(){
     if (SWITCH_ABORT.on()) {serialState=ABORT;}
     if (DAQState == QD) {digitalWrite(LED_QD, HIGH);}
     if (SWITCH_IGNITION.on()) {serialState=IGNITION;}
-    state = serialState;
-    if(!SWITCH_QD.on() && !SWITCH_PRESS.on() && !SWITCH_ARMED.on()) {serialState=IDLE;}
+    if(!SWITCH_QD.on() && !SWITCH_ARMED.on() && SWITCHES) {serialState=IDLE;}
     dataSendCheck();
+    state = serialState;
     break;
 
 
@@ -284,14 +281,14 @@ void loop(){
     if (SWITCH_ABORT.on()) {serialState=ABORT;}
     if (DAQState == IGNITION) {digitalWrite(LED_IGNITION, HIGH);}
     if (SWITCH_HOTFIRE.on()) {serialState=HOTFIRE;}
-    if(!SWITCH_QD.on() && !SWITCH_PRESS.on() && !SWITCH_ARMED.on() && !SWITCH_IGNITION.on()) {serialState=IDLE;}
+    if(!SWITCH_ARMED.on() && !SWITCH_IGNITION.on() && SWITCHES) {
+      serialState=IDLE;}
     dataSendCheck();
     state = serialState;
     break;
 
   case (HOTFIRE):
     // hotfire();
-
     if (SWITCH_ABORT.on()) {serialState=ABORT;}
     if (DAQState == HOTFIRE) {digitalWrite(LED_HOTFIRE, HIGH);}
     dataSendCheck();
@@ -311,7 +308,7 @@ void loop(){
     digitalWrite(LED_HOTFIRE, LOW);
     state = ABORT;
     dataSendCheck();
-    if(!SWITCH_QD.on() && !SWITCH_PRESS.on() && !SWITCH_ARMED.on() && !SWITCH_IGNITION.on() && !SWITCH_HOTFIRE.on() && !SWITCH_ABORT.on()) {serialState=IDLE;}
+    if(!SWITCH_ARMED.on() && !SWITCH_ABORT.on() && SWITCHES) {serialState=IDLE;}
     state = serialState;
     break;
 
@@ -335,11 +332,6 @@ void loop(){
     digitalWrite(LED_HOTFIRE, LOW);
     digitalWrite(LED_ABORT, LOW);
  }
-
-void idle() {
-  dataSendCheck();
-  turnoffLEDs();
-}
 
 
 
