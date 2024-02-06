@@ -15,7 +15,7 @@ This code runs on the COM ESP32 and has a couple of main tasks.
 #include "freertos/Task.h"
 
 //IF YOU WANT TO DEBUG, SET THIS TO 1. IF NOT SET ZERO
-int DEBUG = 1;
+int DEBUG = 0;
 bool SWITCHES = false;
 
 #define COM_ID 1
@@ -95,8 +95,10 @@ float receiveTime = 0;
 //DAQ Protoboard {0x0C, 0xDC, 0x7E, 0xCB, 0x05, 0xC4}
 //NON BUSTED DAQ {0x7C, 0x9E, 0xBD, 0xD8, 0xFC, 0x14}
 // {0xC4, 0xDD, 0x57, 0x9E, 0x96, 0x34};
-uint8_t broadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x4F, 0x3C, 0xA4}; //Core board 1
+// uint8_t broadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x4F, 0x3C, 0xA4}; //Core board 1
 //uint8_t broadcastAddress[] = {0x08, 0x3A, 0xF2, 0xB7, 0xEE, 0x00}; //TEST
+uint8_t broadcastAddress[] = {0xB0, 0xA7, 0x32, 0xDE, 0xD3, 0x1C}; //Core board 2
+
 //{0x30, 0xC6, 0xF7, 0x2A, 0x28, 0x04}
 
 //Structure example to send data
@@ -139,11 +141,14 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
   memcpy(&myData, incomingData, sizeof(myData));
   if (myData.id == DAQ_SENSE_ID) {
     SENSE = myData;
+    receiveDataPrint();
   }
   else if (myData.id == DAQ_POWER_ID) {
     POWER = myData;
   }
-  Serial.printf("Board ID %u: %u bytes\n", myData.id, len);
+  if (DEBUG == 1){
+    Serial.printf("Board ID %u: %u bytes\n", myData.id, len);
+  }
 }
 
 
@@ -225,7 +230,7 @@ void loop(){
   Serial.print("COM State: ");
   Serial.print(state);
   Serial.print(";      DAQ State: ");
-  Serial.println(DAQState);
+  Serial.println(POWER.DAQState);
   }
   switch (state) {
 //
@@ -361,7 +366,7 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
 
 void receiveDataPrint() {
   serialMessage.concat(" ");
-  serialMessage.concat(millis());
+  serialMessage.concat(SENSE.messageTime);
   serialMessage.concat(" ");
   serialMessage.concat(SENSE.PT_O1);
   serialMessage.concat(" ");
@@ -397,4 +402,5 @@ void receiveDataPrint() {
   serialMessage.concat(" Queue Length: ");
   serialMessage.concat(SENSE.queueLength);
   Serial.println(serialMessage);
+  serialMessage = "";
 }
