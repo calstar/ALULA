@@ -30,8 +30,8 @@ PCF8575 pcf8575(0x20);
 
 // DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE.
 // MOSFET must not trigger while in debug.
-int DEBUG = 0;      // Simulate LOX and Eth fill.
-int WIFIDEBUG = 0;  // Don't send/receive data.
+int DEBUG = 1;      // Simulate LOX and Eth fill.
+int WIFIDEBUG = 1;  // Don't send/receive data.
 
 // MODEL DEFINED PARAMETERS FOR TEST/HOTFIRE. Pressures in psi //
 float pressureFuel = 390;   //405;  // Set pressure for fuel: 412
@@ -177,6 +177,19 @@ void setup() {
   Serial.println("i love ishir");
 
   while (!Serial) delay(1);  // wait for Serial on Leonardo/Zero, etc.
+
+  // Set pinMode to OUTPUT
+  for (int i = 0; i < 16; i++) {
+    pcf8575.pinMode(i, OUTPUT);
+  }
+  delay(500);    
+  pcf8575.begin();
+  mosfet_pcf_found = true; 
+  delay(520);   
+  mosfetCloseAllValves();  // make sure everything is off by default (NMOS: Down = Off, Up = On)
+  delay(500);              // startup time to make sure its good for personal testing
+
+
 
   // Broadcast setup.
   // Set device as a Wi-Fi Station
@@ -406,7 +419,7 @@ void abort_sequence() {
 //
 //// Get commanded state from COM board.
 void fetchCOMState() {
-  COMState = COMCommands.COMState;
+  if (!WIFIDEBUG) {COMState = COMCommands.COMState;}
   if (Serial.available() > 0) {
     // Serial.read reads a single character as ASCII. Number 1 is 49 in ASCII.
     // Serial sends character and new line character "\n", which is 10 in ASCII.
