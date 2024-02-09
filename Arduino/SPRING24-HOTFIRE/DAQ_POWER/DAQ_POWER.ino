@@ -16,7 +16,7 @@ This code runs on the DAQ ESP32 and has a couple of main tasks.
 #include <SPI.h>
 #include "HX711.h"
 #include "Adafruit_MAX31855.h"
-#include <EasyPCF8575.h>
+//#include <EasyPCF8575.h>
 #include "RunningMedian.h"
 #include "PCF8575.h"  // https://github.com/xreef/PCF8575_library
 // Set i2c address
