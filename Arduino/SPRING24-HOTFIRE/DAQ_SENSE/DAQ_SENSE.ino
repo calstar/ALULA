@@ -30,7 +30,7 @@ PCF8575 pcf8575(0x20);
 
 // DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE.
 // MOSFET must not trigger while in debug.
-int DEBUG = 1;      // Simulate LOX and Eth fill.
+int DEBUG = 0;      // Simulate LOX and Eth fill.
 int WIFIDEBUG = 0;  // Don't send/receive data.
 
 //vars for unifying structure between P/S
@@ -258,10 +258,10 @@ struct_message dataPacket;
 
 //::::::Broadcast Variables::::::://
 esp_now_peer_info_t peerInfo;
-uint8_t COMBroadcastAddress[] = {0xB0, 0xA7, 0x32, 0xDE, 0xC1, 0xFC}; //COM1
+// uint8_t COMBroadcastAddress[] = {0xB0, 0xA7, 0x32, 0xDE, 0xC1, 0xFC}; //COM1 
+uint8_t COMBroadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x51, 0xEC, 0x94}; //TEST ESP??
 // uint8_t DAQPowerBroadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x4F, 0x3C, 0xA4}; //CORE1
 uint8_t DAQPowerBroadcastAddress[] = {0xB0, 0xA7, 0x32, 0xDE, 0xD3, 0x1C}; //CORE2
-
 
 
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
@@ -416,7 +416,7 @@ void updateDataPacket() {
   dataPacket.LC_1 = LC_1.rawReading;
   dataPacket.LC_2 = LC_2.rawReading;
   dataPacket.LC_3 = LC_3.rawReading;
-  dataPacket.TC_1 = TC_1.rawReading;
+  dataPacket.TC_1 = TC_1.rawReading;f
   dataPacket.TC_2 = TC_2.rawReading;
   dataPacket.TC_3 = TC_3.rawReading;
   dataPacket.TC_4 = TC_4.rawReading;
@@ -475,7 +475,7 @@ void printSensorReadings() {
   // serialMessage.concat(DAQPowerCommands.ethComplete ? "True" : "False");
   serialMessage.concat(" Ox comp: ");
   // serialMessage.concat(DAQPowerCommands.oxComplete  ? "True" : "False");
-  serialMessage.concat("\n COM State: ");
+  serialMessage.concat("COM State: ");
   // serialMessage.concat(stateNames[COMState]);
   serialMessage.concat("   Sense State: ");
   // serialMessage.concat(stateNames[DAQSenseState]);
@@ -484,9 +484,9 @@ void printSensorReadings() {
   //  serialMessage.concat(readingCap1);
   //  serialMessage.concat(" ");
   //  serialMessage.concat(readingCap2);
-  serialMessage.concat("\nCOM Q Length: ");
+  serialMessage.concat(" ");
   serialMessage.concat(COMQueue.size());
-  serialMessage.concat("  DAQPower Q Length: ");
+  serialMessage.concat("  ");
   serialMessage.concat(DAQPowerQueue.size());
   Serial.println(serialMessage);
 }
