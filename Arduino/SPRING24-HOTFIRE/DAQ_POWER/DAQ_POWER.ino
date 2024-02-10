@@ -30,14 +30,14 @@ PCF8575 pcf8575(0x20);
 
 // DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE.
 // MOSFET must not trigger while in debug.
-int DEBUG = 1;      // Simulate LOX and Eth fill.
-int WIFIDEBUG = 1;  // Don't send/receive data.
+int DEBUG = 0;      // Simulate LOX and Eth fill.
+int WIFIDEBUG = 0;  // Don't send/receive data.
 
 // MODEL DEFINED PARAMETERS FOR TEST/HOTFIRE. Pressures in psi //
 float pressureFuel = 390;   //405;  // Set pressure for fuel: 412
 float pressureOx = 450;     //460;  // Set pressure for lox: 445
 float threshold = 0.995;   // re-psressurrization threshold (/1x)
-float ventTo = 5;          // c2se solenoids at this pressure to preserve lifetime.
+float ventTo = -5;          // c2se solenoids at this pressure to preserve lifetime.
 #define abortPressure 525  // Cutoff pressure to automatically trigger abort
 #define period 0.5         // Sets period for bang-bang control
 float sendDelay = 25;     // Sets frequency of data collection. 1/(sendDelay*10^-3) is frequency in Hz
@@ -62,7 +62,7 @@ float sendDelay = 25;     // Sets frequency of data collection. 1/(sendDelay*10^
 #define MOSFET_IGNITER 8     //P10
 #define MOSFET_LOX_MAIN 9    //P11
 #define MOSFET_LOX_PRESS 10  //P12
-#define MOSFET_VENT_LOX 11   //P13
+#define MOSFET_VENT_LOX 11  //P13
 #define MOSFET_QD_ETH 12     //P14
 
 
@@ -139,8 +139,8 @@ esp_now_peer_info_t peerInfo;
 // HEADERLESS BOARD {0x7C, 0x87, 0xCE, 0xF0 0x69, 0xAC}
 // NEWEST COM BOARD IN EVA {0x24, 0x62, 0xAB, 0xD2, 0x85, 0xDC}
 // uint8_t broadcastAddress[] = {0x24, 0x62, 0xAB, 0xD2, 0x85, 0xDC};
-//uint8_t broadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x4F, 0xAF, 0x40}; //COM CIRCUIT BOARD
-uint8_t COMBroadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x51, 0xEC, 0x94}; //TEST COM
+uint8_t COMBroadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x4F, 0xAF, 0x40}; //COM CIRCUIT BOARD
+//uint8_t COMBroadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x51, 0xEC, 0x94}; //TEST COM
 // uint8_t broadcastAddress[] = {0x48, 0xE7, 0x29, 0xA3, 0x0D, 0xA8}; // TEST
 // {0x7C, 0x87, 0xCE, 0xF0, 0x69, 0xAC};
 // {0x3C, 0x61, 0x05, 0x4A, 0xD5, 0xE0};
@@ -159,13 +159,14 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
   memcpy(&myData, incomingData, sizeof(myData));
   if (myData.id == COM_ID) {
     COMCommands = myData;
-    // Serial.print(myData.id);
+    //Serial.print(myData.id);
+    //Serial.println("RTDE34243235675798797667554WSRETGCFTYCRD6EXT5R6Y");
   }
   else if (myData.id == DAQ_SENSE_ID) {
     DAQSenseCommands = myData;
     // Serial.print(myData.id);
   }
-  Serial.printf("Board ID %u: %u bytes\n", myData.id, len);
+  // Serial.printf("Board ID %u: %u bytes\n", myData.id, len);
 }
 
 
@@ -232,9 +233,9 @@ void setup() {
 // Main Structure of State Machine.
 void loop() {
   fetchCOMState();
-  if (DEBUG || COMState == ABORT) {
-    syncDAQState();
-  }
+  // if (DEBUG || COMState == ABORT) { //option to retain automated heirarchical control
+  //   syncDAQState();
+  // }
   //  Serial.print("testing");
   logData();
   //  Serial.print("made it");
@@ -278,6 +279,7 @@ void loop() {
 
     case (HOTFIRE):
       hotfire();
+      syncDAQState();
       break;
 
     case (ABORT):
@@ -293,8 +295,8 @@ void loop() {
 void reset() {
   oxComplete = false;
   ethComplete = false;
-  oxVentComplete = false;
-  ethVentComplete = false;
+  oxVentComplete = true;
+  ethVentComplete = true;
 }
 
 void idle() {
@@ -369,6 +371,8 @@ void hotfire() {
 }
 
 void abort_sequence() {
+  oxVentComplete = false;
+  ethVentComplete = false;
   if (DEBUG) {
     mosfetOpenValve(MOSFET_VENT_LOX);
     mosfetOpenValve(MOSFET_VENT_ETH);
@@ -382,12 +386,6 @@ void abort_sequence() {
   mosfetCloseValve(MOSFET_IGNITER);
   //
   int currtime = millis();
-  if (DAQSenseCommands.PT_O1 > 1.3 * ventTo) {  // 1.3 is magic number.
-    oxVentComplete = false;
-  }
-  if (DAQSenseCommands.PT_E1 > 1.3 * ventTo) {  // 1.3 is magic number.
-    ethVentComplete = false;
-  }
 
   if (!(oxVentComplete && ethVentComplete)) {
     if (DAQSenseCommands.PT_O1 > ventTo) {  // vent only lox down to vent to pressure
