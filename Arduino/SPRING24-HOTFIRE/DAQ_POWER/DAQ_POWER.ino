@@ -166,7 +166,7 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
     DAQSenseCommands = myData;
     // Serial.print(myData.id);
   }
-  Serial.printf("Board ID %u: %u bytes\n", myData.id, len);
+  // Serial.printf("Board ID %u: %u bytes\n", myData.id, len);
 }
 
 
@@ -233,9 +233,9 @@ void setup() {
 // Main Structure of State Machine.
 void loop() {
   fetchCOMState();
-  if (DEBUG || COMState == ABORT) {
-    syncDAQState();
-  }
+  // if (DEBUG || COMState == ABORT) { //option to retain automated heirarchical control
+  //   syncDAQState();
+  // }
   //  Serial.print("testing");
   logData();
   //  Serial.print("made it");
@@ -279,6 +279,7 @@ void loop() {
 
     case (HOTFIRE):
       hotfire();
+      syncDAQState();
       break;
 
     case (ABORT):
