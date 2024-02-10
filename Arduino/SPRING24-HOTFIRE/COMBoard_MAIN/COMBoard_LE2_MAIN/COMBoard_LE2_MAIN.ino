@@ -15,7 +15,7 @@ This code runs on the COM ESP32 and has a couple of main tasks.
 #include "freertos/Task.h"
 
 //IF YOU WANT TO DEBUG, SET THIS TO 1. IF NOT SET ZERO
-int DEBUG = 1;
+int DEBUG = 0;
 bool SWITCHES = false;
 
 #define COM_ID 1
@@ -63,8 +63,6 @@ bool pressComplete = false;
 bool ethComplete = false;
 bool oxComplete = false;
 short int queueSize = 0;
-
-esp_now_peer_info_t peerInfo;
 
 //TIMING VARIABLES
 int state;
@@ -132,16 +130,21 @@ struct_message POWER;
 // Create a struct_message to hold outgoing commands
 struct_message Commands;
 // Callback when data is received, should we add this to the daq_sense board?
+esp_now_peer_info_t peerInfo;
+
 
 // Callback when data is received, should we add this to the daq_sense board?
 void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
   struct_message myData;
+  Serial.print(";lasdjf;lasj");
   memcpy(&myData, incomingData, sizeof(myData));
   if (myData.id == DAQ_SENSE_ID) {
     SENSE = myData;
+    // Serial.print(POWER.DAQState);
   }
   else if (myData.id == DAQ_POWER_ID) {
     POWER = myData;
+    // Serial.print(POWER.DAQState);
   }
   Serial.printf("Board ID %u: %u bytes\n", myData.id, len);
 }
@@ -197,7 +200,6 @@ void setup() {
     return;
   }
 
-
   // Register for a callback function that will be called when data is received
   esp_now_register_recv_cb(OnDataRecv);
 
@@ -225,7 +227,7 @@ void loop(){
   Serial.print("COM State: ");
   Serial.print(state);
   Serial.print(";      DAQ State: ");
-  Serial.println(DAQState);
+  Serial.println(POWER.DAQState);
   }
   switch (state) {
 //
