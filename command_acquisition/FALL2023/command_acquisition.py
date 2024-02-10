@@ -1,5 +1,5 @@
-from serial import Serial
-import matplotlib
+from serial import Serial #NEED TO INSTALL pyserial
+import matplotlib #IDEALLY UPDATE TO FASTER SYSTEM
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from collections import deque

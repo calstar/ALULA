@@ -139,8 +139,8 @@ esp_now_peer_info_t peerInfo;
 // HEADERLESS BOARD {0x7C, 0x87, 0xCE, 0xF0 0x69, 0xAC}
 // NEWEST COM BOARD IN EVA {0x24, 0x62, 0xAB, 0xD2, 0x85, 0xDC}
 // uint8_t broadcastAddress[] = {0x24, 0x62, 0xAB, 0xD2, 0x85, 0xDC};
-//uint8_t broadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x4F, 0xAF, 0x40}; //COM CIRCUIT BOARD
-uint8_t COMBroadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x51, 0xEC, 0x94}; //TEST COM
+uint8_t COMBroadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x4F, 0xAF, 0x40}; //COM CIRCUIT BOARD
+//uint8_t COMBroadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x51, 0xEC, 0x94}; //TEST COM
 // uint8_t broadcastAddress[] = {0x48, 0xE7, 0x29, 0xA3, 0x0D, 0xA8}; // TEST
 // {0x7C, 0x87, 0xCE, 0xF0, 0x69, 0xAC};
 // {0x3C, 0x61, 0x05, 0x4A, 0xD5, 0xE0};
@@ -177,6 +177,19 @@ void setup() {
   Serial.println("i love ishir");
 
   while (!Serial) delay(1);  // wait for Serial on Leonardo/Zero, etc.
+
+  // Set pinMode to OUTPUT
+  for (int i = 0; i < 16; i++) {
+    pcf8575.pinMode(i, OUTPUT);
+  }
+  delay(500);    
+  pcf8575.begin();
+  mosfet_pcf_found = true; 
+  delay(520);   
+  mosfetCloseAllValves();  // make sure everything is off by default (NMOS: Down = Off, Up = On)
+  delay(500);              // startup time to make sure its good for personal testing
+
+
 
   // Broadcast setup.
   // Set device as a Wi-Fi Station
@@ -406,7 +419,7 @@ void abort_sequence() {
 //
 //// Get commanded state from COM board.
 void fetchCOMState() {
-  COMState = COMCommands.COMState;
+  if (!WIFIDEBUG) {COMState = COMCommands.COMState;}
   if (Serial.available() > 0) {
     // Serial.read reads a single character as ASCII. Number 1 is 49 in ASCII.
     // Serial sends character and new line character "\n", which is 10 in ASCII.
