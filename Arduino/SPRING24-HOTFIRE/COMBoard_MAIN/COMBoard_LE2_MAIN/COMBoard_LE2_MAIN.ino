@@ -370,6 +370,10 @@ void receiveDataPrint() {
   serialMessage.concat(" ");
   serialMessage.concat(millis());
   serialMessage.concat(" ");
+  serialMessage.concat(SENSE.messageTime);
+  serialMessage.concat(" ");
+  serialMessage.concat(POWER.messageTime);
+  serialMessage.concat(" ");
   serialMessage.concat(SENSE.PT_O1);
   serialMessage.concat(" ");
   serialMessage.concat(SENSE.PT_O2);
