@@ -37,7 +37,7 @@ int WIFIDEBUG = 0;  // Don't send/receive data.
 float pressureFuel = 390;   //405;  // Set pressure for fuel: 412
 float pressureOx = 450;     //460;  // Set pressure for lox: 445
 float threshold = 0.995;   // re-psressurrization threshold (/1x)
-float ventTo = 5;          // c2se solenoids at this pressure to preserve lifetime.
+float ventTo = -5;          // c2se solenoids at this pressure to preserve lifetime.
 #define abortPressure 525  // Cutoff pressure to automatically trigger abort
 #define period 0.5         // Sets period for bang-bang control
 float sendDelay = 25;     // Sets frequency of data collection. 1/(sendDelay*10^-3) is frequency in Hz
@@ -62,7 +62,7 @@ float sendDelay = 25;     // Sets frequency of data collection. 1/(sendDelay*10^
 #define MOSFET_IGNITER 8     //P10
 #define MOSFET_LOX_MAIN 9    //P11
 #define MOSFET_LOX_PRESS 10  //P12
-#define MOSFET_VENT_LOX 11   //P13
+#define MOSFET_VENT_LOX 11  //P13
 #define MOSFET_QD_ETH 12     //P14
 
 
@@ -159,7 +159,8 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
   memcpy(&myData, incomingData, sizeof(myData));
   if (myData.id == COM_ID) {
     COMCommands = myData;
-    // Serial.print(myData.id);
+    //Serial.print(myData.id);
+    //Serial.println("RTDE34243235675798797667554WSRETGCFTYCRD6EXT5R6Y");
   }
   else if (myData.id == DAQ_SENSE_ID) {
     DAQSenseCommands = myData;
@@ -293,8 +294,8 @@ void loop() {
 void reset() {
   oxComplete = false;
   ethComplete = false;
-  oxVentComplete = false;
-  ethVentComplete = false;
+  oxVentComplete = true;
+  ethVentComplete = true;
 }
 
 void idle() {
@@ -369,6 +370,8 @@ void hotfire() {
 }
 
 void abort_sequence() {
+  oxVentComplete = false;
+  ethVentComplete = false;
   if (DEBUG) {
     mosfetOpenValve(MOSFET_VENT_LOX);
     mosfetOpenValve(MOSFET_VENT_ETH);
@@ -382,12 +385,6 @@ void abort_sequence() {
   mosfetCloseValve(MOSFET_IGNITER);
   //
   int currtime = millis();
-  if (DAQSenseCommands.PT_O1 > 1.3 * ventTo) {  // 1.3 is magic number.
-    oxVentComplete = false;
-  }
-  if (DAQSenseCommands.PT_E1 > 1.3 * ventTo) {  // 1.3 is magic number.
-    ethVentComplete = false;
-  }
 
   if (!(oxVentComplete && ethVentComplete)) {
     if (DAQSenseCommands.PT_O1 > ventTo) {  // vent only lox down to vent to pressure
