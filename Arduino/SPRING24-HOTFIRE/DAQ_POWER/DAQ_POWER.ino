@@ -34,8 +34,8 @@ int DEBUG = 0;      // Simulate LOX and Eth fill.
 int WIFIDEBUG = 0;  // Don't send/receive data.
 
 // MODEL DEFINED PARAMETERS FOR TEST/HOTFIRE. Pressures in psi //
-float pressureFuel = 390;   //405;  // Set pressure for fuel: 412
-float pressureOx = 450;     //460;  // Set pressure for lox: 445
+float pressureFuel = 125;   //405;  // Set pressure for fuel: 412
+float pressureOx = 125;     //460;  // Set pressure for lox: 445
 float threshold = 0.995;   // re-psressurrization threshold (/1x)
 float ventTo = -5;          // c2se solenoids at this pressure to preserve lifetime.
 #define abortPressure 525  // Cutoff pressure to automatically trigger abort

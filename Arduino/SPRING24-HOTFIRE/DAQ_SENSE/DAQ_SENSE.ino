@@ -16,7 +16,6 @@ This code runs on the DAQ ESP32 and has a couple of main tasks.
 #include <SPI.h>
 #include "HX711.h"
 #include "Adafruit_MAX31855.h"
-#include <EasyPCF8575.h>
 #include "RunningMedian.h"
 #include "PCF8575.h"  // https://github.com/xreef/PCF8575_library
 // Set i2c address
@@ -186,11 +185,11 @@ public:
 
 #define HX_CLK 27
 
-struct_hx711 PT_O1{ {}, HX_CLK, 36, .offset = -115.9, .slope = 0.0110 }; //.offset = -71.93, .slope = 0.00822
-struct_hx711 PT_O2{ {}, HX_CLK, 39, .offset = -81.62, .slope = 0.00710 };
-struct_hx711 PT_E1{ {}, HX_CLK, 34, .offset = -130.26, .slope = 0.0108 };
-struct_hx711 PT_E2{ {}, HX_CLK, 35, .offset = -62.90, .slope = 0.00763 };  // Change GPIO PIN
-struct_hx711 PT_C1{ {}, HX_CLK, 32, .offset = -78.422, .slope = 0.00642};
+struct_hx711 PT_O1{ {}, HX_CLK, 36, .offset = -85.5051, .slope = 0.004964 }; //.offset = -71.93, .slope = 0.00822
+struct_hx711 PT_O2{ {}, HX_CLK, 39, .offset = -79.7068, .slope = 0.004247 };
+struct_hx711 PT_E1{ {}, HX_CLK, 34, .offset = -75.1059, .slope = 0.004700 };
+struct_hx711 PT_E2{ {}, HX_CLK, 35, .offset = -66.2774, .slope = 0.004553 };  // Change GPIO PIN
+struct_hx711 PT_C1{ {}, HX_CLK, 32, .offset = -99.6688, .slope = 0.003776 };
 
 // LOADCELLS
 struct_hx711 LC_1{ {}, HX_CLK, 33, .offset = 0, .slope = 1 };
@@ -258,8 +257,10 @@ struct_message dataPacket;
 
 //::::::Broadcast Variables::::::://
 esp_now_peer_info_t peerInfo;
-// uint8_t COMBroadcastAddress[] = {0xB0, 0xA7, 0x32, 0xDE, 0xC1, 0xFC}; //COM1 
-uint8_t COMBroadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x51, 0xEC, 0x94}; //TEST ESP??
+//uint8_t COMBroadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x4F, 0xAF, 0x40}; //COM1 
+// uint8_t COMBroadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x51, 0xEC, 0x94}; //TEST ESP
+uint8_t COMBroadcastAddress[] = {0x08, 0x3A, 0xF2, 0xB7, 0x29, 0xBC}; //Test ESP 2/10/24
+
 // uint8_t DAQPowerBroadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x4F, 0x3C, 0xA4}; //CORE1
 uint8_t DAQPowerBroadcastAddress[] = {0xB0, 0xA7, 0x32, 0xDE, 0xD3, 0x1C}; //CORE2
 
@@ -280,21 +281,21 @@ void setup() {
 
   // HX711.
   PT_O1.scale.begin(PT_O1.gpio, PT_O1.clk);
-  PT_O1.scale.set_gain(64);
+  PT_O1.scale.set_gain(128);
   PT_O2.scale.begin(PT_O2.gpio, PT_O2.clk);
-  PT_O2.scale.set_gain(64);
+  PT_O2.scale.set_gain(128);
   PT_E1.scale.begin(PT_E1.gpio, PT_E1.clk);
-  PT_E1.scale.set_gain(64);
+  PT_E1.scale.set_gain(128);
   PT_E2.scale.begin(PT_E2.gpio, PT_E2.clk);
-  PT_E2.scale.set_gain(64);
+  PT_E2.scale.set_gain(128);
   PT_C1.scale.begin(PT_C1.gpio, PT_C1.clk);
-  PT_C1.scale.set_gain(64);
+  PT_C1.scale.set_gain(128);
   LC_1.scale.begin(LC_1.gpio, LC_1.clk);
-  LC_1.scale.set_gain(64);
+  LC_1.scale.set_gain(128);
   LC_2.scale.begin(LC_2.gpio, LC_2.clk);
-  LC_2.scale.set_gain(64);
+  LC_2.scale.set_gain(128);
   LC_3.scale.begin(LC_3.gpio, LC_3.clk);
-  LC_3.scale.set_gain(64);
+  LC_3.scale.set_gain(128);
 
   // Thermocouple.
   pinMode(TC_1.cs, OUTPUT);
@@ -408,18 +409,18 @@ void sendData() {
 void updateDataPacket() {
   dataPacket.messageTime = millis();
   dataPacket.id = DAQ_SENSE_ID;
-  dataPacket.PT_O1 = PT_O1.rawReading;
-  dataPacket.PT_O2 = PT_O2.rawReading;
-  dataPacket.PT_E1 = PT_E1.rawReading;
-  dataPacket.PT_E2 = PT_E2.rawReading;
-  dataPacket.PT_C1 = PT_C1.rawReading;
-  dataPacket.LC_1 = LC_1.rawReading;
-  dataPacket.LC_2 = LC_2.rawReading;
-  dataPacket.LC_3 = LC_3.rawReading;
-  dataPacket.TC_1 = TC_1.rawReading;f
-  dataPacket.TC_2 = TC_2.rawReading;
-  dataPacket.TC_3 = TC_3.rawReading;
-  dataPacket.TC_4 = TC_4.rawReading;
+  dataPacket.PT_O1 = PT_O1.filteredReading;
+  dataPacket.PT_O2 = PT_O2.filteredReading;
+  dataPacket.PT_E1 = PT_E1.filteredReading;
+  dataPacket.PT_E2 = PT_E2.filteredReading;
+  dataPacket.PT_C1 = PT_C1.filteredReading;
+  dataPacket.LC_1 = LC_1.filteredReading;
+  dataPacket.LC_2 = LC_2.filteredReading;
+  dataPacket.LC_3 = LC_3.filteredReading;
+  dataPacket.TC_1 = TC_1.filteredReading;
+  dataPacket.TC_2 = TC_2.filteredReading;
+  dataPacket.TC_3 = TC_3.filteredReading;
+  dataPacket.TC_4 = TC_4.filteredReading;
 }
 
 void sendQueue(Queue<struct_message> queue, uint8_t broadcastAddress[]) {
