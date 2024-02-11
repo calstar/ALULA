@@ -284,6 +284,10 @@ void receiveDataPrint() {
   String serialMessage = " ";
   serialMessage.concat(millis());
   serialMessage.concat(" ");
+  serialMessage.concat();
+  serialMessage.concat(" ");
+    serialMessage.concat(millis());
+  serialMessage.concat(" ");
   serialMessage.concat(incomingReadings.PT_O1);
   serialMessage.concat(" ");
   serialMessage.concat(incomingReadings.PT_O2);

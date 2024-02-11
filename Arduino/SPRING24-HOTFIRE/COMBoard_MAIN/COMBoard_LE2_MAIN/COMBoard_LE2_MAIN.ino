@@ -137,11 +137,11 @@ esp_now_peer_info_t peerInfo;
 // Callback when data is received, should we add this to the daq_sense board?
 void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
   struct_message myData;
-  Serial.print(";lasdjf;lasj");
   memcpy(&myData, incomingData, sizeof(myData));
   if (myData.id == DAQ_SENSE_ID) {
     SENSE = myData;
-    // Serial.print(POWER.DAQState);
+    Serial.println(" ");
+    //Serial.println("dskljfhlksdj");
   }
   else if (myData.id == DAQ_POWER_ID) {
     POWER = myData;
@@ -209,7 +209,6 @@ void setup() {
   state = IDLE;
   serialState = IDLE;
 }
-
 
 void loop(){
     receiveDataPrint();
@@ -287,7 +286,7 @@ void loop(){
     if (SWITCH_HOTFIRE.on()) {serialState=HOTFIRE;}
     if(!SWITCH_ARMED.on() && !SWITCH_IGNITION.on() && SWITCHES) {
       serialState=IDLE;}
-    Serial.print("ksjdgksldjf");
+    // Serial.print("ksjdgksldjf");
     dataSendCheck();
     state = serialState;
     break;
@@ -405,7 +404,7 @@ void receiveDataPrint() {
   serialMessage.concat(Commands.COMState);
   serialMessage.concat(" ");
   serialMessage.concat(POWER.DAQState);
-  serialMessage.concat(" Queue Length: ");
+  serialMessage.concat(" ");
   serialMessage.concat(SENSE.queueLength);
   Serial.println(serialMessage);
 }
