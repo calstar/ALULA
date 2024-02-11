@@ -7,6 +7,7 @@ This code runs on the DAQ ESP32 and has a couple of main tasks.
 2. Send sensor data to COM ESP32
 3. Actuate hotfire sequence
 */
+// Serial..
 
 //::::::Libraries::::::://
 #include <Arduino.h>
@@ -30,8 +31,8 @@ PCF8575 pcf8575(0x20);
 
 // DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE.
 // MOSFET must not trigger while in debug.
-int DEBUG = 0;      // Simulate LOX and Eth fill.
-int WIFIDEBUG = 0;  // Don't send/receive data.
+int DEBUG = 1;      // Simulate LOX and Eth fill.
+int WIFIDEBUG = 1;  // Don't send/receive data.
 
 // MODEL DEFINED PARAMETERS FOR TEST/HOTFIRE. Pressures in psi //
 float pressureFuel = 125;   //405;  // Set pressure for fuel: 412
@@ -97,7 +98,6 @@ int hotfireStart;
 String serialMessage;
 float sendTime;
 short int queueLength = 0;
-
 
 
 // Structure example to send data.
@@ -358,11 +358,6 @@ void ignition() {
 void hotfire() {
   mosfetCloseValve(MOSFET_IGNITER);
   mosfetOpenValve(MOSFET_ETH_MAIN);
-  //
-  //  if (millis() >= hotfireStart+3000) {
-  //    mosfetCloseValve(MOSFET_LOX_MAIN);
-  //  } else {
-
   if (millis() >= hotfireStart + 5) {
     mosfetOpenValve(MOSFET_LOX_MAIN);
     // Serial.print(hotfireStart);
@@ -376,7 +371,6 @@ void abort_sequence() {
   if (DEBUG) {
     mosfetOpenValve(MOSFET_VENT_LOX);
     mosfetOpenValve(MOSFET_VENT_ETH);
-//    delay(50);
   }
   // Waits for LOX pressure to decrease before venting Eth through pyro
   mosfetCloseValve(MOSFET_LOX_PRESS);
