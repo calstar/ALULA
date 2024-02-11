@@ -10,13 +10,14 @@ This code runs on the COM ESP32 and has a couple of main tasks.
 #include <Arduino.h>
 #include "HX711.h"
 #include <ezButton.h>
-#include "avdweb_Switch.h"
+#include "avdweb_Switch.h" //https://github.com/avandalen/avdweb_Switch
 #include "freertos/FreeRTOS.h"
 #include "freertos/Task.h"
 
 //IF YOU WANT TO DEBUG, SET THIS TO 1. IF NOT SET ZERO
 int DEBUG = 0;
-bool SWITCHES = false;
+// IF SWITCHES ARE ON, SET TO TRUE
+bool SWITCHES = true;
 
 #define COM_ID 1
 #define DAQ_POWER_ID 2
@@ -146,7 +147,7 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
     POWER = myData;
     // Serial.print(POWER.DAQState);
   }
-  Serial.printf("Board ID %u: %u bytes\n", myData.id, len);
+//  Serial.printf("Board ID %u: %u bytes\n", myData.id, len);
 }
 
 
@@ -193,7 +194,7 @@ void setup() {
   memcpy(peerInfo.peer_addr, broadcastAddress, 6);
   peerInfo.channel = 0;
   peerInfo.encrypt = false;
-  
+
   // Add peer
   if (esp_now_add_peer(&peerInfo) != ESP_OK){
     Serial.println("Failed to add peer");
@@ -211,6 +212,7 @@ void setup() {
 
 
 void loop(){
+    receiveDataPrint();
     loopStartTime=millis();
     if (Serial.available() > 0) {
     // read the incoming byte:
@@ -285,6 +287,7 @@ void loop(){
     if (SWITCH_HOTFIRE.on()) {serialState=HOTFIRE;}
     if(!SWITCH_ARMED.on() && !SWITCH_IGNITION.on() && SWITCHES) {
       serialState=IDLE;}
+    Serial.print("ksjdgksldjf");
     dataSendCheck();
     state = serialState;
     break;
@@ -293,8 +296,9 @@ void loop(){
     // hotfire();
     if (SWITCH_ABORT.on()) {serialState=ABORT;}
     if (DAQState == HOTFIRE) {digitalWrite(LED_HOTFIRE, HIGH);}
+    if (!SWITCH_ARMED.on() && !SWITCH_HOTFIRE.on() && SWITCHES) {
+      serialState=IDLE;}
     dataSendCheck();
-
     state = serialState;
     break;
 
@@ -321,8 +325,8 @@ void loop(){
 //    debug();
 //    break;
   }
-
   }
+
 
  void turnoffLEDs() {
     digitalWrite(LED_ARMED, LOW);
@@ -362,8 +366,13 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
 }
 
 void receiveDataPrint() {
+  serialMessage.clear();
   serialMessage.concat(" ");
   serialMessage.concat(millis());
+  serialMessage.concat(" ");
+  serialMessage.concat(SENSE.messageTime);
+  serialMessage.concat(" ");
+  serialMessage.concat(POWER.messageTime);
   serialMessage.concat(" ");
   serialMessage.concat(SENSE.PT_O1);
   serialMessage.concat(" ");

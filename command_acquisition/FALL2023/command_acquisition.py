@@ -13,7 +13,7 @@ import os
 data_len = 500
 num_plots = 11
 
-BUFFER_SIZE = 100  
+BUFFER_SIZE = 100
 write_buffer = []
 
 deque_list = [deque(maxlen=data_len) for _ in range(num_plots + 3)]
@@ -39,7 +39,7 @@ filename = file_base + f"_test{test_num}" + file_ext
 
 # for mac port_num = "/dev/cu.usbserial-0001"
 
-port_num ="/dev/cu.usbserial-0001" # CHECK YOUR PORT !!!
+port_num ="COM4" # CHECK YOUR PORT !!!
 esp32 = Serial(port=port_num, baudrate=115200)
 # !!! IF NO NUMBERS PRINTED ON UR TERMINAL => PRESS "EN" ON THE ESP !!!
 
@@ -56,7 +56,7 @@ def collection():
                 values = decoded_bytes.split(" ")
                 print(values)
 
-            
+
                 write_buffer.append(values)
 
                 if len(values) == 16:
@@ -87,7 +87,7 @@ t1.start()
 
 def animate(i):
     ax = None
-    
+
     if len(x) > 0:
         min_x = max(x[-1] - 5, 0)
         max_x = x[-1]
