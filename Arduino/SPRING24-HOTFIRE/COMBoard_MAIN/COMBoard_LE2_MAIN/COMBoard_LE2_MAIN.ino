@@ -17,7 +17,7 @@ This code runs on the COM ESP32 and has a couple of main tasks.
 //IF YOU WANT TO DEBUG, SET THIS TO 1. IF NOT SET ZERO
 int DEBUG = 0;
 // IF SWITCHES ARE ON, SET TO TRUE
-bool SWITCHES = true;
+bool SWITCHES = false;
 
 #define COM_ID 1
 #define DAQ_POWER_ID 2
