@@ -38,14 +38,12 @@ int DAQState = 0;
 bool ethComplete = false;
 bool oxComplete = false;
 
-float readDelay = 25;     // Frequency of data collection [ms]
+float readDelay = 50;     // Frequency of data collection [ms]
 float sendDelay = readDelay;
 // END OF USER DEFINED PARAMETERS //
 // refer to https://docs.google.com/spreadsheets/d/17NrJWC0AR4Gjejme-EYuIJ5uvEJ98FuyQfYVWI3Qlio/edit#gid=1185803967 for all pinouts
 
-
 //::::::DEFINE INSTRUMENT PINOUTS::::::://
-
 
 #define MAX_QUEUE_LENGTH 40
 
@@ -185,11 +183,11 @@ public:
 
 #define HX_CLK 27
 
-struct_hx711 PT_O1{ {}, HX_CLK, 36, .offset = -85.5051, .slope = 0.004964 }; //.offset = -71.93, .slope = 0.00822
-struct_hx711 PT_O2{ {}, HX_CLK, 39, .offset = -79.7068, .slope = 0.004247 };
-struct_hx711 PT_E1{ {}, HX_CLK, 34, .offset = -75.1059, .slope = 0.004700 };
-struct_hx711 PT_E2{ {}, HX_CLK, 35, .offset = -66.2774, .slope = 0.004553 };  // Change GPIO PIN
-struct_hx711 PT_C1{ {}, HX_CLK, 32, .offset = -99.6688, .slope = 0.003776 };
+struct_hx711 PT_O1{ {}, HX_CLK, 36, .offset = 0, .slope = 1 }; //.offset = -71.93, .slope = 0.00822
+struct_hx711 PT_O2{ {}, HX_CLK, 39, .offset = 0, .slope = 1 };
+struct_hx711 PT_E1{ {}, HX_CLK, 34, .offset = 0, .slope = 1 };
+struct_hx711 PT_E2{ {}, HX_CLK, 35, .offset = 0, .slope = 1 };  // Change GPIO PIN
+struct_hx711 PT_C1{ {}, HX_CLK, 32, .offset = 0, .slope = 1 };
 
 // LOADCELLS
 struct_hx711 LC_1{ {}, HX_CLK, 33, .offset = 0, .slope = 1 };
@@ -257,12 +255,14 @@ struct_message dataPacket;
 
 //::::::Broadcast Variables::::::://
 esp_now_peer_info_t peerInfo;
-uint8_t COMBroadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x4F, 0x3C, 0xA4}; //Core board 1 //COM CIRCUIT
+
+uint8_t COMBroadcastAddress[] = {0x48, 0xE7, 0x29, 0xA3, 0x0D, 0xA8}; //COM 2
+uint8_t COMBroadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x4F, 0x3C, 0xA4}; //Core board 1
 // uint8_t COMBroadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x51, 0xEC, 0x94}; //TEST ESP
 // uint8_t COMBroadcastAddress[] = {0x08, 0x3A, 0xF2, 0xB7, 0x29, 0xBC}; //Test ESP 2/10/24
 
 // uint8_t DAQPowerBroadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x4F, 0x3C, 0xA4}; //CORE1
-uint8_t DAQPowerBroadcastAddress[] = {0xB0, 0xA7, 0x32, 0xDE, 0xD3, 0x1C}; //CORE2
+// uint8_t COMBroadcastAddress[] = {0x08, 0x3A, 0xF2, 0xB7, 0x29, 0xBC}; //Core board 2
 
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
  sendTime = millis();
@@ -280,21 +280,21 @@ void setup() {
 
   // HX711.
   PT_O1.scale.begin(PT_O1.gpio, PT_O1.clk);
-  PT_O1.scale.set_gain(128);
+  PT_O1.scale.set_gain(64);
   PT_O2.scale.begin(PT_O2.gpio, PT_O2.clk);
-  PT_O2.scale.set_gain(128);
+  PT_O2.scale.set_gain(64);
   PT_E1.scale.begin(PT_E1.gpio, PT_E1.clk);
-  PT_E1.scale.set_gain(128);
+  PT_E1.scale.set_gain(64);
   PT_E2.scale.begin(PT_E2.gpio, PT_E2.clk);
-  PT_E2.scale.set_gain(128);
+  PT_E2.scale.set_gain(64);
   PT_C1.scale.begin(PT_C1.gpio, PT_C1.clk);
-  PT_C1.scale.set_gain(128);
+  PT_C1.scale.set_gain(64);
   LC_1.scale.begin(LC_1.gpio, LC_1.clk);
-  LC_1.scale.set_gain(128);
+  LC_1.scale.set_gain(64);
   LC_2.scale.begin(LC_2.gpio, LC_2.clk);
-  LC_2.scale.set_gain(128);
+  LC_2.scale.set_gain(64);
   LC_3.scale.begin(LC_3.gpio, LC_3.clk);
-  LC_3.scale.set_gain(128);
+  LC_3.scale.set_gain(64);
 
   // Thermocouple.
   pinMode(TC_1.cs, OUTPUT);
@@ -448,29 +448,29 @@ void printSensorReadings() {
   String serialMessage = " ";
   serialMessage.concat(millis());
   serialMessage.concat(" ");
-  serialMessage.concat(PT_O1.filteredReading);
+  serialMessage.concat(PT_O1.rawReading);
   serialMessage.concat(" ");
-  serialMessage.concat(PT_O2.filteredReading);
+  serialMessage.concat(PT_O2.rawReading);
   serialMessage.concat(" ");
-  serialMessage.concat(PT_E1.filteredReading);
+  serialMessage.concat(PT_E1.rawReading);
   serialMessage.concat(" ");
-  serialMessage.concat(PT_E2.filteredReading);
+  serialMessage.concat(PT_E2.rawReading);
   serialMessage.concat(" ");
-  serialMessage.concat(PT_C1.filteredReading);
+  serialMessage.concat(PT_C1.rawReading);
   serialMessage.concat(" ");
-  serialMessage.concat(LC_1.filteredReading);
+  serialMessage.concat(LC_1.rawReading);
   serialMessage.concat(" ");
-  serialMessage.concat(LC_2.filteredReading);
+  serialMessage.concat(LC_2.rawReading);
   serialMessage.concat(" ");
-  serialMessage.concat(LC_3.filteredReading);
+  serialMessage.concat(LC_3.rawReading);
   serialMessage.concat(" ");
-  serialMessage.concat(TC_1.filteredReading);
+  serialMessage.concat(TC_1.rawReading);
   serialMessage.concat(" ");
-  serialMessage.concat(TC_2.filteredReading);
+  serialMessage.concat(TC_2.rawReading);
   serialMessage.concat(" ");
-  serialMessage.concat(TC_3.filteredReading);
+  serialMessage.concat(TC_3.rawReading);
   serialMessage.concat(" ");
-  serialMessage.concat(TC_4.filteredReading);
+  serialMessage.concat(TC_4.rawReading);
   serialMessage.concat("\nEth comp: ");
   // serialMessage.concat(DAQPowerCommands.ethComplete ? "True" : "False");
   serialMessage.concat(" Ox comp: ");
