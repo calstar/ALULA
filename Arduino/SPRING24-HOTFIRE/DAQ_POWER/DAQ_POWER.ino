@@ -243,17 +243,17 @@ void loop() {
   switch (DAQState) {
     case (IDLE):
       sendDelay = IDLE_DELAY;
-      if (COMState == ARMED) { syncDAQState(); }
+      if (COMState == ARMED || COMState == ABORT) { syncDAQState(); }
       idle();
       break;
 
     case (ARMED):  // NEED TO ADD TO CASE OPTIONS //ALLOWS OTHER CASES TO TRIGGER //INITIATE TANK PRESS LIVE READINGS
-      if (COMState == IDLE || COMState == PRESS) { syncDAQState(); }
+      if (COMState == IDLE || COMState == PRESS || COMState == ABORT) { syncDAQState(); }
       armed();
       break;
 
     case (PRESS):
-      if (COMState == IDLE || (COMState == QD)) {
+      if (COMState == IDLE || (COMState == QD || COMState == ABORT)) {
         syncDAQState();
         int QDStart = millis();
         mosfetCloseAllValves();
@@ -262,7 +262,7 @@ void loop() {
       break;
 
     case (QD):
-      if (COMState == IDLE || COMState == IGNITION) {
+      if (COMState == IDLE || COMState == IGNITION || COMState == ABORT) {
         syncDAQState();
         mosfetCloseAllValves();
       }
@@ -270,7 +270,7 @@ void loop() {
       break;
 
     case (IGNITION):
-      if (COMState == IDLE || COMState == HOTFIRE) {
+      if (COMState == IDLE || COMState == HOTFIRE || COMState == ABORT) {
         syncDAQState();
         hotfireStart = millis();
       }
