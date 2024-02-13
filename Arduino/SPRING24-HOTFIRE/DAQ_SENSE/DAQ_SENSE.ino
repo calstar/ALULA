@@ -38,7 +38,7 @@ int DAQState = 0;
 bool ethComplete = false;
 bool oxComplete = false;
 
-float readDelay = 50;     // Frequency of data collection [ms]
+float readDelay = 25;     // Frequency of data collection [ms]
 float sendDelay = readDelay;
 // END OF USER DEFINED PARAMETERS //
 // refer to https://docs.google.com/spreadsheets/d/17NrJWC0AR4Gjejme-EYuIJ5uvEJ98FuyQfYVWI3Qlio/edit#gid=1185803967 for all pinouts
@@ -373,8 +373,8 @@ void reset() {
 //::::::DATA LOGGING AND COMMUNICATION::::::://
 void logData() {
   if (millis() - readTime > readDelay) {
-    getReadings();
     readTime = millis();
+    getReadings();
   }
   getReadings();
   if (millis() - sendTime > sendDelay) {
