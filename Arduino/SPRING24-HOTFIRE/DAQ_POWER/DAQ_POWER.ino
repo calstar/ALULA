@@ -299,7 +299,7 @@ void armed() {
   mosfetCloseAllValves();
 }
 
-
+/* OLD PRESS SEQUENCE; STOPS PRESSING WHEN IT READS NOISE SPIKES
 void press() {
   if (!(oxComplete && ethComplete)) {
     if (DAQSenseCommands.PT_O1 < pressureOx * threshold) {
@@ -320,6 +320,31 @@ void press() {
       mosfetCloseValve(MOSFET_ETH_PRESS);
       ethComplete = true;
     }
+  }
+  CheckAbort();
+}
+*/
+
+void press() {
+  if (DAQSenseCommands.PT_O1 < pressureOx * threshold) {
+    oxComplete = false;
+    mosfetOpenValve(MOSFET_LOX_PRESS);
+    if (DEBUG) {
+      DAQSenseCommands.PT_O1 += (0.00075 * GEN_DELAY);
+    }
+  } else if (DAQSenseCommands.PT_O1 >= pressureOx) {
+    mosfetCloseValve(MOSFET_LOX_PRESS);
+    oxComplete = true;
+  }
+  if (DAQSenseCommands.PT_E1 < pressureFuel * threshold) {
+    ethComplete = false;
+    mosfetOpenValve(MOSFET_ETH_PRESS);
+    if (DEBUG) {
+      DAQSenseCommands.PT_E1 += (0.001 * GEN_DELAY);
+    }
+  } else if (DAQSenseCommands.PT_E1 >= pressureFuel) {
+    mosfetCloseValve(MOSFET_ETH_PRESS);
+    ethComplete = true;
   }
   CheckAbort();
 }
