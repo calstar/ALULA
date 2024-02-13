@@ -16,7 +16,6 @@ This code runs on the DAQ ESP32 and has a couple of main tasks.
 #include <SPI.h>
 #include "HX711.h"
 #include "Adafruit_MAX31855.h"
-#include <EasyPCF8575.h>
 #include "RunningMedian.h"
 #include "PCF8575.h"  // https://github.com/xreef/PCF8575_library
 // Set i2c address
@@ -30,7 +29,7 @@ PCF8575 pcf8575(0x20);
 
 // DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE.
 // MOSFET must not trigger while in debug.
-int DEBUG = 1;      // Simulate LOX and Eth fill.
+int DEBUG = 0;      // Simulate LOX and Eth fill.
 int WIFIDEBUG = 0;  // Don't send/receive data.
 
 //vars for unifying structure between P/S
@@ -39,14 +38,12 @@ int DAQState = 0;
 bool ethComplete = false;
 bool oxComplete = false;
 
-float readDelay = 25;     // Frequency of data collection [ms]
+float readDelay = 50;     // Frequency of data collection [ms]
 float sendDelay = readDelay;
 // END OF USER DEFINED PARAMETERS //
 // refer to https://docs.google.com/spreadsheets/d/17NrJWC0AR4Gjejme-EYuIJ5uvEJ98FuyQfYVWI3Qlio/edit#gid=1185803967 for all pinouts
 
-
 //::::::DEFINE INSTRUMENT PINOUTS::::::://
-
 
 #define MAX_QUEUE_LENGTH 40
 
@@ -186,11 +183,11 @@ public:
 
 #define HX_CLK 27
 
-struct_hx711 PT_O1{ {}, HX_CLK, 36, .offset = -115.9, .slope = 0.0110 }; //.offset = -71.93, .slope = 0.00822
-struct_hx711 PT_O2{ {}, HX_CLK, 39, .offset = -81.62, .slope = 0.00710 };
-struct_hx711 PT_E1{ {}, HX_CLK, 34, .offset = -130.26, .slope = 0.0108 };
-struct_hx711 PT_E2{ {}, HX_CLK, 35, .offset = -62.90, .slope = 0.00763 };  // Change GPIO PIN
-struct_hx711 PT_C1{ {}, HX_CLK, 32, .offset = -78.422, .slope = 0.00642};
+struct_hx711 PT_O1{ {}, HX_CLK, 36, .offset = 0, .slope = 1 }; //.offset = -71.93, .slope = 0.00822
+struct_hx711 PT_O2{ {}, HX_CLK, 39, .offset = 0, .slope = 1 };
+struct_hx711 PT_E1{ {}, HX_CLK, 34, .offset = 0, .slope = 1 };
+struct_hx711 PT_E2{ {}, HX_CLK, 35, .offset = 0, .slope = 1 };  // Change GPIO PIN
+struct_hx711 PT_C1{ {}, HX_CLK, 32, .offset = 0, .slope = 1 };
 
 // LOADCELLS
 struct_hx711 LC_1{ {}, HX_CLK, 33, .offset = 0, .slope = 1 };
@@ -258,26 +255,18 @@ struct_message dataPacket;
 
 //::::::Broadcast Variables::::::://
 esp_now_peer_info_t peerInfo;
-// REPLACE WITH THE MAC Address of your receiver
 
-// OLD COM BOARD {0xC4, 0xDD, 0x57, 0x9E, 0x91, 0x6C}
-// COM BOARD {0x7C, 0x9E, 0xBD, 0xD7, 0x2B, 0xE8}
-// HEADERLESS BOARD {0x7C, 0x87, 0xCE, 0xF0 0x69, 0xAC}
-// NEWEST COM BOARD IN EVA {0x24, 0x62, 0xAB, 0xD2, 0x85, 0xDC}
-// uint8_t broadcastAddress[] = {0x24, 0x62, 0xAB, 0xD2, 0x85, 0xDC};
-//uint8_t broadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x4F, 0xAF, 0x40};
-// uint8_t broadcastAddress[] = {0x48, 0xE7, 0x29, 0xA3, 0x0D, 0xA8}; // TEST
-// uint8_t broadcastAddress[] = { 0x48, 0xE7, 0x29, 0xA3, 0x0D, 0xA8 }; // TEST COM
-// {0x7C, 0x87, 0xCE, 0xF0, 0x69, 0xAC};
-// {0x3C, 0x61, 0x05, 0x4A, 0xD5, 0xE0};
-// {0xC4, 0xDD, 0x57, 0x9E, 0x96, 0x34};
-// Callback when data is sent
+uint8_t COMBroadcastAddress[] = {0x48, 0xE7, 0x29, 0xA3, 0x0D, 0xA8}; //COM 2
+uint8_t COMBroadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x4F, 0x3C, 0xA4}; //Core board 1
+// uint8_t COMBroadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x51, 0xEC, 0x94}; //TEST ESP
+// uint8_t COMBroadcastAddress[] = {0x08, 0x3A, 0xF2, 0xB7, 0x29, 0xBC}; //Test ESP 2/10/24
+
+// uint8_t DAQPowerBroadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x4F, 0x3C, 0xA4}; //CORE1
+// uint8_t COMBroadcastAddress[] = {0x08, 0x3A, 0xF2, 0xB7, 0x29, 0xBC}; //Core board 2
+
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
  sendTime = millis();
 }
-
-uint8_t COMBroadcastAddress[] = {0xB0, 0xA7, 0x32, 0xDE, 0xC1, 0xFC};
-uint8_t DAQPowerBroadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x4F, 0x3C, 0xA4};
 
 Queue<struct_message> COMQueue = Queue<struct_message>();
 Queue<struct_message> DAQPowerQueue = Queue<struct_message>();
@@ -419,18 +408,18 @@ void sendData() {
 void updateDataPacket() {
   dataPacket.messageTime = millis();
   dataPacket.id = DAQ_SENSE_ID;
-  dataPacket.PT_O1 = PT_O1.rawReading;
-  dataPacket.PT_O2 = PT_O2.rawReading;
-  dataPacket.PT_E1 = PT_E1.rawReading;
-  dataPacket.PT_E2 = PT_E2.rawReading;
-  dataPacket.PT_C1 = PT_C1.rawReading;
-  dataPacket.LC_1 = LC_1.rawReading;
-  dataPacket.LC_2 = LC_2.rawReading;
-  dataPacket.LC_3 = LC_3.rawReading;
-  dataPacket.TC_1 = TC_1.rawReading;
-  dataPacket.TC_2 = TC_2.rawReading;
-  dataPacket.TC_3 = TC_3.rawReading;
-  dataPacket.TC_4 = TC_4.rawReading;
+  dataPacket.PT_O1 = PT_O1.filteredReading;
+  dataPacket.PT_O2 = PT_O2.filteredReading;
+  dataPacket.PT_E1 = PT_E1.filteredReading;
+  dataPacket.PT_E2 = PT_E2.filteredReading;
+  dataPacket.PT_C1 = PT_C1.filteredReading;
+  dataPacket.LC_1 = LC_1.filteredReading;
+  dataPacket.LC_2 = LC_2.filteredReading;
+  dataPacket.LC_3 = LC_3.filteredReading;
+  dataPacket.TC_1 = TC_1.filteredReading;
+  dataPacket.TC_2 = TC_2.filteredReading;
+  dataPacket.TC_3 = TC_3.filteredReading;
+  dataPacket.TC_4 = TC_4.filteredReading;
 }
 
 void sendQueue(Queue<struct_message> queue, uint8_t broadcastAddress[]) {
@@ -459,34 +448,34 @@ void printSensorReadings() {
   String serialMessage = " ";
   serialMessage.concat(millis());
   serialMessage.concat(" ");
-  serialMessage.concat(PT_O1.filteredReading);
+  serialMessage.concat(PT_O1.rawReading);
   serialMessage.concat(" ");
-  serialMessage.concat(PT_O2.filteredReading);
+  serialMessage.concat(PT_O2.rawReading);
   serialMessage.concat(" ");
-  serialMessage.concat(PT_E1.filteredReading);
+  serialMessage.concat(PT_E1.rawReading);
   serialMessage.concat(" ");
-  serialMessage.concat(PT_E2.filteredReading);
+  serialMessage.concat(PT_E2.rawReading);
   serialMessage.concat(" ");
-  serialMessage.concat(PT_C1.filteredReading);
+  serialMessage.concat(PT_C1.rawReading);
   serialMessage.concat(" ");
-  serialMessage.concat(LC_1.filteredReading);
+  serialMessage.concat(LC_1.rawReading);
   serialMessage.concat(" ");
-  serialMessage.concat(LC_2.filteredReading);
+  serialMessage.concat(LC_2.rawReading);
   serialMessage.concat(" ");
-  serialMessage.concat(LC_3.filteredReading);
+  serialMessage.concat(LC_3.rawReading);
   serialMessage.concat(" ");
-  serialMessage.concat(TC_1.filteredReading);
+  serialMessage.concat(TC_1.rawReading);
   serialMessage.concat(" ");
-  serialMessage.concat(TC_2.filteredReading);
+  serialMessage.concat(TC_2.rawReading);
   serialMessage.concat(" ");
-  serialMessage.concat(TC_3.filteredReading);
+  serialMessage.concat(TC_3.rawReading);
   serialMessage.concat(" ");
-  serialMessage.concat(TC_4.filteredReading);
+  serialMessage.concat(TC_4.rawReading);
   serialMessage.concat("\nEth comp: ");
   // serialMessage.concat(DAQPowerCommands.ethComplete ? "True" : "False");
   serialMessage.concat(" Ox comp: ");
   // serialMessage.concat(DAQPowerCommands.oxComplete  ? "True" : "False");
-  serialMessage.concat("\n COM State: ");
+  serialMessage.concat("COM State: ");
   // serialMessage.concat(stateNames[COMState]);
   serialMessage.concat("   Sense State: ");
   // serialMessage.concat(stateNames[DAQSenseState]);
@@ -495,9 +484,9 @@ void printSensorReadings() {
   //  serialMessage.concat(readingCap1);
   //  serialMessage.concat(" ");
   //  serialMessage.concat(readingCap2);
-  serialMessage.concat("\nCOM Q Length: ");
+  serialMessage.concat(" ");
   serialMessage.concat(COMQueue.size());
-  serialMessage.concat("  DAQPower Q Length: ");
+  serialMessage.concat("  ");
   serialMessage.concat(DAQPowerQueue.size());
   Serial.println(serialMessage);
 }

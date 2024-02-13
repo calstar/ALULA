@@ -114,7 +114,6 @@ void loop() {
 }
 
 void getReadings(){
-  ;;
  pt1 = scale1.read();
        // Serial.print("pt1: ");
 
@@ -163,5 +162,5 @@ void getReadings(){
 
   Serial.println(serialMessage);
 
-  delay(200);
+  delay(100);
 }

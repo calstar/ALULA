@@ -1,5 +1,5 @@
-from serial import Serial
-import matplotlib
+from serial import Serial #NEED TO INSTALL pyserial
+import matplotlib #IDEALLY UPDATE TO FASTER SYSTEM
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from collections import deque
@@ -9,15 +9,14 @@ from os.path import isfile
 import time
 import os
 
-
 data_len = 500
 num_plots = 11
 
-BUFFER_SIZE = 100  
+BUFFER_SIZE = 100
 write_buffer = []
 
 deque_list = [deque(maxlen=data_len) for _ in range(num_plots + 3)]
-x, PT_O1, PT_O2, PT_E1, PT_E2, PT_C1, LC_combined, LC1, LC2, LC3, TC1, TC2, TC3, TC4 = deque_list
+x, S_Time, P_Time, PT_O1, PT_O2, PT_E1, PT_E2, PT_C1, LC_combined, LC1, LC2, LC3, TC1, TC2, TC3, TC4 = deque_list
 
 plot_titles = ["PT_O1", "PT_O2", "PT_E1", "PT_E2", "PT_C1", "LC Combined", "TC1", "TC2", "TC3", "TC4", "LCs"]
 
@@ -39,7 +38,7 @@ filename = file_base + f"_test{test_num}" + file_ext
 
 # for mac port_num = "/dev/cu.usbserial-0001"
 
-port_num ="/dev/cu.usbserial-0001" # CHECK YOUR PORT !!!
+port_num ="COM3" # CHECK YOUR PORT !!!
 esp32 = Serial(port=port_num, baudrate=115200)
 # !!! IF NO NUMBERS PRINTED ON UR TERMINAL => PRESS "EN" ON THE ESP !!!
 
@@ -55,25 +54,25 @@ def collection():
                 decoded_bytes = data[:len(data)-2].decode("utf-8")
                 values = decoded_bytes.split(" ")
                 print(values)
-
-            
                 write_buffer.append(values)
 
-                if len(values) == 16:
+                if len(values) == 20:
                     x.append(float(values[0])/1000)
-                    PT_O1.append(float(values[1]))
-                    PT_O2.append(float(values[2]))
-                    PT_E1.append(float(values[3]))
-                    PT_E2.append(float(values[4]))
-                    PT_C1.append(float(values[5]))
-                    LC1.append(float(values[6]))
-                    LC2.append(float(values[7]))
-                    LC3.append(float(values[8]))
-                    LC_combined.append(-0.31888 * (float(values[6]) + float(values[7]) + float(values[8])) + 52501.829)
-                    TC1.append(float(values[9]))
-                    TC2.append(float(values[10]))
-                    TC3.append(float(values[11]))
-                    TC4.append(float(values[12]))
+                    S_Time.append(float(values[1])/1000)
+                    P_Time.append(float(values[2])/1000)
+                    PT_O1.append(float(values[3]))
+                    PT_O2.append(float(values[4]))
+                    PT_E1.append(float(values[5]))
+                    PT_E2.append(float(values[6]))
+                    PT_C1.append(float(values[7]))
+                    LC1.append(float(values[8]))
+                    LC2.append(float(values[9]))
+                    LC3.append(float(values[10]))
+                    LC_combined.append(-0.31888 * (float(values[8]) + float(values[9]) + float(values[10])) + 52501.829)
+                    TC1.append(float(values[11]))
+                    TC2.append(float(values[12]))
+                    TC3.append(float(values[13]))
+                    TC4.append(float(values[14]))
 
                 if len(write_buffer) >= BUFFER_SIZE:
                         writer.writerows(write_buffer)
@@ -87,7 +86,7 @@ t1.start()
 
 def animate(i):
     ax = None
-    
+
     if len(x) > 0:
         min_x = max(x[-1] - 5, 0)
         max_x = x[-1]
@@ -98,20 +97,20 @@ def animate(i):
         for j, ax in enumerate(axs_list[:-1]):
             line = lines[j]
             if j < 6:  # For all plots up to and including LC_combined
-                line.set_data(x, deque_list[j+1])
-                title_data = deque_list[j+1][-1]
+                line.set_data(x, deque_list[j+3])
+                title_data = deque_list[j+3][-1]
             elif j == 6:  # For TC1
                 line.set_data(x, deque_list[10])  # TC1
-                title_data = deque_list[10][-1]
+                title_data = deque_list[11][-1]
             elif j == 7:  # For TC2
                 line.set_data(x, deque_list[11])  # TC2
-                title_data = deque_list[11][-1]
+                title_data = deque_list[12][-1]
             elif j == 8:  # For TC3
                 line.set_data(x, deque_list[12])  # TC2
-                title_data = deque_list[12][-1]
+                title_data = deque_list[13][-1]
             elif j == 9:  # For TC4
                 line.set_data(x, deque_list[13])  # TC2
-                title_data = deque_list[13][-1]
+                title_data = deque_list[14][-1]
 
             ax.set_xlim(min_x, max_x)
             ax.set_title(f"{plot_titles[j]}: {title_data:.2f}", fontsize=12)

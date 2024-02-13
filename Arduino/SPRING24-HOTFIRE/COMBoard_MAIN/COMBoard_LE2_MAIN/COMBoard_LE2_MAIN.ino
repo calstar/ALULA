@@ -10,12 +10,13 @@ This code runs on the COM ESP32 and has a couple of main tasks.
 #include <Arduino.h>
 #include "HX711.h"
 #include <ezButton.h>
-#include "avdweb_Switch.h"
+#include "avdweb_Switch.h" //https://github.com/avandalen/avdweb_Switch
 #include "freertos/FreeRTOS.h"
 #include "freertos/Task.h"
 
 //IF YOU WANT TO DEBUG, SET THIS TO 1. IF NOT SET ZERO
-int DEBUG = 1;
+int DEBUG = 0;
+// IF SWITCHES ARE ON, SET TO TRUE
 bool SWITCHES = false;
 
 #define COM_ID 1
@@ -64,8 +65,6 @@ bool ethComplete = false;
 bool oxComplete = false;
 short int queueSize = 0;
 
-esp_now_peer_info_t peerInfo;
-
 //TIMING VARIABLES
 int state;
 int serialState;
@@ -96,6 +95,7 @@ float receiveTime = 0;
 //NON BUSTED DAQ {0x7C, 0x9E, 0xBD, 0xD8, 0xFC, 0x14}
 // {0xC4, 0xDD, 0x57, 0x9E, 0x96, 0x34};
 uint8_t broadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x4F, 0x3C, 0xA4}; //Core board 1
+// uint8_t broadcastAddress[] = {0x08, 0x3A, 0xF2, 0xB7, 0x29, 0xBC}; //Core board 2
 //uint8_t broadcastAddress[] = {0x08, 0x3A, 0xF2, 0xB7, 0xEE, 0x00}; //TEST
 //{0x30, 0xC6, 0xF7, 0x2A, 0x28, 0x04}
 
@@ -132,6 +132,8 @@ struct_message POWER;
 // Create a struct_message to hold outgoing commands
 struct_message Commands;
 // Callback when data is received, should we add this to the daq_sense board?
+esp_now_peer_info_t peerInfo;
+
 
 // Callback when data is received, should we add this to the daq_sense board?
 void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
@@ -139,11 +141,14 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
   memcpy(&myData, incomingData, sizeof(myData));
   if (myData.id == DAQ_SENSE_ID) {
     SENSE = myData;
+    Serial.println(" ");
+    //Serial.println("dskljfhlksdj");
   }
   else if (myData.id == DAQ_POWER_ID) {
     POWER = myData;
+    // Serial.print(POWER.DAQState);
   }
-  Serial.printf("Board ID %u: %u bytes\n", myData.id, len);
+//  Serial.printf("Board ID %u: %u bytes\n", myData.id, len);
 }
 
 
@@ -190,13 +195,12 @@ void setup() {
   memcpy(peerInfo.peer_addr, broadcastAddress, 6);
   peerInfo.channel = 0;
   peerInfo.encrypt = false;
-  
+
   // Add peer
   if (esp_now_add_peer(&peerInfo) != ESP_OK){
     Serial.println("Failed to add peer");
     return;
   }
-
 
   // Register for a callback function that will be called when data is received
   esp_now_register_recv_cb(OnDataRecv);
@@ -207,8 +211,8 @@ void setup() {
   serialState = IDLE;
 }
 
-
 void loop(){
+    receiveDataPrint();
     loopStartTime=millis();
     if (Serial.available() > 0) {
     // read the incoming byte:
@@ -225,7 +229,7 @@ void loop(){
   Serial.print("COM State: ");
   Serial.print(state);
   Serial.print(";      DAQ State: ");
-  Serial.println(DAQState);
+  Serial.println(POWER.DAQState);
   }
   switch (state) {
 //
@@ -283,6 +287,7 @@ void loop(){
     if (SWITCH_HOTFIRE.on()) {serialState=HOTFIRE;}
     if(!SWITCH_ARMED.on() && !SWITCH_IGNITION.on() && SWITCHES) {
       serialState=IDLE;}
+    // Serial.print("ksjdgksldjf");
     dataSendCheck();
     state = serialState;
     break;
@@ -291,8 +296,9 @@ void loop(){
     // hotfire();
     if (SWITCH_ABORT.on()) {serialState=ABORT;}
     if (DAQState == HOTFIRE) {digitalWrite(LED_HOTFIRE, HIGH);}
+    if (!SWITCH_ARMED.on() && !SWITCH_HOTFIRE.on() && SWITCHES) {
+      serialState=IDLE;}
     dataSendCheck();
-
     state = serialState;
     break;
 
@@ -319,8 +325,8 @@ void loop(){
 //    debug();
 //    break;
   }
-
   }
+
 
  void turnoffLEDs() {
     digitalWrite(LED_ARMED, LOW);
@@ -360,8 +366,13 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
 }
 
 void receiveDataPrint() {
+  serialMessage.clear();
   serialMessage.concat(" ");
   serialMessage.concat(millis());
+  serialMessage.concat(" ");
+  serialMessage.concat(SENSE.messageTime);
+  serialMessage.concat(" ");
+  serialMessage.concat(POWER.messageTime);
   serialMessage.concat(" ");
   serialMessage.concat(SENSE.PT_O1);
   serialMessage.concat(" ");
@@ -394,7 +405,7 @@ void receiveDataPrint() {
   serialMessage.concat(Commands.COMState);
   serialMessage.concat(" ");
   serialMessage.concat(POWER.DAQState);
-  serialMessage.concat(" Queue Length: ");
+  serialMessage.concat(" ");
   serialMessage.concat(SENSE.queueLength);
   Serial.println(serialMessage);
 }
