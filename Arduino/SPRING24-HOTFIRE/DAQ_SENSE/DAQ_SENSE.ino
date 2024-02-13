@@ -30,7 +30,7 @@ PCF8575 pcf8575(0x20);
 // DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE.
 // MOSFET must not trigger while in debug.
 int DEBUG = 0;      // Simulate LOX and Eth fill.
-int WIFIDEBUG = 0;  // Don't send/receive data.
+int WIFIDEBUG = 1;  // Don't send/receive data.
 
 //vars for unifying structure between P/S
 int COMState = 0;
@@ -219,6 +219,7 @@ struct_max31855 TC_4{ Adafruit_MAX31855(TC4_CLK, 15, TC4_DO), 15, .offset = 0, .
 //::::DEFINE READOUT VARIABLES:::://
 String serialMessage;
 float sendTime;
+float readTime;
 short int queueLength = 0;
 
 // Define variables to store readings to be sent
@@ -257,12 +258,11 @@ struct_message dataPacket;
 esp_now_peer_info_t peerInfo;
 
 uint8_t COMBroadcastAddress[] = {0x48, 0xE7, 0x29, 0xA3, 0x0D, 0xA8}; //COM 2
-uint8_t COMBroadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x4F, 0x3C, 0xA4}; //Core board 1
 // uint8_t COMBroadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x51, 0xEC, 0x94}; //TEST ESP
 // uint8_t COMBroadcastAddress[] = {0x08, 0x3A, 0xF2, 0xB7, 0x29, 0xBC}; //Test ESP 2/10/24
 
-// uint8_t DAQPowerBroadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x4F, 0x3C, 0xA4}; //CORE1
-// uint8_t COMBroadcastAddress[] = {0x08, 0x3A, 0xF2, 0xB7, 0x29, 0xBC}; //Core board 2
+uint8_t DAQPowerBroadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x4F, 0x3C, 0xA4}; //CORE1
+// uint8_t DAQPowerBroadcastAddress[] = {0x08, 0x3A, 0xF2, 0xB7, 0x29, 0xBC}; //Core board 2
 
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
  sendTime = millis();
@@ -340,6 +340,7 @@ void setup() {
 
 
   sendTime = millis();
+  readTime = millis();
 }
 
 
@@ -371,11 +372,15 @@ void reset() {
 
 //::::::DATA LOGGING AND COMMUNICATION::::::://
 void logData() {
+  if (millis() - readTime > readDelay) {
+    getReadings();
+    readTime = millis();
+  }
   getReadings();
-  printSensorReadings();
   if (millis() - sendTime > sendDelay) {
     sendTime = millis();
     sendData();
+    printSensorReadings();
   }
 }
 
@@ -448,42 +453,29 @@ void printSensorReadings() {
   String serialMessage = " ";
   serialMessage.concat(millis());
   serialMessage.concat(" ");
-  serialMessage.concat(PT_O1.rawReading);
+  serialMessage.concat(PT_O1.filteredReading);
   serialMessage.concat(" ");
-  serialMessage.concat(PT_O2.rawReading);
+  serialMessage.concat(PT_O2.filteredReading);
   serialMessage.concat(" ");
-  serialMessage.concat(PT_E1.rawReading);
+  serialMessage.concat(PT_E1.filteredReading);
   serialMessage.concat(" ");
-  serialMessage.concat(PT_E2.rawReading);
+  serialMessage.concat(PT_E2.filteredReading);
   serialMessage.concat(" ");
-  serialMessage.concat(PT_C1.rawReading);
+  serialMessage.concat(PT_C1.filteredReading);
   serialMessage.concat(" ");
-  serialMessage.concat(LC_1.rawReading);
+  serialMessage.concat(LC_1.filteredReading);
   serialMessage.concat(" ");
-  serialMessage.concat(LC_2.rawReading);
+  serialMessage.concat(LC_2.filteredReading);
   serialMessage.concat(" ");
-  serialMessage.concat(LC_3.rawReading);
+  serialMessage.concat(LC_3.filteredReading);
   serialMessage.concat(" ");
-  serialMessage.concat(TC_1.rawReading);
+  serialMessage.concat(TC_1.filteredReading);
   serialMessage.concat(" ");
-  serialMessage.concat(TC_2.rawReading);
+  serialMessage.concat(TC_2.filteredReading);
   serialMessage.concat(" ");
-  serialMessage.concat(TC_3.rawReading);
+  serialMessage.concat(TC_3.filteredReading);
   serialMessage.concat(" ");
-  serialMessage.concat(TC_4.rawReading);
-  serialMessage.concat("\nEth comp: ");
-  // serialMessage.concat(DAQPowerCommands.ethComplete ? "True" : "False");
-  serialMessage.concat(" Ox comp: ");
-  // serialMessage.concat(DAQPowerCommands.oxComplete  ? "True" : "False");
-  serialMessage.concat("COM State: ");
-  // serialMessage.concat(stateNames[COMState]);
-  serialMessage.concat("   Sense State: ");
-  // serialMessage.concat(stateNames[DAQSenseState]);
-  serialMessage.concat("   Power State: ");
-  // serialMessage.concat(stateNames[DAQPowerState]);
-  //  serialMessage.concat(readingCap1);
-  //  serialMessage.concat(" ");
-  //  serialMessage.concat(readingCap2);
+  serialMessage.concat(TC_4.filteredReading);
   serialMessage.concat(" ");
   serialMessage.concat(COMQueue.size());
   serialMessage.concat("  ");
