@@ -30,7 +30,7 @@ PCF8575 pcf8575(0x20);
 // DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE.
 // MOSFET must not trigger while in debug.
 int DEBUG = 0;      // Simulate LOX and Eth fill.
-int WIFIDEBUG = 1;  // Don't send/receive data.
+int WIFIDEBUG = 0;  // Don't send/receive data.
 
 //vars for unifying structure between P/S
 int COMState = 0;
@@ -257,11 +257,11 @@ struct_message dataPacket;
 //::::::Broadcast Variables::::::://
 esp_now_peer_info_t peerInfo;
 
-uint8_t COMBroadcastAddress[] = {0x48, 0xE7, 0x29, 0xA3, 0x0D, 0xA8}; //COM 2
+uint8_t COMBroadcastAddress[] = {0xD4, 0x8A, 0xFC, 0xC7, 0x91, 0x2C}; //COM 2
 // uint8_t COMBroadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x51, 0xEC, 0x94}; //TEST ESP
 // uint8_t COMBroadcastAddress[] = {0x08, 0x3A, 0xF2, 0xB7, 0x29, 0xBC}; //Test ESP 2/10/24
 
-uint8_t DAQPowerBroadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x4F, 0x3C, 0xA4}; //CORE1
+uint8_t DAQPowerBroadcastAddress[] = {0xE4, 0x65, 0xB8, 0x27, 0x62, 0x64}; //CORE1
 // uint8_t DAQPowerBroadcastAddress[] = {0x08, 0x3A, 0xF2, 0xB7, 0x29, 0xBC}; //Core board 2
 
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {

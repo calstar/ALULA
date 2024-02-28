@@ -17,7 +17,7 @@ This code runs on the COM ESP32 and has a couple of main tasks.
 //IF YOU WANT TO DEBUG, SET THIS TO 1. IF NOT SET ZERO
 int DEBUG = 0;
 // IF SWITCHES ARE ON, SET TO TRUE
-bool SWITCHES = false;
+bool SWITCHES = true;
 
 #define COM_ID 1
 #define DAQ_POWER_ID 2
@@ -94,7 +94,7 @@ float receiveTime = 0;
 //DAQ Protoboard {0x0C, 0xDC, 0x7E, 0xCB, 0x05, 0xC4}
 //NON BUSTED DAQ {0x7C, 0x9E, 0xBD, 0xD8, 0xFC, 0x14}
 // {0xC4, 0xDD, 0x57, 0x9E, 0x96, 0x34};
-uint8_t broadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x4F, 0x3C, 0xA4}; //Core board 1
+uint8_t broadcastAddress[] = {0xE4, 0x65, 0xB8, 0x27, 0x62, 0x64}; //DAQ 1
 // uint8_t broadcastAddress[] = {0x08, 0x3A, 0xF2, 0xB7, 0x29, 0xBC}; //Core board 2
 //uint8_t broadcastAddress[] = {0x08, 0x3A, 0xF2, 0xB7, 0xEE, 0x00}; //TEST
 //{0x30, 0xC6, 0xF7, 0x2A, 0x28, 0x04}
@@ -142,7 +142,7 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
   if (myData.id == DAQ_SENSE_ID) {
     SENSE = myData;
     Serial.println(" ");
-    //Serial.println("dskljfhlksdj");
+    Serial.println("dskljfhlksdj");
   }
   else if (myData.id == DAQ_POWER_ID) {
     POWER = myData;
