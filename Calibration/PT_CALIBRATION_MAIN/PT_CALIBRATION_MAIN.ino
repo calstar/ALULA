@@ -16,7 +16,7 @@ This code runs on the DAQ ESP32 and has a couple of main functions.
 
 //define pins to use for the various sensors and connections. define takes up less space on the chip
 #define ONBOARD_LED  13
-#def[][-=-=-[]\'\]\-[=]ine PTDOUT1 36 //PT-O1
+#define PTDOUT1 36 //PT-O1
 #define CLKPT1 27 
 #define PTDOUT2 39 //PT-O2
 #define CLKPT2 27 

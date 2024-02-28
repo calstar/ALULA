@@ -183,11 +183,11 @@ public:
 
 #define HX_CLK 27
 
-struct_hx711 PT_O1{ {}, HX_CLK, 36, .offset = -94.67, .slope = 0.005079 }; //.offset = -71.93, .slope = 0.00822
-struct_hx711 PT_O2{ {}, HX_CLK, 39, .offset = -104.9, .slope = 0.004372 };
-struct_hx711 PT_E1{ {}, HX_CLK, 34, .offset = -84.26, .slope = 0.004904 };
-struct_hx711 PT_E2{ {}, HX_CLK, 35, .offset = -85.28, .slope = 0.004759 };  // Change GPIO PIN
-struct_hx711 PT_C1{ {}, HX_CLK, 32, .offset = -114.1, .slope = 0.003852 };
+struct_hx711 PT_O1{ {}, HX_CLK, 36, .offset = -92.9882145, .slope = 0.003712942}; //.offset = -71.93, .slope = 0.00822
+struct_hx711 PT_O2{ {}, HX_CLK, 39, .offset = -102.997030421266, .slope = 0.00323913834388346 };
+struct_hx711 PT_E1{ {}, HX_CLK, 34, .offset = -85.8543516926188, .slope = 0.00359147302806524 };
+struct_hx711 PT_E2{ {}, HX_CLK, 35, .offset = -77.9036266604566, .slope = 0.00350636092672606 };  // Change GPIO PIN
+struct_hx711 PT_C1{ {}, HX_CLK, 32, .offset = -101.553381361239, .slope = 0.00291686740807013 };
 
 // LOADCELLS
 struct_hx711 LC_1{ {}, HX_CLK, 33, .offset = 0, .slope = 1 };
