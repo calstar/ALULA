@@ -183,11 +183,11 @@ public:
 
 #define HX_CLK 27
 
-struct_hx711 PT_O1{ {}, HX_CLK, 36, .offset = 0, .slope = 1 }; //.offset = -71.93, .slope = 0.00822
-struct_hx711 PT_O2{ {}, HX_CLK, 39, .offset = 0, .slope = 1 };
-struct_hx711 PT_E1{ {}, HX_CLK, 34, .offset = 0, .slope = 1 };
-struct_hx711 PT_E2{ {}, HX_CLK, 35, .offset = 0, .slope = 1 };  // Change GPIO PIN
-struct_hx711 PT_C1{ {}, HX_CLK, 32, .offset = 0, .slope = 1 };
+struct_hx711 PT_O1{ {}, HX_CLK, 36, .offset = -94.67, .slope = 0.005079 }; //.offset = -71.93, .slope = 0.00822
+struct_hx711 PT_O2{ {}, HX_CLK, 39, .offset = -104.9, .slope = 0.004372 };
+struct_hx711 PT_E1{ {}, HX_CLK, 34, .offset = -84.26, .slope = 0.004904 };
+struct_hx711 PT_E2{ {}, HX_CLK, 35, .offset = -85.28, .slope = 0.004759 };  // Change GPIO PIN
+struct_hx711 PT_C1{ {}, HX_CLK, 32, .offset = -114.1, .slope = 0.003852 };
 
 // LOADCELLS
 struct_hx711 LC_1{ {}, HX_CLK, 33, .offset = 0, .slope = 1 };
@@ -413,18 +413,18 @@ void sendData() {
 void updateDataPacket() {
   dataPacket.messageTime = millis();
   dataPacket.id = DAQ_SENSE_ID;
-  dataPacket.PT_O1 = PT_O1.filteredReading;
-  dataPacket.PT_O2 = PT_O2.filteredReading;
-  dataPacket.PT_E1 = PT_E1.filteredReading;
-  dataPacket.PT_E2 = PT_E2.filteredReading;
-  dataPacket.PT_C1 = PT_C1.filteredReading;
-  dataPacket.LC_1 = LC_1.filteredReading;
-  dataPacket.LC_2 = LC_2.filteredReading;
-  dataPacket.LC_3 = LC_3.filteredReading;
-  dataPacket.TC_1 = TC_1.filteredReading;
-  dataPacket.TC_2 = TC_2.filteredReading;
-  dataPacket.TC_3 = TC_3.filteredReading;
-  dataPacket.TC_4 = TC_4.filteredReading;
+  dataPacket.PT_O1 = PT_O1.rawReading;
+  dataPacket.PT_O2 = PT_O2.rawReading;
+  dataPacket.PT_E1 = PT_E1.rawReading;
+  dataPacket.PT_E2 = PT_E2.rawReading;
+  dataPacket.PT_C1 = PT_C1.rawReading;
+  dataPacket.LC_1 = LC_1.rawReading;
+  dataPacket.LC_2 = LC_2.rawReading;
+  dataPacket.LC_3 = LC_3.rawReading;
+  dataPacket.TC_1 = TC_1.rawReading;
+  dataPacket.TC_2 = TC_2.rawReading;
+  dataPacket.TC_3 = TC_3.rawReading;
+  dataPacket.TC_4 = TC_4.rawReading;
 }
 
 void sendQueue(Queue<struct_message> queue, uint8_t broadcastAddress[]) {
@@ -444,6 +444,7 @@ void sendQueue(Queue<struct_message> queue, uint8_t broadcastAddress[]) {
 
   if (result == ESP_OK) {
     queue.popPacket();
+
   } else {
     Serial.println("Error sending the data");
   }
@@ -453,29 +454,29 @@ void printSensorReadings() {
   String serialMessage = " ";
   serialMessage.concat(millis());
   serialMessage.concat(" ");
-  serialMessage.concat(PT_O1.filteredReading);
+  serialMessage.concat(PT_O1.rawReading);
   serialMessage.concat(" ");
-  serialMessage.concat(PT_O2.filteredReading);
+  serialMessage.concat(PT_O2.rawReading);
   serialMessage.concat(" ");
-  serialMessage.concat(PT_E1.filteredReading);
+  serialMessage.concat(PT_E1.rawReading);
   serialMessage.concat(" ");
-  serialMessage.concat(PT_E2.filteredReading);
+  serialMessage.concat(PT_E2.rawReading);
   serialMessage.concat(" ");
-  serialMessage.concat(PT_C1.filteredReading);
+  serialMessage.concat(PT_C1.rawReading);
   serialMessage.concat(" ");
-  serialMessage.concat(LC_1.filteredReading);
+  serialMessage.concat(LC_1.rawReading);
   serialMessage.concat(" ");
-  serialMessage.concat(LC_2.filteredReading);
+  serialMessage.concat(LC_2.rawReading);
   serialMessage.concat(" ");
-  serialMessage.concat(LC_3.filteredReading);
+  serialMessage.concat(LC_3.rawReading);
   serialMessage.concat(" ");
-  serialMessage.concat(TC_1.filteredReading);
+  serialMessage.concat(TC_1.rawReading);
   serialMessage.concat(" ");
-  serialMessage.concat(TC_2.filteredReading);
+  serialMessage.concat(TC_2.rawReading);
   serialMessage.concat(" ");
-  serialMessage.concat(TC_3.filteredReading);
+  serialMessage.concat(TC_3.rawReading);
   serialMessage.concat(" ");
-  serialMessage.concat(TC_4.filteredReading);
+  serialMessage.concat(TC_4.rawReading);
   serialMessage.concat(" ");
   serialMessage.concat(COMQueue.size());
   serialMessage.concat("  ");

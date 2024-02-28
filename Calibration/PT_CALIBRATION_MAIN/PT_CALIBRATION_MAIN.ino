@@ -16,7 +16,7 @@ This code runs on the DAQ ESP32 and has a couple of main functions.
 
 //define pins to use for the various sensors and connections. define takes up less space on the chip
 #define ONBOARD_LED  13
-#define PTDOUT1 36 //PT-O1
+#def[][-=-=-[]\'\]\-[=]ine PTDOUT1 36 //PT-O1
 #define CLKPT1 27 
 #define PTDOUT2 39 //PT-O2
 #define CLKPT2 27 
@@ -31,9 +31,7 @@ This code runs on the DAQ ESP32 and has a couple of main functions.
 #define PTDOUT7 25
 #define CLKPT7 27
 #define PTDOUT8 26
- #define CLKPT8 27
-
-
+#define CLKPT8 27
 
 
 
@@ -71,7 +69,7 @@ int ADC_Max = 4096;
 
 
 void setup() {
-
+ 
 //set gains for pt pins
   scale1.begin(PTDOUT1, CLKPT1); //LOX tank
   scale1.set_gain(128);
