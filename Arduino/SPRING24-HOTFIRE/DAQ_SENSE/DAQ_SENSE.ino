@@ -183,11 +183,11 @@ public:
 
 #define HX_CLK 27
 
-struct_hx711 PT_O1{ {}, HX_CLK, 36, .offset = -92.9882145, .slope = 0.003712942}; //.offset = -71.93, .slope = 0.00822
-struct_hx711 PT_O2{ {}, HX_CLK, 39, .offset = -102.997030421266, .slope = 0.00323913834388346 };
-struct_hx711 PT_E1{ {}, HX_CLK, 34, .offset = -85.8543516926188, .slope = 0.00359147302806524 };
-struct_hx711 PT_E2{ {}, HX_CLK, 35, .offset = -77.9036266604566, .slope = 0.00350636092672606 };  // Change GPIO PIN
-struct_hx711 PT_C1{ {}, HX_CLK, 32, .offset = -101.553381361239, .slope = 0.00291686740807013 };
+struct_hx711 PT_O1{ {}, HX_CLK, 36, .offset = -95.988, .slope = 0.003712942}; //.offset = -71.93, .slope = 0.00822
+struct_hx711 PT_O2{ {}, HX_CLK, 39, .offset = -109.99, .slope = 0.0032391};
+struct_hx711 PT_E1{ {}, HX_CLK, 34, .offset = -85.854, .slope = 0.0035914};
+struct_hx711 PT_E2{ {}, HX_CLK, 35, .offset = -77.903, .slope = 0.0035063};  // Change GPIO PIN
+struct_hx711 PT_C1{ {}, HX_CLK, 32, .offset = -101.553, .slope = 0.0029168};
 
 // LOADCELLS
 struct_hx711 LC_1{ {}, HX_CLK, 33, .offset = 0, .slope = 1 };
@@ -277,24 +277,24 @@ void setup() {
   // pinMode(ONBOARD_LED,OUTPUT);
   Serial.begin(115200);
   while (!Serial) delay(1);  // wait for Serial on Leonardo/Zero, etc.
-
+  int gain = 128;
   // HX711.
   PT_O1.scale.begin(PT_O1.gpio, PT_O1.clk);
-  PT_O1.scale.set_gain(64);
+  PT_O1.scale.set_gain(gain);
   PT_O2.scale.begin(PT_O2.gpio, PT_O2.clk);
-  PT_O2.scale.set_gain(64);
+  PT_O2.scale.set_gain(gain);
   PT_E1.scale.begin(PT_E1.gpio, PT_E1.clk);
-  PT_E1.scale.set_gain(64);
+  PT_E1.scale.set_gain(gain);
   PT_E2.scale.begin(PT_E2.gpio, PT_E2.clk);
-  PT_E2.scale.set_gain(64);
+  PT_E2.scale.set_gain(gain);
   PT_C1.scale.begin(PT_C1.gpio, PT_C1.clk);
-  PT_C1.scale.set_gain(64);
+  PT_C1.scale.set_gain(gain);
   LC_1.scale.begin(LC_1.gpio, LC_1.clk);
-  LC_1.scale.set_gain(64);
+  LC_1.scale.set_gain(gain);
   LC_2.scale.begin(LC_2.gpio, LC_2.clk);
-  LC_2.scale.set_gain(64);
+  LC_2.scale.set_gain(gain);
   LC_3.scale.begin(LC_3.gpio, LC_3.clk);
-  LC_3.scale.set_gain(64);
+  LC_3.scale.set_gain(gain);
 
   // Thermocouple.
   pinMode(TC_1.cs, OUTPUT);
@@ -413,18 +413,18 @@ void sendData() {
 void updateDataPacket() {
   dataPacket.messageTime = millis();
   dataPacket.id = DAQ_SENSE_ID;
-  dataPacket.PT_O1 = PT_O1.rawReading;
-  dataPacket.PT_O2 = PT_O2.rawReading;
-  dataPacket.PT_E1 = PT_E1.rawReading;
-  dataPacket.PT_E2 = PT_E2.rawReading;
-  dataPacket.PT_C1 = PT_C1.rawReading;
-  dataPacket.LC_1 = LC_1.rawReading;
-  dataPacket.LC_2 = LC_2.rawReading;
-  dataPacket.LC_3 = LC_3.rawReading;
-  dataPacket.TC_1 = TC_1.rawReading;
-  dataPacket.TC_2 = TC_2.rawReading;
-  dataPacket.TC_3 = TC_3.rawReading;
-  dataPacket.TC_4 = TC_4.rawReading;
+  dataPacket.PT_O1 = PT_O1.filteredReading;
+  dataPacket.PT_O2 = PT_O2.filteredReading;
+  dataPacket.PT_E1 = PT_E1.filteredReading;
+  dataPacket.PT_E2 = PT_E2.filteredReading;
+  dataPacket.PT_C1 = PT_C1.filteredReading;
+  dataPacket.LC_1 = LC_1.filteredReading;
+  dataPacket.LC_2 = LC_2.filteredReading;
+  dataPacket.LC_3 = LC_3.filteredReading;
+  dataPacket.TC_1 = TC_1.filteredReading;
+  dataPacket.TC_2 = TC_2.filteredReading;
+  dataPacket.TC_3 = TC_3.filteredReading;
+  dataPacket.TC_4 = TC_4.filteredReading;
 }
 
 void sendQueue(Queue<struct_message> queue, uint8_t broadcastAddress[]) {
@@ -454,29 +454,29 @@ void printSensorReadings() {
   String serialMessage = " ";
   serialMessage.concat(millis());
   serialMessage.concat(" ");
-  serialMessage.concat(PT_O1.rawReading);
+  serialMessage.concat(PT_O1.filteredReading);
   serialMessage.concat(" ");
-  serialMessage.concat(PT_O2.rawReading);
+  serialMessage.concat(PT_O2.filteredReading);
   serialMessage.concat(" ");
-  serialMessage.concat(PT_E1.rawReading);
+  serialMessage.concat(PT_E1.filteredReading);
   serialMessage.concat(" ");
-  serialMessage.concat(PT_E2.rawReading);
+  serialMessage.concat(PT_E2.filteredReading);
   serialMessage.concat(" ");
-  serialMessage.concat(PT_C1.rawReading);
+  serialMessage.concat(PT_C1.filteredReading);
   serialMessage.concat(" ");
-  serialMessage.concat(LC_1.rawReading);
+  serialMessage.concat(LC_1.filteredReading);
   serialMessage.concat(" ");
-  serialMessage.concat(LC_2.rawReading);
+  serialMessage.concat(LC_2.filteredReading);
   serialMessage.concat(" ");
-  serialMessage.concat(LC_3.rawReading);
+  serialMessage.concat(LC_3.filteredReading);
   serialMessage.concat(" ");
-  serialMessage.concat(TC_1.rawReading);
+  serialMessage.concat(TC_1.filteredReading);
   serialMessage.concat(" ");
-  serialMessage.concat(TC_2.rawReading);
+  serialMessage.concat(TC_2.filteredReading);
   serialMessage.concat(" ");
-  serialMessage.concat(TC_3.rawReading);
+  serialMessage.concat(TC_3.filteredReading);
   serialMessage.concat(" ");
-  serialMessage.concat(TC_4.rawReading);
+  serialMessage.concat(TC_4.filteredReading);
   serialMessage.concat(" ");
   serialMessage.concat(COMQueue.size());
   serialMessage.concat("  ");
