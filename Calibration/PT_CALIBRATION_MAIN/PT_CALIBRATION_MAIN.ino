@@ -31,9 +31,7 @@ This code runs on the DAQ ESP32 and has a couple of main functions.
 #define PTDOUT7 25
 #define CLKPT7 27
 #define PTDOUT8 26
- #define CLKPT8 27
-
-
+#define CLKPT8 27
 
 
 
@@ -71,7 +69,7 @@ int ADC_Max = 4096;
 
 
 void setup() {
-
+ 
 //set gains for pt pins
   scale1.begin(PTDOUT1, CLKPT1); //LOX tank
   scale1.set_gain(128);

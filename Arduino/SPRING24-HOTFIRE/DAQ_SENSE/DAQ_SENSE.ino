@@ -183,11 +183,11 @@ public:
 
 #define HX_CLK 27
 
-struct_hx711 PT_O1{ {}, HX_CLK, 36, .offset = 0, .slope = 1 }; //.offset = -71.93, .slope = 0.00822
-struct_hx711 PT_O2{ {}, HX_CLK, 39, .offset = 0, .slope = 1 };
-struct_hx711 PT_E1{ {}, HX_CLK, 34, .offset = 0, .slope = 1 };
-struct_hx711 PT_E2{ {}, HX_CLK, 35, .offset = 0, .slope = 1 };  // Change GPIO PIN
-struct_hx711 PT_C1{ {}, HX_CLK, 32, .offset = 0, .slope = 1 };
+struct_hx711 PT_O1{ {}, HX_CLK, 36, .offset = -95.988, .slope = 0.003712942}; //.offset = -71.93, .slope = 0.00822
+struct_hx711 PT_O2{ {}, HX_CLK, 39, .offset = -109.99, .slope = 0.0032391};
+struct_hx711 PT_E1{ {}, HX_CLK, 34, .offset = -85.854, .slope = 0.0035914};
+struct_hx711 PT_E2{ {}, HX_CLK, 35, .offset = -77.903, .slope = 0.0035063};  // Change GPIO PIN
+struct_hx711 PT_C1{ {}, HX_CLK, 32, .offset = -101.553, .slope = 0.0029168};
 
 // LOADCELLS
 struct_hx711 LC_1{ {}, HX_CLK, 33, .offset = 0, .slope = 1 };
@@ -277,24 +277,24 @@ void setup() {
   // pinMode(ONBOARD_LED,OUTPUT);
   Serial.begin(115200);
   while (!Serial) delay(1);  // wait for Serial on Leonardo/Zero, etc.
-
+  int gain = 128;
   // HX711.
   PT_O1.scale.begin(PT_O1.gpio, PT_O1.clk);
-  PT_O1.scale.set_gain(64);
+  PT_O1.scale.set_gain(gain);
   PT_O2.scale.begin(PT_O2.gpio, PT_O2.clk);
-  PT_O2.scale.set_gain(64);
+  PT_O2.scale.set_gain(gain);
   PT_E1.scale.begin(PT_E1.gpio, PT_E1.clk);
-  PT_E1.scale.set_gain(64);
+  PT_E1.scale.set_gain(gain);
   PT_E2.scale.begin(PT_E2.gpio, PT_E2.clk);
-  PT_E2.scale.set_gain(64);
+  PT_E2.scale.set_gain(gain);
   PT_C1.scale.begin(PT_C1.gpio, PT_C1.clk);
-  PT_C1.scale.set_gain(64);
+  PT_C1.scale.set_gain(gain);
   LC_1.scale.begin(LC_1.gpio, LC_1.clk);
-  LC_1.scale.set_gain(64);
+  LC_1.scale.set_gain(gain);
   LC_2.scale.begin(LC_2.gpio, LC_2.clk);
-  LC_2.scale.set_gain(64);
+  LC_2.scale.set_gain(gain);
   LC_3.scale.begin(LC_3.gpio, LC_3.clk);
-  LC_3.scale.set_gain(64);
+  LC_3.scale.set_gain(gain);
 
   // Thermocouple.
   pinMode(TC_1.cs, OUTPUT);
@@ -444,6 +444,7 @@ void sendQueue(Queue<struct_message> queue, uint8_t broadcastAddress[]) {
 
   if (result == ESP_OK) {
     queue.popPacket();
+
   } else {
     Serial.println("Error sending the data");
   }
