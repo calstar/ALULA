@@ -35,7 +35,7 @@ int DEBUG = 0;      // Simulate LOX and Eth fill.
 int WIFIDEBUG = 0;  // Don't send/receive data.
 
 // MODEL DEFINED PARAMETERS FOR TEST/HOTFIRE. Pressures in psi //
-float pressureFuel = 50;   //405;  // Set pressure for fuel: 412
+float pressureFuel = 150;   //405;  // Set pressure for fuel: 412
 float pressureOx = 50;     //460;  // Set pressure for lox: 445
 float threshold = 0.995;   // re-psressurrization threshold (/1x)
 float ventTo = -35;          // c2se solenoids at this pressure to preserve lifetime.
@@ -186,7 +186,6 @@ void setup() {
   delay(520);   
   mosfetCloseAllValves();  // make sure everything is off by default (NMOS: Down = Off, Up = On)
   delay(500);              // startup time to make sure its good for personal testing
-
 
 
   // Broadcast setup.
