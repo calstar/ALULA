@@ -141,8 +141,8 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
   memcpy(&myData, incomingData, sizeof(myData));
   if (myData.id == DAQ_SENSE_ID) {
     SENSE = myData;
-    Serial.println(" ");
-    Serial.println("dskljfhlksdj");
+    // Serial.println(" ");
+    // Serial.println("dskljfhlksdj");
   }
   else if (myData.id == DAQ_POWER_ID) {
     POWER = myData;
@@ -225,6 +225,12 @@ void loop(){
   SWITCH_IGNITION.poll();
   SWITCH_HOTFIRE.poll();
   SWITCH_ABORT.poll();
+  if (SWITCH_ABORT.on()) {Serial.println("abort switch on");}
+  if (SWITCH_ARMED.on()) {Serial.println("armed switch on");}
+  if (SWITCH_PRESS.on()) {Serial.println("press switch on");}
+  if (SWITCH_QD.on()) {Serial.println("qd switch on");}
+  if (SWITCH_IGNITION.on()) {Serial.println("ignitie switch on");}
+  if (SWITCH_HOTFIRE.on()) {Serial.println("hf switch on");}
   if (DEBUG ==1) {
   Serial.print("COM State: ");
   Serial.print(state);
@@ -247,7 +253,7 @@ void loop(){
 
   case (ARMED):
     dataSendCheck();
-    if (DAQState == ARMED) {digitalWrite(LED_ARMED, HIGH);}
+    if (POWER.DAQState == ARMED) {digitalWrite(LED_ARMED, HIGH);}
     if (SWITCH_ABORT.on()) {serialState=ABORT;}
     if (SWITCH_PRESS.on()) {serialState=PRESS;}
     if(!SWITCH_ARMED.on() && SWITCHES) {serialState=IDLE;}
@@ -257,7 +263,7 @@ void loop(){
   case (PRESS):
    // press();
     if (SWITCH_ABORT.on()) {serialState=ABORT;}
-    if (DAQState == PRESS) {digitalWrite(LED_PRESS, HIGH);}
+    if (POWER.DAQState == PRESS) {digitalWrite(LED_PRESS, HIGH);}
     if (ethComplete) {digitalWrite(LED_PRESSETH, HIGH);}
     if (oxComplete) {digitalWrite(LED_PRESSLOX, HIGH);}
     if (!ethComplete) {digitalWrite(LED_PRESSETH, LOW);}
@@ -272,7 +278,7 @@ void loop(){
   case (QD):
     //quick_disconnect();
     if (SWITCH_ABORT.on()) {serialState=ABORT;}
-    if (DAQState == QD) {digitalWrite(LED_QD, HIGH);}
+    if (POWER.DAQState == QD) {digitalWrite(LED_QD, HIGH);}
     if (SWITCH_IGNITION.on()) {serialState=IGNITION;}
     if(!SWITCH_QD.on() && !SWITCH_ARMED.on() && SWITCHES) {serialState=IDLE;}
     dataSendCheck();
@@ -283,7 +289,7 @@ void loop(){
   case (IGNITION):
     //ignition();
     if (SWITCH_ABORT.on()) {serialState=ABORT;}
-    if (DAQState == IGNITION) {digitalWrite(LED_IGNITION, HIGH);}
+    if (POWER.DAQState == IGNITION) {digitalWrite(LED_IGNITION, HIGH);}
     if (SWITCH_HOTFIRE.on()) {serialState=HOTFIRE;}
     if(!SWITCH_ARMED.on() && !SWITCH_IGNITION.on() && SWITCHES) {
       serialState=IDLE;}
@@ -295,7 +301,7 @@ void loop(){
   case (HOTFIRE):
     // hotfire();
     if (SWITCH_ABORT.on()) {serialState=ABORT;}
-    if (DAQState == HOTFIRE) {digitalWrite(LED_HOTFIRE, HIGH);}
+    if (POWER.DAQState == HOTFIRE) {digitalWrite(LED_HOTFIRE, HIGH);}
     if (!SWITCH_ARMED.on() && !SWITCH_HOTFIRE.on() && SWITCHES) {
       serialState=IDLE;}
     dataSendCheck();
@@ -303,7 +309,7 @@ void loop(){
     break;
 
   case (ABORT):
-    if (DAQState == ABORT) {digitalWrite(LED_ABORT, HIGH);}
+    if (POWER.DAQState == ABORT) {digitalWrite(LED_ABORT, HIGH);}
     digitalWrite(LED_ABORT, HIGH);
     digitalWrite(LED_IGNITION,LOW);
     digitalWrite(LED_QD, LOW);
