@@ -215,9 +215,8 @@ void setup() {
     return;
   }
   // Register for a callback function that will be called when data is received
-  if (!WIFIDEBUG) {
-    esp_now_register_recv_cb(OnDataRecv);
-  }
+  esp_now_register_recv_cb(OnDataRecv);
+
 
   sendTime = millis();
   DAQState = IDLE;
