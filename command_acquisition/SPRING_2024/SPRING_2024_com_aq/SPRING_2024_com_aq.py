@@ -1,15 +1,25 @@
 from PyQt5.QtWidgets import QApplication, QMainWindow, QGridLayout, QWidget, QPushButton, QVBoxLayout
-import pyqtgraph as pg
+import pyqtgraph as pg # pip install pyqtgraph
 from PyQt5.QtCore import QTimer
-import sys
+import sys #only needed for mac
 from threading import Thread
 from queue import Queue
-from serial import Serial
+from serial import Serial #pip install pyserial
 from collections import deque
 import csv
 from os.path import isfile
 import time
 
+
+#RUNNING STEPS
+#NAVIGATE TO FILE LOCATION IN TERMINAL
+#PIP INSTALL STUF ABOVE
+#  IF ERRORS: CHECK ENVIRONMENT (PYTHON VERSION, PATHS, ETC)
+#EDIT PORT_NUM
+#RUN COM CODE ON ARDUINO. CLOSE SERIAL MONITOR
+#RUN THIS FILE
+#PRESS BUTTONS/FLIP SWITHCHES TO CONTROL
+#
 
 data_len = 1500
 num_plots = 11 #!!!!!!!!
@@ -34,7 +44,7 @@ filename = file_base + f"_test{test_num}" + file_ext
 
 # for mac port_num = "/dev/cu.usbserial-0001"
 
-port_num = "/dev/cu.usbserial-0001" # CHECK YOUR PORT !!!
+port_num = "COM3" # CHECK YOUR PORT !!!
 esp32 = Serial(port=port_num, baudrate=115200)
 # !!! IF NO NUMBERS PRINTED ON UR TERMINAL => PRESS "EN" ON THE ESP !!!
 
@@ -43,6 +53,8 @@ def collection():
     global values
     global COM_S 
     global DAQ_S
+    global ETH_COMPLETE
+    global OX_COMPLETE
 
     with open(filename, "a", newline='') as f:
         writer = csv.writer(f, delimiter=",")
@@ -80,6 +92,9 @@ def collection():
                     TC2.append(float(values[12]))
                     TC3.append(float(values[13]))
                     TC4.append(float(values[14]))
+
+                    ETH_COMPLETE = values[15]
+                    OX_COMPLETE = values[16]
 
                     COM_S = values[17]
                     DAQ_S = values[18]
@@ -120,14 +135,12 @@ class LivePlotter(QMainWindow):
         # ###########################################################
         self.buttons = []  # Store button references if needed 
         self.buttonLayout = QVBoxLayout()
+        
 
         for i, name in enumerate(button_names): 
             btn = QPushButton(name)
-
-            btn.setStyleSheet("QPushButton {font-size: 14pt;}")
-            #btn.clicked.connect(lambda _, name=name, number=i: self.handleButtonClick(name, number))
+            btn.setStyleSheet("QPushButton {font-size: 25pt;}")
             btn.clicked.connect(lambda _, name=name, number=i: self.handleButtonClick(name, number))
-            
             self.buttonLayout.addWidget(btn)  
             self.buttons.append(btn)
         self.buttonLayout.addStretch(1) 
@@ -159,7 +172,10 @@ class LivePlotter(QMainWindow):
                     for y_series in deque_list[1:]:  # Assuming self.y is a list of deques
                         y_series.popleft()
 
-            self.setWindowTitle(f"Time: {current_time}    COM_state: {COM_S}   DAQ_state: {DAQ_S}")
+            eth_flag = "ON" if ETH_COMPLETE else "OFF"
+            ox_flag = "ON" if OX_COMPLETE else "OFF"
+            self.setWindowTitle(f"Time: {current_time}    COM_state: {COM_S}   DAQ_state: {DAQ_S}   ETH_COMPLETE: [{eth_flag}]   OX_COMPLETE: [{ox_flag}]")
+            
 
             for i, plotDataItem in enumerate(self.plotDataItems):
                 if i < 6:  # Update standard plots directly
