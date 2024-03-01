@@ -177,10 +177,25 @@ class LivePlotter(QMainWindow):
             self.setWindowTitle(f"Time: {current_time}    COM_state: {COM_S}   DAQ_state: {DAQ_S}   ETH_COMPLETE: [{eth_flag}]   OX_COMPLETE: [{ox_flag}]")
             
 
+            # for i, plotDataItem in enumerate(self.plotDataItems):
+            #     if i < 6:  # Update standard plots directly
+            #         plotDataItem.setData(list(x), list(deque_list[i + 1]))
+            #         self.graphWidgets[i].setTitle(f"{plot_titles[i]}: {deque_list[i + 1][-1]:.2f}")
+            
+            self.plotDataItems[0].setData(list(x), list(PT_O1))  
+            self.graphWidgets[0].setTitle(f"PT_O1: {PT_O1[-1]:.2f},  OX: {OX_COMPLETE}")
+            
+            self.plotDataItems[1].setData(list(x), list(PT_O2))  
+            self.graphWidgets[1].setTitle(f"PT_O2: {PT_O2[-1]:.2f}")
+
+            self.plotDataItems[2].setData(list(x), list(PT_E1))  
+            self.graphWidgets[2].setTitle(f"PT_E1: {PT_E1[-1]:.2f},   ETH: {ETH_COMPLETE}")
+            
             for i, plotDataItem in enumerate(self.plotDataItems):
-                if i < 6:  # Update standard plots directly
+                if i >2:  # Update standard plots directly
                     plotDataItem.setData(list(x), list(deque_list[i + 1]))
                     self.graphWidgets[i].setTitle(f"{plot_titles[i]}: {deque_list[i + 1][-1]:.2f}")
+
             
             lc_data = [LC1, LC2, LC3]
             for plotDataItem, lc, title in zip(self.plotDataItemsForGraph6, lc_data, ["LC1", "LC2", "LC3"]):
