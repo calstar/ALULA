@@ -4,179 +4,199 @@ from PyQt5.QtCore import QTimer
 import sys
 from threading import Thread
 from queue import Queue
-import serial
+from serial import Serial
 from collections import deque
+import csv
+from os.path import isfile
+import time
 
 
-class SerialThread(Thread):
-    def __init__(self, queue, port='/dev/cu.usbserial-0001', baudrate=115200):
-        Thread.__init__(self)
-        self.queue = queue
-        self.port = port
-        self.baudrate = baudrate
+data_len = 1500
+num_plots = 11 #!!!!!!!!
 
-        self.ser = serial.Serial()
-        self.ser.port = port
-        self.ser.baudrate = baudrate
-        self.ser.timeout = 1
-        self.running = True
+BUFFER_SIZE = 100
+write_buffer = []
 
-    def run(self):
-        try:
-            self.ser.open()
-        except serial.SerialException as e:
-            print(f"Could not open serial port {self.ser.port}: {e}")
-            return
+deque_list = [deque(maxlen=data_len) for _ in range(num_plots + 3)]
+x, PT_O1, PT_O2, PT_E1, PT_E2, PT_C1, LC_combined, LC1, LC2, LC3, TC1, TC2, TC3, TC4 = deque_list
 
-        while self.running:
-            data = self.ser.readline()
-            try: 
-                line = data[:len(data)-2].decode("utf-8").split(" ")
-                #print(line)
-                if len(line) >= 16:  
-                    x_val = float(line[0]) /1000 
-                    data_vals = [float(val) for val in line[3:]]  
-                    self.queue.put((x_val, data_vals))
+plot_titles = ["PT_O1", "PT_O2", "PT_E1", "PT_E2", "PT_C1", "LC Combined", "LCs", "TC1", "TC2", "TC3", "TC4"]
+button_names = ['Idle', 'Armed', 'Pressed', 'QD', 'Ignition', 'Hot Fire', 'Abort']
+
+file_base = f"HOTFIRE_{time.strftime('%Y-%m-%d', time.gmtime())}"
+file_ext = ".csv"
+test_num = 1
+
+while isfile(file_base + f"_test{test_num}" + file_ext):
+    test_num += 1
+
+filename = file_base + f"_test{test_num}" + file_ext
+
+# for mac port_num = "/dev/cu.usbserial-0001"
+
+port_num = "/dev/cu.usbserial-0001" # CHECK YOUR PORT !!!
+esp32 = Serial(port=port_num, baudrate=115200)
+# !!! IF NO NUMBERS PRINTED ON UR TERMINAL => PRESS "EN" ON THE ESP !!!
+
+
+def collection():
+    global values
+    global COM_S 
+    global DAQ_S
+
+    with open(filename, "a", newline='') as f:
+        writer = csv.writer(f, delimiter=",")
+
+        while True:
+            data = esp32.readline()
+            try:
+                decoded_bytes = data[:len(data)-2].decode("utf-8")
+                values = decoded_bytes.split(" ")
+                write_buffer.append(values)
+              
+
+                values = values[1:]
+
+
+                if len(values) == 20:
+                    
+                    values = [safe_float(value) for value in values]
+                    print(values)
+                    x.append(float(values[0])/1000)
+                    # S_Time.append(float(values[1])/1000)
+                    # P_Time.append(float(values[2])/1000)
+                    PT_O1.append(float(values[3]))
+                    PT_O2.append(float(values[4]))
+                    PT_E1.append(float(values[5]))
+                    PT_E2.append(float(values[6]))
+                    PT_C1.append(float(values[7]))
+
+                    LC1.append(float(values[8]))
+                    LC2.append(float(values[9]))
+                    LC3.append(float(values[10]))
+                    LC_combined.append(float(values[8]) + float(values[9]) + float(values[10]))
+
+                    TC1.append(float(values[11]))
+                    TC2.append(float(values[12]))
+                    TC3.append(float(values[13]))
+                    TC4.append(float(values[14]))
+
+                    COM_S = values[17]
+                    DAQ_S = values[18]
+
+                if len(write_buffer) >= BUFFER_SIZE:
+                        writer.writerows(write_buffer)
+                        write_buffer.clear()
+
             except:
                 continue
-
-    def stop(self):
-        self.running = False
-        self.ser.close()
+     
 
 class LivePlotter(QMainWindow):
-    def __init__(self, queue, serial_thread, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         super(LivePlotter, self).__init__(*args, **kwargs)
-        self.serial_thread = serial_thread
 
         self.centralWidget = QWidget()
         self.setCentralWidget(self.centralWidget)
-        self.layout = QGridLayout()
-        self.centralWidget.setLayout(self.layout)
+        self.layout = QGridLayout(self.centralWidget)
 
-        self.num_plots = 10  # Number of separate graphs
-        self.graphWidgets = [pg.PlotWidget() for _ in range(self.num_plots)]
+        self.plotDataItems = []
 
-        self.dq_length = 1000
-
-        self.x = deque([0 for _ in range(self.dq_length)], maxlen=self.dq_length)
-        self.y = [deque([0 for _ in range(self.dq_length)], maxlen=self.dq_length) for _ in range(18)] 
-        self.data_lines = []
-
-        self.titles = ["PT_O1", "PT_O2", "PT_E1", "PT_E2", "PT_C1", 
-                       "LCs", "TC1", "TC2", "TC3", "TC4"]
-
-        # Initialize 
-        #########################
+        self.graphWidgets = [pg.PlotWidget(title=plot_titles[i]) for i in range(num_plots)]
         for i, graphWidget in enumerate(self.graphWidgets):
-            self.layout.addWidget(graphWidget, i // 3, i % 3)  # Arrange plots in a 3x3 grid
-            graphWidget.setTitle(f"{self.titles[i]}: Initializing...")  
-            if i != 5:  # For all but the 5th graph
-                data_line = graphWidget.plot([0], [0])
-                self.data_lines.append([data_line])  
+            self.layout.addWidget(graphWidget, i // 3, i % 3)
+
+            if i != 6:  # For all other graphs
+                plotDataItem = graphWidget.plot([], [])
+                self.plotDataItems.append(plotDataItem)
+            else:  # For graph 6, initialize and store three PlotDataItems
+                self.plotDataItemsForGraph6 = [graphWidget.plot([], [], pen=pg.mkPen(color=(255, 0, 0))),
+                                        graphWidget.plot([], [], pen=pg.mkPen(color=(0, 255, 0))),
+                                        graphWidget.plot([], [], pen=pg.mkPen(color=(0, 0, 255)))]
+
         
-            else:  # Special handling for the 5th graph with 3 lines LC!
-                self.data_lines.append([
-                    graphWidget.plot([0], [0], pen=pg.mkPen(color=(255, 0, 0))),  # Red line
-                    graphWidget.plot([0], [0], pen=pg.mkPen(color=(0, 255, 0))),  # Green line
-                    graphWidget.plot([0], [0], pen=pg.mkPen(color=(0, 0, 255))),   # Blue line
-                    graphWidget.plot([0], [0], pen=pg.mkPen(color=(255, 255, 0)))  # Yellow line for the sum
-                ])
 
-        # Add buttons
-        self.buttons = []  # Store button references if needed
-        self.button_names = ['Idle', 'Armed', 'Pressed', 'QD', 'Ignition', 'Hot Fire', 'Abort']  
-
-
+        # # BUTTON STUFF
+        # ###########################################################
+        self.buttons = []  # Store button references if needed 
         self.buttonLayout = QVBoxLayout()
 
-        for i, name in enumerate(self.button_names):  # Start enumeration at 0
+        for i, name in enumerate(button_names): 
             btn = QPushButton(name)
-            btn.setMinimumSize(120, 40)
+
             btn.setStyleSheet("QPushButton {font-size: 14pt;}")
+            #btn.clicked.connect(lambda _, name=name, number=i: self.handleButtonClick(name, number))
             btn.clicked.connect(lambda _, name=name, number=i: self.handleButtonClick(name, number))
-            self.buttonLayout.addWidget(btn)  # Add button to the QVBoxLayout
+            
+            self.buttonLayout.addWidget(btn)  
             self.buttons.append(btn)
-
-        self.buttonLayout.addStretch(1)  # Add stretch to push all buttons up and add space at the bottom
-
-        # Create a widget to set the layout
+        self.buttonLayout.addStretch(1) 
         buttonWidget = QWidget()
         buttonWidget.setLayout(self.buttonLayout)
-
-        # Adjust the layout placement for the button widget
-        # Assuming you still want it in the same grid position, replace the earlier button adding part with this:
-        self.layout.addWidget(buttonWidget, 0, 3, len(self.button_names) + 1, 1)  # Span multiple rows to fit all buttons
-
-        # Adjust grid layout column stretch to ensure buttons don't take too much horizontal space
-        self.layout.setColumnStretch(0, 3)  # Assuming you want the plots to take more space
+        self.layout.addWidget(buttonWidget, 0, 3, len(button_names) + 1, 1) 
+        self.layout.setColumnStretch(0, 3) 
         self.layout.setColumnStretch(1, 3)
         self.layout.setColumnStretch(2, 3)
-        self.layout.setColumnStretch(3, 1)  # Less space for buttons
+        self.layout.setColumnStretch(3, 1) 
 
-
-        self.queue = queue
+        # # ########################################################### 
+       
         self.timer = QTimer()
-        self.timer.setInterval(50)  # ms
+        self.timer.setInterval(300)  # ms
         self.timer.timeout.connect(self.update_plot_data)
         self.timer.start()
 
     def update_plot_data(self):
-        current_time = None  # Track the most recent timestamp
-        while not self.queue.empty():
-            x_val, values = self.queue.get()
-            if current_time is None or x_val > current_time:
-                current_time = x_val  # Update the most recent timestamp
-            # Append new data
-            self.x.append(x_val)
-            for i in range(16):
-                self.y[i].append(values[i])
 
-            # Filter data to keep only the last 10 seconds
+        try: 
+            current_time = x[-1] if x else None
+
             if current_time is not None:
-                min_time = current_time - 10  # Calculate the threshold time
-                while self.x and self.x[0] < min_time:  # Remove old data points
-                    self.x.popleft()
-                    for i in range(16):
-                        self.y[i].popleft()
-        
-            self.setWindowTitle(f"Time: {self.x[-1]:.2f}    COM_state: {self.y[14][-1]:.2f}   DAQ_state: {self.y[15][-1]:.2f}")
+                min_time = current_time - 5
 
-            # Update the plot data
-            for i in range(self.num_plots):  
-                if i == 5: 
-                    sum_LCs = [sum(values) for values in zip(self.y[i], self.y[i+1], self.y[i+2])]
-                    for j in range(3):  # Update each of the original 3 lines
-                        self.data_lines[i][j].setData(self.x, list(self.y[i+j]))
-                        self.data_lines[i][3].setData(self.x, sum_LCs)  # Update the sum line
-                    self.graphWidgets[i].setTitle(f"{self.titles[i]}: {sum_LCs[-1]:.2f}") 
-                elif i > 5:
-                    self.data_lines[i][0].setData(self.x, list(self.y[i + 2]))
-                    self.graphWidgets[i].setTitle(f"{self.titles[i]}: {self.y[i+2][-1]:.2f}")
-                else:
-                    self.data_lines[i][0].setData(self.x, list(self.y[i]))
-                    self.graphWidgets[i].setTitle(f"{self.titles[i]}: {self.y[i][-1]:.2f}")
-    
+                while x and x[0] < min_time:
+                    x.popleft()
+                    for y_series in deque_list[1:]:  # Assuming self.y is a list of deques
+                        y_series.popleft()
+
+            self.setWindowTitle(f"Time: {current_time}    COM_state: {COM_S}   DAQ_state: {DAQ_S}")
+
+            for i, plotDataItem in enumerate(self.plotDataItems):
+                if i < 6:  # Update standard plots directly
+                    plotDataItem.setData(list(x), list(deque_list[i + 1]))
+                    self.graphWidgets[i].setTitle(f"{plot_titles[i]}: {deque_list[i + 1][-1]:.2f}")
+            
+            lc_data = [LC1, LC2, LC3]
+            for plotDataItem, lc, title in zip(self.plotDataItemsForGraph6, lc_data, ["LC1", "LC2", "LC3"]):
+                plotDataItem.setData(list(x), list(lc))
+
+            for i in range(7, 11):
+                self.plotDataItems[i-1].setData(list(x), list(deque_list[i + 3]))  # Adjust indices appropriately
+                self.graphWidgets[i].setTitle(f"{plot_titles[i]}: {deque_list[i + 3][-1]:.2f}")
+        except Exception as e:
+        # Log the exception or handle it as needed
+            print(f"Error updating plot data: {e}")
+
     def handleButtonClick(self, name, number):
-        print(f"{name}")  # Correct the print statement to display the button name
-        if self.serial_thread.ser.isOpen():
-            self.serial_thread.ser.write(str(number).encode())  # Use the serial_thread's ser attribute
+
+        print(f"Button clicked: {name}")  
+        esp32.write(str(number).encode()) 
+
+def safe_float(value):
+    try:
+        return float(value) if value.lower() != "nan" else 0.0
+    except ValueError:
+        return 0.0
 
 
 def main():
-    serial_data_queue = Queue()
-    serial_thread = SerialThread(serial_data_queue)
-    serial_thread.start()
+    t1 = Thread(target=collection)
+    t1.start()
 
     app = QApplication(sys.argv)
-    main_window = LivePlotter(serial_data_queue, serial_thread) 
+    main_window = LivePlotter()
     main_window.show()
-
-    try:
-        sys.exit(app.exec_())
-    finally:
-        serial_thread.stop()
-        serial_thread.join()
+    sys.exit(app.exec_())
 
 if __name__ == '__main__':
     main()
