@@ -19,7 +19,7 @@ def sensor_calibrator():
 
     data_point_num = 3
     # port_num = "/dev/cu.usbserial-0001"
-    port_num = "COM14"
+    port_num = "COM4"
     esp32 = Serial(port=port_num, baudrate=115200)
 
     # Open serial port and read data
