@@ -211,12 +211,13 @@ void setup() {
 }
 
 void loop(){
-    receiveDataPrint();
-    loopStartTime=millis();
-    if (Serial.available() > 0) {
-    // read the incoming byte:
+  receiveDataPrint();
+  loopStartTime=millis();
+  if (Serial.available() > 0) {
+  // read the incoming byte:
     serialState = Serial.read()-48; //serial monitor input must be set to "No Line Ending"
   }
+  if (serialState != POWER.DAQState) {dataSendCheck(); Serial.print("sdhgklsdhfljksf");}
   // Serial.print("I received: ");
   SWITCH_ARMED.poll();
   SWITCH_PRESS.poll();
@@ -243,7 +244,6 @@ void loop(){
 // }
 
   case (IDLE): //Includes polling
-    dataSendCheck();
     turnoffLEDs();
     if (SWITCH_ABORT.on()) {serialState=ABORT;}
     if (SWITCH_ARMED.on()) {serialState=ARMED;}
@@ -251,7 +251,6 @@ void loop(){
     break;
 
   case (ARMED):
-    dataSendCheck();
     if (POWER.DAQState == ARMED) {digitalWrite(LED_ARMED, HIGH);}
     if (SWITCH_ABORT.on()) {serialState=ABORT;}
     if (SWITCH_PRESS.on()) {serialState=PRESS;}
@@ -269,7 +268,6 @@ void loop(){
     if (!oxComplete) {digitalWrite(LED_PRESSLOX, LOW);}
     if (SWITCH_QD.on()) {serialState=QD;}  //add pressComplete && later
     //add return to idle functionality hyer
-    dataSendCheck();
     if(!SWITCH_PRESS.on() && !SWITCH_ARMED.on() && SWITCHES) {serialState=IDLE;}
     state = serialState;
     break;
