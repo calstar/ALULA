@@ -132,7 +132,7 @@ struct_message TEST;
 //::::::Broadcast Variables::::::://
 esp_now_peer_info_t peerInfo;
 // REPLACE WITH THE MAC Address of your receiver
-uint8_t COMBroadcastAddress[] = {0xD4, 0x8A, 0xFC, 0xC7, 0x91, 0x2C}; //COM 2
+uint8_t COMBroadcastAddress[] = {0x30, 0xC6, 0xF7, 0x28, 0xEF, 0xF4}; //COM FREE
 // uint8_t COMBroadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x51, 0xEC, 0x94}; //TEST ESP
 // uint8_t COMBroadcastAddress[] = {0x08, 0x3A, 0xF2, 0xB7, 0x29, 0xBC}; //Test ESP 2/10/24
 // uint8_t COMBroadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x4F, 0x3C, 0xA4}; //Core board 1
@@ -540,7 +540,18 @@ void addPacketToQueue() {
     queueLength += 1;
     PacketQueue[queueLength].id = DAQ_POWER_ID;
     PacketQueue[queueLength].messageTime = millis();
-    // PacketQueue[queueLength].TC_3 = TC_3.rawReading; // sinc daq and com when adding tcs
+    PacketQueue[queueLength].PT_O1 = DAQSenseCommands.PT_O1;
+    PacketQueue[queueLength].PT_O1 = DAQSenseCommands.PT_O2;
+    PacketQueue[queueLength].PT_O1 = DAQSenseCommands.PT_E1;
+    PacketQueue[queueLength].PT_O1 = DAQSenseCommands.PT_E2;
+    PacketQueue[queueLength].PT_O1 = DAQSenseCommands.PT_C1;
+    PacketQueue[queueLength].PT_O1 = DAQSenseCommands.LC_1;
+    PacketQueue[queueLength].PT_O1 = DAQSenseCommands.LC_2;
+    PacketQueue[queueLength].PT_O1 = DAQSenseCommands.LC_3;
+    PacketQueue[queueLength].PT_O1 = DAQSenseCommands.TC_1;
+    PacketQueue[queueLength].PT_O1 = DAQSenseCommands.TC_2;
+    PacketQueue[queueLength].PT_O1 = DAQSenseCommands.TC_3;
+    PacketQueue[queueLength].PT_O1 = DAQSenseCommands.TC_4;
     PacketQueue[queueLength].queueLength = queueLength;
     PacketQueue[queueLength].DAQState = DAQState;
     PacketQueue[queueLength].oxComplete = oxComplete;

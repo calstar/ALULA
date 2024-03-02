@@ -94,9 +94,9 @@ float receiveTime = 0;
 //DAQ Protoboard {0x0C, 0xDC, 0x7E, 0xCB, 0x05, 0xC4}
 //NON BUSTED DAQ {0x7C, 0x9E, 0xBD, 0xD8, 0xFC, 0x14}
 // {0xC4, 0xDD, 0x57, 0x9E, 0x96, 0x34};
-uint8_t broadcastAddress[] = {0xE4, 0x65, 0xB8, 0x27, 0x62, 0x64}; //DAQ 1
-// uint8_t broadcastAddress[] = {0x08, 0x3A, 0xF2, 0xB7, 0x29, 0xBC}; //Core board 2
-//uint8_t broadcastAddress[] = {0x08, 0x3A, 0xF2, 0xB7, 0xEE, 0x00}; //TEST
+uint8_t broadcastAddress[] = {0x08, 0x3A, 0xF2, 0xB7, 0x29, 0xBC}; //DAQ 1
+//uint8_t broadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x4F, 0x3C, 0xA4}; //Core board 2
+//uint8_t broadcastAddress[] = {0x08, 0x3A, 0xF2, 0xB7, 0x29, 0xBC}; //TEST
 //{0x30, 0xC6, 0xF7, 0x2A, 0x28, 0x04}
 
 //Structure example to send data
@@ -137,11 +137,10 @@ esp_now_peer_info_t peerInfo;
 
 // Callback when data is received, should we add this to the daq_sense board?
 void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
-  struct_message myData;
   memcpy(&myData, incomingData, sizeof(myData));
   if (myData.id == DAQ_SENSE_ID) {
     SENSE = myData;
-    // Serial.println(" ");
+    Serial.println("received sense");
     // Serial.println("dskljfhlksdj");
   }
   else if (myData.id == DAQ_POWER_ID) {
@@ -415,3 +414,51 @@ void receiveDataPrint() {
   serialMessage.concat(SENSE.queueLength);
   Serial.println(serialMessage);
 }
+
+
+////////BANDAID CODE FOR SENSE-COM COMMS ISSUE
+
+// void receiveDataPrint() {
+//   serialMessage.clear();
+//   serialMessage.concat(" ");
+//   serialMessage.concat(millis());
+//   serialMessage.concat(" ");
+//   serialMessage.concat(SENSE.messageTime);
+//   serialMessage.concat(" ");
+//   serialMessage.concat(POWER.messageTime);
+//   serialMessage.concat(" ");
+//   serialMessage.concat(POWER.PT_O1);
+//   serialMessage.concat(" ");
+//   serialMessage.concat(POWER.PT_O2);
+//   serialMessage.concat(" ");
+//   serialMessage.concat(POWER.PT_E1);
+//   serialMessage.concat(" ");
+//   serialMessage.concat(POWER.PT_E2);
+//   serialMessage.concat(" ");
+//   serialMessage.concat(POWER.PT_C1);
+//   serialMessage.concat(" ");
+//   serialMessage.concat(POWER.LC_1);
+//   serialMessage.concat(" ");
+//   serialMessage.concat(POWER.LC_2);
+//   serialMessage.concat(" ");
+//   serialMessage.concat(POWER.LC_3);
+//   serialMessage.concat(" ");
+//   serialMessage.concat(POWER.TC_1);
+//   serialMessage.concat(" ");
+//   serialMessage.concat(POWER.TC_2);
+//   serialMessage.concat(" ");
+//   serialMessage.concat(POWER.TC_3);
+//   serialMessage.concat(" ");
+//   serialMessage.concat(POWER.TC_4);
+//   serialMessage.concat(" ");
+//   serialMessage.concat(POWER.ethComplete);
+//   serialMessage.concat(" ");
+//   serialMessage.concat(POWER.oxComplete);
+//   serialMessage.concat(" ");
+//   serialMessage.concat(Commands.COMState);
+//   serialMessage.concat(" ");
+//   serialMessage.concat(POWER.DAQState);
+//   serialMessage.concat(" ");
+//   serialMessage.concat(SENSE.queueLength);
+//   Serial.println(serialMessage);
+// }

@@ -38,7 +38,7 @@ int DAQState = 0;
 bool ethComplete = false;
 bool oxComplete = false;
 
-float readDelay = 25;     // Frequency of data collection [ms]
+float readDelay = 100;     // Frequency of data collection [ms]
 float sendDelay = readDelay;
 // END OF USER DEFINED PARAMETERS //
 // refer to https://docs.google.com/spreadsheets/d/17NrJWC0AR4Gjejme-EYuIJ5uvEJ98FuyQfYVWI3Qlio/edit#gid=1185803967 for all pinouts
@@ -257,11 +257,11 @@ struct_message dataPacket;
 //::::::Broadcast Variables::::::://
 esp_now_peer_info_t peerInfo;
 
-uint8_t COMBroadcastAddress[] = {0xD4, 0x8A, 0xFC, 0xC7, 0x91, 0x2C}; //COM 2
+uint8_t COMBroadcastAddress[] = {0x30, 0xC6, 0xF7, 0x28, 0xEF, 0xF4}; //COM FREE
 // uint8_t COMBroadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x51, 0xEC, 0x94}; //TEST ESP
 // uint8_t COMBroadcastAddress[] = {0x08, 0x3A, 0xF2, 0xB7, 0x29, 0xBC}; //Test ESP 2/10/24
 
-uint8_t DAQPowerBroadcastAddress[] = {0xE4, 0x65, 0xB8, 0x27, 0x62, 0x64}; //CORE1
+uint8_t DAQPowerBroadcastAddress[] = {0x08, 0x3A, 0xF2, 0xB7, 0x29, 0xBC}; //CORE2
 // uint8_t DAQPowerBroadcastAddress[] = {0x08, 0x3A, 0xF2, 0xB7, 0x29, 0xBC}; //Core board 2
 
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
@@ -413,7 +413,7 @@ void sendData() {
 void updateDataPacket() {
   dataPacket.messageTime = millis();
   dataPacket.id = DAQ_SENSE_ID;
-  dataPacket.PT_O1 = PT_O1.filteredReading;
+  dataPacket.PT_O1 = PT_O1.rawReading;
   dataPacket.PT_O2 = PT_O2.filteredReading;
   dataPacket.PT_E1 = PT_E1.filteredReading;
   dataPacket.PT_E2 = PT_E2.filteredReading;
@@ -454,7 +454,7 @@ void printSensorReadings() {
   String serialMessage = " ";
   serialMessage.concat(millis());
   serialMessage.concat(" ");
-  serialMessage.concat(PT_O1.filteredReading);
+  serialMessage.concat(PT_O1.rawReading);
   serialMessage.concat(" ");
   serialMessage.concat(PT_O2.filteredReading);
   serialMessage.concat(" ");
