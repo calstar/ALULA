@@ -36,7 +36,7 @@ int WIFIDEBUG = 0;  // Don't send/receive data.
 
 // MODEL DEFINED PARAMETERS FOR TEST/HOTFIRE. Pressures in psi //
 float pressureFuel = 150;   //405;  // Set pressure for fuel: 412
-float pressureOx = 50;     //460;  // Set pressure for lox: 445
+float pressureOx = 150;     //460;  // Set pressure for lox: 445
 float threshold = 0.995;   // re-psressurrization threshold (/1x)
 float ventTo = -35;          // c2se solenoids at this pressure to preserve lifetime.
 #define abortPressure 600  // Cutoff pressure to automatically trigger abort
@@ -132,7 +132,7 @@ struct_message TEST;
 //::::::Broadcast Variables::::::://
 esp_now_peer_info_t peerInfo;
 // REPLACE WITH THE MAC Address of your receiver
-uint8_t COMBroadcastAddress[] = {0xD4, 0x8A, 0xFC, 0xC7, 0x91, 0x2C}; //COM 2
+uint8_t COMBroadcastAddress[] = {0xE4, 0x65, 0xB8, 0x28, 0xC7, 0x34}; //COM Free
 // uint8_t COMBroadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x51, 0xEC, 0x94}; //TEST ESP
 // uint8_t COMBroadcastAddress[] = {0x08, 0x3A, 0xF2, 0xB7, 0x29, 0xBC}; //Test ESP 2/10/24
 // uint8_t COMBroadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x4F, 0x3C, 0xA4}; //Core board 1
