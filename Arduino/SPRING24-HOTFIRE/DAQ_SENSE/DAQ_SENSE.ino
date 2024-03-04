@@ -180,14 +180,19 @@ public:
 
 
 //sensor stuff
-
+//All PTs are most accurate at the highest pressure that they are rated to - each PT is rated to a different "highest pressure" 
+//PT01 is calibrated to 600 offset +25
+//PT02 is calibrated to 600 offset +25
+//PTE1 is calibrated to 500 offset ?
+//PTE2 is calibrated to 500 offset ?
+//PTC1 is calibrated to 400 offset -25
 #define HX_CLK 27
 
-struct_hx711 PT_O1{ {}, HX_CLK, 36, .offset = -85.988, .slope = 0.003712942}; //.offset = -71.93, .slope = 0.00822
-struct_hx711 PT_O2{ {}, HX_CLK, 39, .offset = -100.99, .slope = 0.0032391};
-struct_hx711 PT_E1{ {}, HX_CLK, 34, .offset = -70.854, .slope = 0.0035914};
-struct_hx711 PT_E2{ {}, HX_CLK, 35, .offset = -62.903, .slope = 0.0035063};  // Change GPIO PIN
-struct_hx711 PT_C1{ {}, HX_CLK, 32, .offset = -101.553, .slope = 0.0029168};
+struct_hx711 PT_O1{ {}, HX_CLK, 36, .offset = -105.62, .slope = 0.0044154}; //.offset = -71.93, .slope = 0.00822
+struct_hx711 PT_O2{ {}, HX_CLK, 39, .offset = -67.51, .slope = 0.003745383};
+struct_hx711 PT_E1{ {}, HX_CLK, 34, .offset = -50.758, .slope = 0.004173511};
+struct_hx711 PT_E2{ {}, HX_CLK, 35, .offset = -53.134, .slope = 0.00396851};  // Change GPIO PIN
+struct_hx711 PT_C1{ {}, HX_CLK, 32, .offset = -58.776, .slope = 0.003371474};
 
 // LOADCELLS
 struct_hx711 LC_1{ {}, HX_CLK, 33, .offset = 0, .slope = 1 };
