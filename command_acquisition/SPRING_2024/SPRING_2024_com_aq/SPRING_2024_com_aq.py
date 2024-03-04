@@ -44,7 +44,7 @@ filename = file_base + f"_test{test_num}" + file_ext
 
 # for mac port_num = "/dev/cu.usbserial-0001"
 
-port_num = "COM4" # CHECK YOUR PORT !!!
+port_num = "COM3" # CHECK YOUR PORT !!!
 esp32 = Serial(port=port_num, baudrate=115200)
 # !!! IF NO NUMBERS PRINTED ON UR TERMINAL => PRESS "EN" ON THE ESP !!!
 
@@ -200,6 +200,8 @@ class LivePlotter(QMainWindow):
             lc_data = [LC1, LC2, LC3]
             for plotDataItem, lc, title in zip(self.plotDataItemsForGraph6, lc_data, ["LC1", "LC2", "LC3"]):
                 plotDataItem.setData(list(x), list(lc))
+                self.graphWidgets[6].setTitle(f"LC1: {LC1[-1]:.2f}  LC2: {LC2[-1]:.2f}  LC3: {LC3[-1]:.2f}  ")
+            
 
             for i in range(7, 11):
                 self.plotDataItems[i-1].setData(list(x), list(deque_list[i + 3]))  # Adjust indices appropriately
