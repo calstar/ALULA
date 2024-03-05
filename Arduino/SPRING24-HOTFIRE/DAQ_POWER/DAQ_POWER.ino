@@ -35,11 +35,11 @@ int DEBUG = 0;      // Simulate LOX and Eth fill.
 int WIFIDEBUG = 0;  // Don't send/receive data.
 
 // MODEL DEFINED PARAMETERS FOR TEST/HOTFIRE. Pressures in psi //
-float pressureFuel = 150;   //405;  // Set pressure for fuel: 412
-float pressureOx = 150;     //460;  // Set pressure for lox: 445
+float pressureFuel = 440;   //440 HF1;
+float pressureOx = 525;     //585 HF1; 
 float threshold = 0.995;   // re-psressurrization threshold (/1x)
-float ventTo = -35;          // c2se solenoids at this pressure to preserve lifetime.
-#define abortPressure 600  // Cutoff pressure to automatically trigger abort
+float ventTo = -50;          // c2se solenoids at this pressure to preserve lifetime.
+#define abortPressure 625  // Cutoff pressure to automatically trigger abort
 #define period 0.5         // Sets period for bang-bang control
 float sendDelay = 25;     // Sets frequency of data collection. 1/(sendDelay*10^-3) is frequency in Hz
 // END OF USER DEFINED PARAMETERS //
