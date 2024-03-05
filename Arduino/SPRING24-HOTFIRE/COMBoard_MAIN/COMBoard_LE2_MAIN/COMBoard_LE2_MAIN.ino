@@ -142,7 +142,7 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
   memcpy(&myData, incomingData, sizeof(myData));
   if (myData.id == DAQ_SENSE_ID) {
     SENSE = myData;
-    Serial.println("received sense");
+    // Serial.println("received sense");
     // Serial.println("dskljfhlksdj");
   }
   else if (myData.id == DAQ_POWER_ID) {
@@ -219,8 +219,11 @@ void loop(){
   // read the incoming byte:
     serialState = Serial.read()-48; //serial monitor input must be set to "No Line Ending"
   }
-  if (serialState != POWER.DAQState) {dataSendCheck(); Serial.print("sdhgklsdhfljksf");}
-  // Serial.print("I received: ");
+  if (serialState != POWER.DAQState) {
+    dataSendCheck(); 
+    // Serial.print("sdhgklsdhfljksf");
+  }
+  // Serial.print("I received: "); 
   SWITCH_ARMED.poll();
   SWITCH_PRESS.poll();
   SWITCH_QD.poll();
