@@ -43,9 +43,7 @@ float sendDelay = readDelay;
 // END OF USER DEFINED PARAMETERS //
 // refer to https://docs.google.com/spreadsheets/d/17NrJWC0AR4Gjejme-EYuIJ5uvEJ98FuyQfYVWI3Qlio/edit#gid=1185803967 for all pinouts
 
-
 //::::::DEFINE INSTRUMENT PINOUTS::::::://
-
 
 #define MAX_QUEUE_LENGTH 40
 
@@ -182,14 +180,19 @@ public:
 
 
 //sensor stuff
-
+//All PTs are most accurate at the highest pressure that they are rated to - each PT is rated to a different "highest pressure" 
+//PT01 is calibrated to 600 offset +25
+//PT02 is calibrated to 600 offset +25
+//PTE1 is calibrated to 500 offset ?
+//PTE2 is calibrated to 500 offset ?
+//PTC1 is calibrated to 400 offset -25
 #define HX_CLK 27
 
-struct_hx711 PT_O1{ {}, HX_CLK, 36, .offset = -85.5051, .slope = 0.004964 }; //.offset = -71.93, .slope = 0.00822
-struct_hx711 PT_O2{ {}, HX_CLK, 39, .offset = -79.7068, .slope = 0.004247 };
-struct_hx711 PT_E1{ {}, HX_CLK, 34, .offset = -75.1059, .slope = 0.004700 };
-struct_hx711 PT_E2{ {}, HX_CLK, 35, .offset = -66.2774, .slope = 0.004553 };  // Change GPIO PIN
-struct_hx711 PT_C1{ {}, HX_CLK, 32, .offset = -99.6688, .slope = 0.003776 };
+struct_hx711 PT_O1{ {}, HX_CLK, 36, .offset = -110.62, .slope = 0.0044154}; //.offset = -71.93, .slope = 0.00822
+struct_hx711 PT_O2{ {}, HX_CLK, 39, .offset = -87.51, .slope = 0.003745383};
+struct_hx711 PT_E1{ {}, HX_CLK, 34, .offset = -70.758, .slope = 0.004173511};
+struct_hx711 PT_E2{ {}, HX_CLK, 35, .offset = -73.134, .slope = 0.00396851};  // Change GPIO PIN
+struct_hx711 PT_C1{ {}, HX_CLK, 32, .offset = -78.776, .slope = 0.003371474};
 
 // LOADCELLS
 struct_hx711 LC_1{ {}, HX_CLK, 33, .offset = 0, .slope = 1 };
@@ -221,6 +224,7 @@ struct_max31855 TC_4{ Adafruit_MAX31855(TC4_CLK, 15, TC4_DO), 15, .offset = 0, .
 //::::DEFINE READOUT VARIABLES:::://
 String serialMessage;
 float sendTime;
+float readTime;
 short int queueLength = 0;
 
 // Define variables to store readings to be sent
@@ -257,12 +261,14 @@ struct_message dataPacket;
 
 //::::::Broadcast Variables::::::://
 esp_now_peer_info_t peerInfo;
-//uint8_t COMBroadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x4F, 0xAF, 0x40}; //COM1 
-// uint8_t COMBroadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x51, 0xEC, 0x94}; //TEST ESP
-uint8_t COMBroadcastAddress[] = {0x08, 0x3A, 0xF2, 0xB7, 0x29, 0xBC}; //Test ESP 2/10/24
 
-// uint8_t DAQPowerBroadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x4F, 0x3C, 0xA4}; //CORE1
-uint8_t DAQPowerBroadcastAddress[] = {0xB0, 0xA7, 0x32, 0xDE, 0xD3, 0x1C}; //CORE2
+uint8_t COMBroadcastAddress[] = {0x30, 0xC6, 0xF7, 0x28, 0xEF, 0xF4}; //COM FREE
+// uint8_t COMBroadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x51, 0xEC, 0x94}; //TEST ESP
+// uint8_t COMBroadcastAddress[] = {0x08, 0x3A, 0xF2, 0xB7, 0x29, 0xBC}; //Test ESP 2/10/24
+
+//uint8_t DAQPowerBroadcastAddress[] = {0x08, 0x3A, 0xF2, 0xB7, 0x29, 0xBC}; //CORE2
+// uint8_t DAQPowerBroadcastAddress[] = {0x08, 0x3A, 0xF2, 0xB7, 0x29, 0xBC}; //Core board 2
+uint8_t DAQPowerBroadcastAddress[] = {0xe4, 0x65, 0xB8, 0x27, 0x62, 0x64}; //POWER
 
 
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
@@ -278,24 +284,24 @@ void setup() {
   // pinMode(ONBOARD_LED,OUTPUT);
   Serial.begin(115200);
   while (!Serial) delay(1);  // wait for Serial on Leonardo/Zero, etc.
-
+  int gain = 128;
   // HX711.
   PT_O1.scale.begin(PT_O1.gpio, PT_O1.clk);
-  PT_O1.scale.set_gain(128);
+  PT_O1.scale.set_gain(gain);
   PT_O2.scale.begin(PT_O2.gpio, PT_O2.clk);
-  PT_O2.scale.set_gain(128);
+  PT_O2.scale.set_gain(gain);
   PT_E1.scale.begin(PT_E1.gpio, PT_E1.clk);
-  PT_E1.scale.set_gain(128);
+  PT_E1.scale.set_gain(gain);
   PT_E2.scale.begin(PT_E2.gpio, PT_E2.clk);
-  PT_E2.scale.set_gain(128);
+  PT_E2.scale.set_gain(gain);
   PT_C1.scale.begin(PT_C1.gpio, PT_C1.clk);
-  PT_C1.scale.set_gain(128);
+  PT_C1.scale.set_gain(gain);
   LC_1.scale.begin(LC_1.gpio, LC_1.clk);
-  LC_1.scale.set_gain(128);
+  LC_1.scale.set_gain(gain);
   LC_2.scale.begin(LC_2.gpio, LC_2.clk);
-  LC_2.scale.set_gain(128);
+  LC_2.scale.set_gain(gain);
   LC_3.scale.begin(LC_3.gpio, LC_3.clk);
-  LC_3.scale.set_gain(128);
+  LC_3.scale.set_gain(gain);
 
   // Thermocouple.
   pinMode(TC_1.cs, OUTPUT);
@@ -341,6 +347,7 @@ void setup() {
 
 
   sendTime = millis();
+  readTime = millis();
 }
 
 
@@ -372,11 +379,15 @@ void reset() {
 
 //::::::DATA LOGGING AND COMMUNICATION::::::://
 void logData() {
+  if (millis() - readTime > readDelay) {
+    readTime = millis();
+    getReadings();
+  }
   getReadings();
-  printSensorReadings();
   if (millis() - sendTime > sendDelay) {
     sendTime = millis();
     sendData();
+    printSensorReadings();
   }
 }
 
@@ -403,6 +414,7 @@ void sendData() {
   COMQueue.addPacket(dataPacket);
   DAQPowerQueue.addPacket(dataPacket);
   sendQueue(DAQPowerQueue, DAQPowerBroadcastAddress);
+  delay(10);
   sendQueue(COMQueue, COMBroadcastAddress);
 }
 
@@ -440,6 +452,7 @@ void sendQueue(Queue<struct_message> queue, uint8_t broadcastAddress[]) {
 
   if (result == ESP_OK) {
     queue.popPacket();
+
   } else {
     Serial.println("Error sending the data");
   }
@@ -472,19 +485,6 @@ void printSensorReadings() {
   serialMessage.concat(TC_3.filteredReading);
   serialMessage.concat(" ");
   serialMessage.concat(TC_4.filteredReading);
-  serialMessage.concat("\nEth comp: ");
-  // serialMessage.concat(DAQPowerCommands.ethComplete ? "True" : "False");
-  serialMessage.concat(" Ox comp: ");
-  // serialMessage.concat(DAQPowerCommands.oxComplete  ? "True" : "False");
-  serialMessage.concat("COM State: ");
-  // serialMessage.concat(stateNames[COMState]);
-  serialMessage.concat("   Sense State: ");
-  // serialMessage.concat(stateNames[DAQSenseState]);
-  serialMessage.concat("   Power State: ");
-  // serialMessage.concat(stateNames[DAQPowerState]);
-  //  serialMessage.concat(readingCap1);
-  //  serialMessage.concat(" ");
-  //  serialMessage.concat(readingCap2);
   serialMessage.concat(" ");
   serialMessage.concat(COMQueue.size());
   serialMessage.concat("  ");

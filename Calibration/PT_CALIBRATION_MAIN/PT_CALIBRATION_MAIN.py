@@ -18,6 +18,7 @@ def read_serial():
             try:
                 decoded_bytes = data[:len(data)-2].decode("utf-8")
                 str_data = decoded_bytes.split(" ")
+                # 5str_data = str_data[1:]
                 print("got it", str_data)
 
                 # if len(str_data) == instrument_count:
