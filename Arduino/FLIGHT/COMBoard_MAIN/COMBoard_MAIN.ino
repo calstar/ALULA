@@ -14,9 +14,14 @@ This code runs on the COM ESP32 and has a couple of main tasks.
 #include "freertos/FreeRTOS.h"
 #include "freertos/Task.h"
 
+#define COM_ID 0
+#define DAQ_ID 1
+#define FLIGHT_ID 2
+
 //IF YOU WANT TO DEBUG, SET THIS TO True, if not, set False
 bool DEBUG = false;
 bool WIFIDEBUG = false;
+bool SWITCHES = false; // If we are using switches
 
 Switch SWITCH_ARMED = Switch(14);  //correct
 Switch SWITCH_PRESS = Switch(12);  //correct
@@ -36,7 +41,7 @@ Switch SWITCH_ABORT = Switch(18);
 
 esp_now_peer_info_t peerInfo;
 
-enum STATES {IDLE, ARMED, PRESS, QD, EQD, IGNITION, HOTFIRE, ABORT};
+enum STATES {IDLE, ARMED, PRESS, QD, IGNITION, HOTFIRE, ABORT};
 String stateNames[] = { "Idle", "Armed", "Press", "QD", "Ignition", "HOTFIRE", "Abort" };
 
 //#define DEBUG_IDLE 90
@@ -47,7 +52,7 @@ String stateNames[] = { "Idle", "Armed", "Press", "QD", "Ignition", "HOTFIRE", "
 //#define DEBUG_HOTFIRE 95
 //#define DEBUG_ABORT 96
 
-//ENSURE IP ADDRESS IS CORRECT FOR DEVICE IN USE!!!
+//ENSURE MAC ADDRESS IS CORRECT FOR DEVICE IN USE!!!
 //DAQ Breadboard {0x24, 0x62, 0xAB, 0xD2, 0x85, 0xDC}
 //DAQ Protoboard {0x0C, 0xDC, 0x7E, 0xCB, 0x05, 0xC4}
 //NON BUSTED DAQ {0x7C, 0x9E, 0xBD, 0xD8, 0xFC, 0x14}
@@ -56,7 +61,7 @@ String stateNames[] = { "Idle", "Armed", "Press", "QD", "Ignition", "HOTFIRE", "
 //uint8_t broadcastAddress[] = {0x08, 0x3A, 0xF2, 0xB7, 0xEE, 0x00}; //TEST
 //{0x30, 0xC6, 0xF7, 0x2A, 0x28, 0x04}
 
-uint8_t DAQSenseBroadcastAddress[] = {0xB0, 0xA7, 0x32, 0xDE, 0xD3, 0x1C};
+uint8_t DAQBroadcastAddress[] = {0xE8, 0x6B, 0xEA, 0xD4, 0x10, 0x4C};
 
 //Structure example to send data
 //Must match the receiver structure
@@ -76,10 +81,10 @@ struct struct_message {
   float TC_3;
   float TC_4;
   int COMState;
-  int DAQSenseState;
-  int DAQPowerState;
-  short int COMQueueLength;
-  short int DAQPowerQueueLength;
+  int DAQState;
+  int FlightState;
+  short int FlightToDAQQueueLength;
+  short int FlightToCOMQueueLength;
   bool ethComplete;
   bool oxComplete;
   bool oxVentComplete;
@@ -87,13 +92,14 @@ struct struct_message {
 };
 
 // Create a struct_message called Readings to recieve sensor readings remotely
-struct_message incomingReadings;
+struct_message incomingDAQReadings;
+struct_message incomingFlightReadings;
 // Create a struct_message to send commands
-struct_message Commands;
+struct_message sendCommands;
 
 int COMState = IDLE;
-int DAQSenseState = IDLE;
-int DAQPowerState = IDLE;
+int DAQState = IDLE;
+int FlightState = IDLE;
 
 void setup() {
   // put your setup code here, to run once:
@@ -120,8 +126,6 @@ void setup() {
   digitalWrite(LED_ABORT, LOW);
 
 
-//
-//  while(SWITCH_ABORT.on()){digitalWrite(LED_ABORT, HIGH);}
   Serial.println(WiFi.macAddress());
   //set device as WiFi station
   WiFi.mode(WIFI_STA);
@@ -133,7 +137,7 @@ void setup() {
   }
 
   // Register peer
-  memcpy(peerInfo.peer_addr, DAQSenseBroadcastAddress, 6);
+  memcpy(peerInfo.peer_addr, DAQBroadcastAddress, 6);
   peerInfo.channel = 0;
   peerInfo.encrypt = false;
   
@@ -154,9 +158,10 @@ void setup() {
 
 
 void loop() {
+  // Get the state from Serial input
   if (Serial.available() > 0) {
-    // read the incoming byte:
-    COMState = (int)Serial.parseInt();
+    COMState = Serial.read() - '0';
+    Serial.println(COMState);
   }
 
   SWITCH_ARMED.poll();
@@ -169,10 +174,10 @@ void loop() {
   if (DEBUG) {
     Serial.print("COM State: ");
     Serial.print(COMState);
-    Serial.print(" \tDAQ Sense State: ");
-    Serial.print(DAQSenseState);
-    Serial.print(" \tDAQ Power State: ");
-    Serial.println(DAQPowerState);
+    Serial.print(" \tDAQ State: ");
+    Serial.print(DAQState);
+    Serial.print(" \tFlight State: ");
+    Serial.println(FlightState);
     if(!SWITCH_PRESS.on() && !SWITCH_ARMED.on() && !SWITCH_ABORT.on() && !SWITCH_QD.on() && !SWITCH_IGNITION.on() && !SWITCH_HOTFIRE.on()) { COMState = IDLE; }
   }
 
@@ -188,46 +193,45 @@ void loop() {
 
     case (ARMED):
       dataSend();
-      if (DAQPowerState == ARMED) {digitalWrite(LED_ARMED, HIGH);}
+      if (DAQState == ARMED) {digitalWrite(LED_ARMED, HIGH);}
       if (SWITCH_PRESS.on()) { COMState=PRESS; }
-      if(!SWITCH_ARMED.on()) { COMState=IDLE; }
+      if(!SWITCH_ARMED.on() && SWITCHES) { COMState=IDLE; }
       break;
 
     case (PRESS):
       dataSend();
-      if (DAQPowerState == PRESS) { digitalWrite(LED_PRESS, HIGH); }
-      if (incomingReadings.ethComplete) { digitalWrite(LED_PRESSETH, HIGH); }
-      if (incomingReadings.oxComplete) { digitalWrite(LED_PRESSLOX, HIGH); }
-      if (!incomingReadings.ethComplete) { digitalWrite(LED_PRESSETH, LOW); }
-      if (!incomingReadings.oxComplete) { digitalWrite(LED_PRESSLOX, LOW); }
+      if (DAQState == PRESS) { digitalWrite(LED_PRESS, HIGH); }
+      if (incomingDAQReadings.ethComplete) { digitalWrite(LED_PRESSETH, HIGH); }
+      if (incomingDAQReadings.oxComplete) { digitalWrite(LED_PRESSLOX, HIGH); }
+      if (!incomingDAQReadings.ethComplete) { digitalWrite(LED_PRESSETH, LOW); }
+      if (!incomingDAQReadings.oxComplete) { digitalWrite(LED_PRESSLOX, LOW); }
       if (SWITCH_QD.on()) { COMState = QD; }
-      if(!SWITCH_PRESS.on() && !SWITCH_ARMED.on()) { COMState = IDLE; }
+      if(!SWITCH_PRESS.on() && !SWITCH_ARMED.on() && SWITCHES) { COMState = IDLE; }
       break;
 
     case (QD):
-      //quick_disconnect();
-      if (DAQPowerState == QD) {digitalWrite(LED_QD, HIGH);}
+      if (DAQState == QD) {digitalWrite(LED_QD, HIGH);}
       if (SWITCH_IGNITION.on()) { COMState = IGNITION; }
-      if(!SWITCH_QD.on() && !SWITCH_PRESS.on() && !SWITCH_ARMED.on()) { COMState = IDLE; }
+      if(!SWITCH_QD.on() && !SWITCH_PRESS.on() && !SWITCH_ARMED.on() && SWITCHES) { COMState = IDLE; }
       dataSend();
       break;
 
 
     case (IGNITION):
-      //ignition();
-      if (DAQPowerState == IGNITION) {digitalWrite(LED_IGNITION, HIGH);}
+      if (DAQState == IGNITION) {digitalWrite(LED_IGNITION, HIGH);}
       if (SWITCH_HOTFIRE.on()) { COMState = HOTFIRE; }
-      if(!SWITCH_QD.on() && !SWITCH_PRESS.on() && !SWITCH_ARMED.on() && !SWITCH_IGNITION.on()) { COMState = IDLE; }
+      if(!SWITCH_QD.on() && !SWITCH_PRESS.on() && !SWITCH_ARMED.on() && !SWITCH_IGNITION.on() && SWITCHES) { COMState = IDLE; }
       dataSend();
       break;
 
     case (HOTFIRE):
-      if (DAQPowerState == HOTFIRE) {digitalWrite(LED_HOTFIRE, HIGH);}
+      if (DAQState == HOTFIRE) {digitalWrite(LED_HOTFIRE, HIGH);}
+      if (!SWITCH_ARMED.on() && !SWITCH_HOTFIRE.on() && SWITCHES) { COMState = IDLE; }
       dataSend();
       break;
 
     case (ABORT):
-      if (DAQPowerState == ABORT) {digitalWrite(LED_ABORT, HIGH);}
+      if (DAQState == ABORT) {digitalWrite(LED_ABORT, HIGH);}
       digitalWrite(LED_ABORT, HIGH);
       digitalWrite(LED_IGNITION,LOW);
       digitalWrite(LED_QD, LOW);
@@ -238,7 +242,7 @@ void loop() {
       digitalWrite(LED_HOTFIRE, LOW);
       COMState = ABORT;
       dataSend();
-      if(!SWITCH_QD.on() && !SWITCH_PRESS.on() && !SWITCH_ARMED.on() && !SWITCH_IGNITION.on() && !SWITCH_HOTFIRE.on() && !SWITCH_ABORT.on()) {COMState = IDLE;}
+      if(!SWITCH_QD.on() && !SWITCH_PRESS.on() && !SWITCH_ARMED.on() && !SWITCH_IGNITION.on() && !SWITCH_HOTFIRE.on() && !SWITCH_ABORT.on() && SWITCHES) {COMState = IDLE;}
       break;
   }
 }
@@ -265,28 +269,36 @@ void checkAbort() {
 }
 
 void dataSend() {
+  // Don't send data if states are already synced
+  if (COMState == DAQState) {
+    return;
+  }
   // Set values to send
-  Commands.COMState = COMState;
+  sendCommands.sender = COM_ID;
+  sendCommands.COMState = COMState;
   // Send message via ESP-NOW
-  esp_err_t result = esp_now_send(DAQSenseBroadcastAddress, (uint8_t *) &Commands, sizeof(Commands));
+  esp_err_t result = esp_now_send(DAQBroadcastAddress, (uint8_t *) &sendCommands, sizeof(sendCommands));
 }
 
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
+  struct_message incomingReadings;
   memcpy(&incomingReadings, incomingData, sizeof(incomingReadings));
-  // Serial.print("Bytes received: ");
-  // Serial.println(len);
-  DAQPowerState = incomingReadings.DAQPowerState;
-  DAQSenseState = incomingReadings.DAQSenseState;
-  receiveDataPrint();
+
+  if (incomingReadings.sender == DAQ_ID) {
+    incomingDAQReadings = incomingReadings;
+    DAQState = incomingReadings.DAQState;
+    receiveDataPrint(incomingDAQReadings);
+  }
+  else if (incomingReadings.sender == FLIGHT_ID) {
+    incomingFlightReadings = incomingReadings;
+    FlightState = incomingReadings.FlightState;
+    receiveDataPrint(incomingFlightReadings);
+  }
 }
 
-void receiveDataPrint() {
+void receiveDataPrint(struct_message incomingReadings) {
   String serialMessage = " ";
   serialMessage.concat(millis());
-  serialMessage.concat(" ");
-  serialMessage.concat();
-  serialMessage.concat(" ");
-    serialMessage.concat(millis());
   serialMessage.concat(" ");
   serialMessage.concat(incomingReadings.PT_O1);
   serialMessage.concat(" ");
@@ -312,21 +324,22 @@ void receiveDataPrint() {
   serialMessage.concat(" ");
   serialMessage.concat(incomingReadings.TC_4);
   serialMessage.concat("\nEth comp: ");
-  serialMessage.concat(Commands.ethComplete ? "True" : "False");
+  serialMessage.concat(incomingDAQReadings.ethComplete ? "True" : "False");
   serialMessage.concat(" Ox comp: ");
-  serialMessage.concat(Commands.oxComplete  ? "True" : "False");
+  serialMessage.concat(incomingDAQReadings.oxComplete  ? "True" : "False");
+  serialMessage.concat("\nEth vent: ");
+  serialMessage.concat(incomingDAQReadings.ethVentComplete ? "True" : "False");
+  serialMessage.concat(" Ox vent: ");
+  serialMessage.concat(incomingDAQReadings.oxVentComplete  ? "True" : "False");
   serialMessage.concat("\n COM State: ");
   serialMessage.concat(stateNames[COMState]);
-  serialMessage.concat("   Sense State: ");
-  serialMessage.concat(stateNames[DAQSenseState]);
-  serialMessage.concat("   Power State: ");
-  serialMessage.concat(stateNames[DAQPowerState]);
-  //  serialMessage.concat(readingCap1);
-  //  serialMessage.concat(" ");
-  //  serialMessage.concat(readingCap2);
+  serialMessage.concat("   DAQ State: ");
+  serialMessage.concat(stateNames[DAQState]);
+  serialMessage.concat("   Flight State: ");
+  serialMessage.concat(stateNames[FlightState]);
   serialMessage.concat("\nCOM Q Length: ");
-  serialMessage.concat(Commands.COMQueueLength);
+  serialMessage.concat(incomingReadings.FlightToCOMQueueLength);
   serialMessage.concat("  DAQPower Q Length: ");
-  serialMessage.concat(Commands.DAQPowerQueueLength);
+  serialMessage.concat(incomingReadings.FlightToDAQQueueLength);
   Serial.println(serialMessage);
 }
