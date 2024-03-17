@@ -65,9 +65,7 @@ uint8_t DAQBroadcastAddress[] = {0xE8, 0x6B, 0xEA, 0xD4, 0x10, 0x4C};
 
 //Structure example to send data
 //Must match the receiver structure
-struct struct_message {
-  int messageTime;
-  int sender;
+struct struct_readings {
   float PT_O1;
   float PT_O2;
   float PT_E1;
@@ -80,6 +78,13 @@ struct struct_message {
   float TC_2;
   float TC_3;
   float TC_4;
+};
+
+struct struct_message {
+  int messageTime;
+  int sender;
+  struct_readings rawReadings;
+  struct_readings filteredReadings;
   int COMState;
   int DAQState;
   int FlightState;
@@ -300,29 +305,29 @@ void receiveDataPrint(struct_message incomingReadings) {
   String serialMessage = " ";
   serialMessage.concat(millis());
   serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.PT_O1);
+  serialMessage.concat(incomingReadings.filteredReadings.PT_O1);
   serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.PT_O2);
+  serialMessage.concat(incomingReadings.filteredReadings.PT_O2);
   serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.PT_E1);
+  serialMessage.concat(incomingReadings.filteredReadings.PT_E1);
   serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.PT_E2);
+  serialMessage.concat(incomingReadings.filteredReadings.PT_E2);
   serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.PT_C1);
+  serialMessage.concat(incomingReadings.filteredReadings.PT_C1);
   serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.LC_1);
+  serialMessage.concat(incomingReadings.filteredReadings.LC_1);
   serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.LC_2);
+  serialMessage.concat(incomingReadings.filteredReadings.LC_2);
   serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.LC_3);
+  serialMessage.concat(incomingReadings.filteredReadings.LC_3);
   serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.TC_1);
+  serialMessage.concat(incomingReadings.filteredReadings.TC_1);
   serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.TC_2);
+  serialMessage.concat(incomingReadings.filteredReadings.TC_2);
   serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.TC_3);
+  serialMessage.concat(incomingReadings.filteredReadings.TC_3);
   serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.TC_4);
+  serialMessage.concat(incomingReadings.filteredReadings.TC_4);
   serialMessage.concat("\nEth comp: ");
   serialMessage.concat(incomingDAQReadings.ethComplete ? "True" : "False");
   serialMessage.concat(" Ox comp: ");

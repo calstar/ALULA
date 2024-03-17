@@ -157,6 +157,7 @@ public:
     if (scale.wait_ready_timeout(DATA_TIMEOUT)) {
       return scale.read();
     }
+    // Returns the last raw reading upon timeout
     return (rawReading - offset) / slope;
   }
 };
@@ -210,9 +211,7 @@ int FlightState = IDLE;
 
 // Structure example to send data.
 // Must match the receiver structure.
-struct struct_message {
-  int messageTime;
-  int sender;
+struct struct_readings {
   float PT_O1;
   float PT_O2;
   float PT_E1;
@@ -225,6 +224,13 @@ struct struct_message {
   float TC_2;
   float TC_3;
   float TC_4;
+};
+
+struct struct_message {
+  int messageTime;
+  int sender;
+  struct_readings rawReadings;
+  struct_readings filteredReadings;
   int COMState;
   int DAQState;
   int FlightState;
@@ -235,6 +241,7 @@ struct struct_message {
   bool oxVentComplete;
   bool ethVentComplete;
 };
+
 struct_message dataPacket;
 
 // Received Commands from COM
@@ -437,7 +444,10 @@ void logData() {
 }
 
 void getReadings() {
-  if (DEBUG) { return; }
+  if (DEBUG) { 
+    simulateReadings();
+    return;
+  }
 
   PT_O1.readDataFromBoard();
   PT_O2.readDataFromBoard();
@@ -466,18 +476,32 @@ void sendData() {
 void updateDataPacket() {
   dataPacket.messageTime = millis();
   dataPacket.sender = FLIGHT_ID;
-  dataPacket.PT_O1 = PT_O1.rawReading;
-  dataPacket.PT_O2 = PT_O2.rawReading;
-  dataPacket.PT_E1 = PT_E1.rawReading;
-  dataPacket.PT_E2 = PT_E2.rawReading;
-  dataPacket.PT_C1 = PT_C1.rawReading;
-  dataPacket.LC_1 = LC_1.rawReading;
-  dataPacket.LC_2 = LC_2.rawReading;
-  dataPacket.LC_3 = LC_3.rawReading;
-  dataPacket.TC_1 = TC_1.rawReading;
-  dataPacket.TC_2 = TC_2.rawReading;
-  dataPacket.TC_3 = TC_3.rawReading;
-  dataPacket.TC_4 = TC_4.rawReading;
+  
+  dataPacket.rawReadings.PT_O1 = PT_O1.rawReading;
+  dataPacket.rawReadings.PT_O2 = PT_O2.rawReading;
+  dataPacket.rawReadings.PT_E1 = PT_E1.rawReading;
+  dataPacket.rawReadings.PT_E2 = PT_E2.rawReading;
+  dataPacket.rawReadings.PT_C1 = PT_C1.rawReading;
+  dataPacket.rawReadings.LC_1 = LC_1.rawReading;
+  dataPacket.rawReadings.LC_2 = LC_2.rawReading;
+  dataPacket.rawReadings.LC_3 = LC_3.rawReading;
+  dataPacket.rawReadings.TC_1 = TC_1.rawReading;
+  dataPacket.rawReadings.TC_2 = TC_2.rawReading;
+  dataPacket.rawReadings.TC_3 = TC_3.rawReading;
+  dataPacket.rawReadings.TC_4 = TC_4.rawReading;
+
+  dataPacket.filteredReadings.PT_O1 = PT_O1.filteredReading;
+  dataPacket.filteredReadings.PT_O2 = PT_O2.filteredReading;
+  dataPacket.filteredReadings.PT_E1 = PT_E1.filteredReading;
+  dataPacket.filteredReadings.PT_E2 = PT_E2.filteredReading;
+  dataPacket.filteredReadings.PT_C1 = PT_C1.filteredReading;
+  dataPacket.filteredReadings.LC_1 = LC_1.filteredReading;
+  dataPacket.filteredReadings.LC_2 = LC_2.filteredReading;
+  dataPacket.filteredReadings.LC_3 = LC_3.filteredReading;
+  dataPacket.filteredReadings.TC_1 = TC_1.filteredReading;
+  dataPacket.filteredReadings.TC_2 = TC_2.filteredReading;
+  dataPacket.filteredReadings.TC_3 = TC_3.filteredReading;
+  dataPacket.filteredReadings.TC_4 = TC_4.filteredReading;
 
   dataPacket.COMState = COMState;
   dataPacket.DAQState = DAQState;

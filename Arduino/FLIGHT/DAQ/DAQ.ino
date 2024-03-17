@@ -31,17 +31,20 @@ PCF8575 pcf8575(0x20);
 
 // DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE.
 // MOSFET must not trigger while in debug.
-bool DEBUG = true;   // Simulate LOX and Eth fill.
+bool DEBUG = true;       // Simulate LOX and Eth fill.
 bool WIFIDEBUG = false;  // Don't send/receive data.
 
+#define SIMULATION_DELAY 25
+
 // MODEL DEFINED PARAMETERS FOR TEST/HOTFIRE. Pressures in psi //
-float pressureFuel = 390;   //405;  // Set pressure for fuel: 412
-float pressureOx = 450;     //460;  // Set pressure for lox: 445
+float pressureFuel = 390;  //405;  // Set pressure for fuel: 412
+float pressureOx = 450;    //460;  // Set pressure for lox: 445
 float threshold = 0.995;   // re-psressurrization threshold (/1x)
 float ventTo = 5;          // c2se solenoids at this pressure to preserve lifetime.
 #define abortPressure 525  // Cutoff pressure to automatically trigger abort
-#define period 0.5         // Sets period for bang-bang control
 // refer to https://docs.google.com/spreadsheets/d/17NrJWC0AR4Gjejme-EYuIJ5uvEJ98FuyQfYVWI3Qlio/edit#gid=1185803967 for all pinouts
+
+#define ABORT_ACTIVATION_DELAY 3000 // Number of milliseconds to wait at high pressure before activating abort
 
 // GPIO expander
 #define I2C_SDA 21
@@ -66,7 +69,13 @@ float ventTo = 5;          // c2se solenoids at this pressure to preserve lifeti
 bool mosfet_pcf_found;
 
 //::::::STATE VARIABLES::::::://
-enum STATES { IDLE, ARMED, PRESS, QD, IGNITION, HOTFIRE, ABORT };
+enum STATES { IDLE,
+              ARMED,
+              PRESS,
+              QD,
+              IGNITION,
+              HOTFIRE,
+              ABORT };
 
 String state_names[] = { "Idle", "Armed", "Press", "QD", "Ignition", "HOTFIRE", "Abort" };
 
@@ -86,9 +95,7 @@ float sendTime = 0;
 
 // Structure example to send data.
 // Must match the receiver structure.
-struct struct_message {
-  int messageTime;
-  int sender;
+struct struct_readings {
   float PT_O1;
   float PT_O2;
   float PT_E1;
@@ -101,6 +108,13 @@ struct struct_message {
   float TC_2;
   float TC_3;
   float TC_4;
+};
+
+struct struct_message {
+  int messageTime;
+  int sender;
+  struct_readings rawReadings;
+  struct_readings filteredReadings;
   int COMState;
   int DAQState;
   int FlightState;
@@ -122,19 +136,18 @@ struct_message outgoingData;
 struct_message incomingCOMReadings;
 struct_message incomingFlightReadings;
 
-uint8_t COMBroadcastAddress[] = {0xEC, 0x64, 0xC9, 0x86, 0x1E, 0x4C};
-uint8_t FlightBroadcastAddress[] = {0xEC, 0x64, 0xC9, 0x86, 0x1E, 0x4C};
+uint8_t COMBroadcastAddress[] = { 0xEC, 0x64, 0xC9, 0x86, 0x1E, 0x4C };
+uint8_t FlightBroadcastAddress[] = { 0xEC, 0x64, 0xC9, 0x86, 0x1E, 0x4C };
 
 // Callback when data is received
 void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
-  struct_message Packet; 
+  struct_message Packet;
   memcpy(&Packet, incomingData, sizeof(Packet));
 
   if (Packet.sender == COM_ID) {
     incomingCOMReadings = Packet;
     COMState = Packet.COMState;
-  }
-  else if (Packet.sender == FLIGHT_ID) {
+  } else if (Packet.sender == FLIGHT_ID) {
     incomingFlightReadings = Packet;
     FlightState = Packet.FlightState;
     Serial.println(FlightState);
@@ -172,7 +185,7 @@ void setup() {
     Serial.println("Error initializing ESP-NOW");
     return;
   }
-  
+
   esp_now_register_recv_cb(OnDataRecv);
 
   // Register peer
@@ -218,7 +231,7 @@ void loop() {
       break;
 
     case (PRESS):
-      if (COMState == IDLE || (COMState== QD)) {
+      if (COMState == IDLE || (COMState == QD)) {
         syncDAQState();
         int QDStart = millis();
         mosfetCloseAllValves();
@@ -286,17 +299,23 @@ void armed() {
 }
 
 void press() {
-  if (incomingFlightReadings.PT_O1 < pressureOx * threshold) {
+  if (incomingFlightReadings.filteredReadings.PT_O1 < pressureOx * threshold) {
     oxComplete = false;
     mosfetOpenValve(MOSFET_LOX_PRESS);
-  } else if (incomingFlightReadings.PT_O1 >= pressureOx) {
+    if (DEBUG) {
+      incomingFlightReadings.filteredReadings.PT_O1 += (0.00075 * SIMULATION_DELAY);
+    }
+  } else if (incomingFlightReadings.filteredReadings.PT_O1 >= pressureOx) {
     mosfetCloseValve(MOSFET_LOX_PRESS);
     oxComplete = true;
   }
-  if (incomingFlightReadings.PT_E1 < pressureFuel * threshold) {
+  if (incomingFlightReadings.filteredReadings.PT_E1 < pressureFuel * threshold) {
     ethComplete = false;
     mosfetOpenValve(MOSFET_ETH_PRESS);
-  } else if (incomingFlightReadings.PT_E1 >= pressureFuel) {
+    if (DEBUG) {
+      incomingFlightReadings.filteredReadings.PT_E1 += (0.001 * SIMULATION_DELAY);
+    }
+  } else if (incomingFlightReadings.filteredReadings.PT_E1 >= pressureFuel) {
     mosfetCloseValve(MOSFET_ETH_PRESS);
     ethComplete = true;
   }
@@ -305,7 +324,7 @@ void press() {
 
 // Disconnect harnessings and check state of rocket.
 void quick_disconnect() {
-  mosfetCloseValve(MOSFET_ETH_PRESS); //close press valves
+  mosfetCloseValve(MOSFET_ETH_PRESS);  //close press valves
   mosfetCloseValve(MOSFET_LOX_PRESS);
 
   // vent valves/vent the lines themselves
@@ -351,18 +370,29 @@ void abort_sequence() {
   int currtime = millis();
 
   if (!(oxVentComplete && ethVentComplete)) {
-    if (incomingFlightReadings.PT_O1 > ventTo) {  // vent only lox down to vent to pressure
+    if (incomingFlightReadings.filteredReadings.PT_O1 > ventTo) {  // vent only lox down to vent to pressure
       mosfetOpenValve(MOSFET_VENT_LOX);
+      if (DEBUG) {
+        incomingFlightReadings.filteredReadings.PT_O1 = incomingFlightReadings.filteredReadings.PT_O1 - (0.0005 * SIMULATION_DELAY);
+      }
     } else {                              // lox vented to acceptable hold pressure
       mosfetCloseValve(MOSFET_VENT_LOX);  // close lox
       oxVentComplete = true;
     }
-    if (incomingFlightReadings.PT_E1 > ventTo) {
+    if (incomingFlightReadings.filteredReadings.PT_E1 > ventTo) {
       mosfetOpenValve(MOSFET_VENT_ETH);  // vent ethanol
+      if (DEBUG) {
+        incomingFlightReadings.filteredReadings.PT_E1 = incomingFlightReadings.filteredReadings.PT_E1 - (0.0005 * SIMULATION_DELAY);
+      }
     } else {
       mosfetCloseValve(MOSFET_VENT_ETH);
       ethVentComplete = true;
     }
+  }
+
+  if (DEBUG) {
+    incomingFlightReadings.filteredReadings.PT_O1 = incomingFlightReadings.filteredReadings.PT_O1 + (0.00005 * SIMULATION_DELAY);
+    incomingFlightReadings.filteredReadings.PT_E1 = incomingFlightReadings.filteredReadings.PT_E1 + (0.00005 * SIMULATION_DELAY);
   }
 }
 
@@ -371,12 +401,24 @@ void syncDAQState() {
   DAQState = COMState;
 }
 
+int cumulativeAbortTime = 0; // How long we have been in high-pressure state
+int lastAbortCheckTime = 0; // Last time we called CheckAbort()
 void CheckAbort() {
-  if (COMState == ABORT || incomingFlightReadings.PT_O1 >= abortPressure || incomingFlightReadings.PT_E1 >= abortPressure) {
+  int deltaTime = millis() - lastAbortCheckTime;
+  if (incomingFlightReadings.filteredReadings.PT_O1 >= abortPressure || incomingFlightReadings.filteredReadings.PT_E1 >= abortPressure) {
+    cumulativeAbortTime += deltaTime;
+  }
+  else {
+    cumulativeAbortTime = max(cumulativeAbortTime - deltaTime, 0);
+  }
+  lastAbortCheckTime = millis();
+
+  if (COMState == ABORT || cumulativeAbortTime >= ABORT_ACTIVATION_DELAY) {
     mosfetCloseValve(MOSFET_ETH_PRESS);
     mosfetCloseValve(MOSFET_LOX_PRESS);
     DAQState = ABORT;
   }
+
 }
 
 void mosfetCloseAllValves() {
@@ -405,7 +447,7 @@ void sendData(uint8_t broadcastAddress[]) {
   }
 
   updateDataPacket();
-  
+
   // Send message via ESP-NOW
   esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&outgoingData, sizeof(outgoingData));
 
