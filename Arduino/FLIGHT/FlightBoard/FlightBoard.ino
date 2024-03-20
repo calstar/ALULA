@@ -4,8 +4,8 @@
 
 This code runs on the DAQ ESP32 and has a couple of main tasks.
 1. Read sensor data
-2. Send sensor data to COM ESP32
-3. Actuate hotfire sequence
+2. Send sensor data to DAQ ESP32
+3. Follow launch sequence actuation procedures
 */
 
 //::::::Libraries::::::://
@@ -16,9 +16,9 @@ This code runs on the DAQ ESP32 and has a couple of main tasks.
 #include <SPI.h>
 #include "HX711.h"
 #include "Adafruit_MAX31855.h"
-#include <EasyPCF8575.h>
 #include "RunningMedian.h"
-#include "PCF8575.h"  // https://github.com/xreef/PCF8575_library
+// #include <EasyPCF8575.h>
+// #include "PCF8575.h"  //use this one. Add zip from https://github.com/xreef/PCF8575_library
 
 // These are sender ids, this is just a convention, should be same across all scripts
 #define COM_ID 0
@@ -27,20 +27,27 @@ This code runs on the DAQ ESP32 and has a couple of main tasks.
 
 // DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE.
 // MOSFET must not trigger while in debug.
-bool DEBUG = false;   // Simulate LOX and Eth fill.
+bool DEBUG = true;   // Simulate LOX and Eth fill.
 bool WIFIDEBUG = false; // Don't send/receive data.
 // refer to https://docs.google.com/spreadsheets/d/17NrJWC0AR4Gjejme-EYuIJ5uvEJ98FuyQfYVWI3Qlio/edit#gid=1185803967 for all pinouts
 
-#define DATA_TIMEOUT 100
+// ABORT VARIABLES //
+#define abortPressure 625  // Cutoff pressure to automatically trigger abort
+#define ventTo -50   
+bool oxVentComplete = false;
+bool ethVentComplete = false;   
+#define MOSFET_VENT_LOX 25 
+#define MOSFET_VENT_ETH 24 
 
+#define DATA_TIMEOUT 100
 #define IDLE_DELAY 250
 #define GEN_DELAY 20
 
 float readDelay = 20;     // Frequency of data collection [ms]
 float sendDelay = IDLE_DELAY; // Frequency of sending data [ms]
 
-enum STATES { IDLE, ARMED, PRESS, QD, IGNITION, HOTFIRE, ABORT };
-String stateNames[] = { "Idle", "Armed", "Press", "QD", "Ignition", "HOTFIRE", "Abort" };
+enum STATES { IDLE, ARMED, PRESS, QD, IGNITION, LAUNCH, ABORT };
+String stateNames[] = { "Idle", "Armed", "Press", "QD", "Ignition", "LAUNCH", "Abort" };
 
 #define MAX_QUEUE_LENGTH 40
 
@@ -177,30 +184,28 @@ public:
 };
 
 #define HX_CLK 27
+// EXTRA PIN THAT CAN BE USED: 16 (PT6)
+struct_hx711 PT_O1{ {}, HX_CLK, 4, .offset = -115.9, .slope = 0.0110 }; 
+struct_hx711 PT_O2{ {}, HX_CLK, 5, .offset = -81.62, .slope = 0.00710 };
+struct_hx711 PT_E1{ {}, HX_CLK, 6, .offset = -130.26, .slope = 0.0108 };
+struct_hx711 PT_E2{ {}, HX_CLK, 7, .offset = -62.90, .slope = 0.00763 };
+struct_hx711 PT_C1{ {}, HX_CLK, 15, .offset = -78.422, .slope = 0.00642};
 
-struct_hx711 PT_O1{ {}, HX_CLK, 36, .offset = -115.9, .slope = 0.0110 }; //.offset = -71.93, .slope = 0.00822
-struct_hx711 PT_O2{ {}, HX_CLK, 39, .offset = -81.62, .slope = 0.00710 };
-struct_hx711 PT_E1{ {}, HX_CLK, 34, .offset = -130.26, .slope = 0.0108 };
-struct_hx711 PT_E2{ {}, HX_CLK, 35, .offset = -62.90, .slope = 0.00763 };  // Change GPIO PIN
-struct_hx711 PT_C1{ {}, HX_CLK, 32, .offset = -78.422, .slope = 0.00642};
+// LOADCELLS UNUSED IN FLIGHT
 
-// LOADCELLS
-struct_hx711 LC_1{ {}, HX_CLK, 33, .offset = 0, .slope = 1 };
-struct_hx711 LC_2{ {}, HX_CLK, 25, .offset = 0, .slope = 1 };
-struct_hx711 LC_3{ {}, HX_CLK, 26, .offset = 0, .slope = 1 };
-
-#define TC_CLK 14
-#define TC4_CLK 18
-#define TC_DO 13
-#define TC4_DO 23
+//THERMOCOUPLE DEFINITIONS//
+#define TC_CLK 20 //NEEDS CHECK
+// #define TC4_CLK 18
+#define TC_DO 21
+// #define TC4_DO 23
 
 #define SD_CLK 18
 #define SD_DO 23
 
-struct_max31855 TC_1{ Adafruit_MAX31855(TC_CLK, 17, TC_DO), 17, .offset = 0, .slope = 1 };
-struct_max31855 TC_2{ Adafruit_MAX31855(TC_CLK, 16, TC_DO), 16, .offset = 0, .slope = 1 };
-struct_max31855 TC_3{ Adafruit_MAX31855(TC_CLK, 4, TC_DO), 4, .offset = 0, .slope = 1 };
-struct_max31855 TC_4{ Adafruit_MAX31855(TC4_CLK, 15, TC4_DO), 15, .offset = 0, .slope = 1 };
+struct_max31855 TC_1{ Adafruit_MAX31855(TC_CLK, 39, TC_DO), 39, .offset = 0, .slope = 1 };
+struct_max31855 TC_2{ Adafruit_MAX31855(TC_CLK, 38, TC_DO), 38, .offset = 0, .slope = 1 };
+struct_max31855 TC_3{ Adafruit_MAX31855(TC_CLK, 35, TC_DO), 35, .offset = 0, .slope = 1 };
+struct_max31855 TC_4{ Adafruit_MAX31855(TC_CLK, 34, TC_DO), 34, .offset = 0, .slope = 1 };
 
 //::::DEFINE READOUT VARIABLES:::://
 float sendTime;
@@ -276,23 +281,23 @@ void setup() {
   Serial.begin(115200);
   while (!Serial) delay(1);  // wait for Serial on Leonardo/Zero, etc.
 
-  // HX711.
+  // MOSFET PIN SETUP
+  pinMode(MOSFET_VENT_LOX, OUTPUT);
+  pinMode(MOSFET_VENT_ETH, OUTPUT);
+
+  // HX711 Pressure Transduver Setup
+  int gain = 128;
   PT_O1.scale.begin(PT_O1.gpio, PT_O1.clk);
-  PT_O1.scale.set_gain(64);
+  PT_O1.scale.set_gain(gain);
   PT_O2.scale.begin(PT_O2.gpio, PT_O2.clk);
-  PT_O2.scale.set_gain(64);
+  PT_O2.scale.set_gain(gain);
   PT_E1.scale.begin(PT_E1.gpio, PT_E1.clk);
-  PT_E1.scale.set_gain(64);
+  PT_E1.scale.set_gain(gain);
   PT_E2.scale.begin(PT_E2.gpio, PT_E2.clk);
-  PT_E2.scale.set_gain(64);
+  PT_E2.scale.set_gain(gain);
   PT_C1.scale.begin(PT_C1.gpio, PT_C1.clk);
-  PT_C1.scale.set_gain(64);
-  LC_1.scale.begin(LC_1.gpio, LC_1.clk);
-  LC_1.scale.set_gain(64);
-  LC_2.scale.begin(LC_2.gpio, LC_2.clk);
-  LC_2.scale.set_gain(64);
-  LC_3.scale.begin(LC_3.gpio, LC_3.clk);
-  LC_3.scale.set_gain(64);
+  PT_C1.scale.set_gain(gain);
+  // LOAD CELLS UNUSED IN FLIGHT
 
   // Thermocouple.
   pinMode(TC_1.cs, OUTPUT);
@@ -340,41 +345,41 @@ void setup() {
 // Main Structure of State Machine.
 void loop() {
   if (DEBUG || DAQState == ABORT) {
-    syncDAQState();
+    syncFlightState();
   }
   switch (FlightState) {
     case (IDLE):
-      if (DAQState == ARMED) { syncDAQState(); }
+      if (DAQState == ARMED) { syncFlightState(); }
       idle();
       break;
 
     case (ARMED):
-      if (DAQState == IDLE || COMState == PRESS) { syncDAQState(); }
+      if (DAQState == IDLE || COMState == PRESS) { syncFlightState(); }
       armed();
       break;
 
     case (PRESS):
-      if (DAQState == IDLE || (COMState == QD)) { syncDAQState(); }
+      if (DAQState == IDLE || (COMState == QD)) { syncFlightState(); }
       press();
       break;
 
     case (QD):
-      if (DAQState == IDLE || COMState == IGNITION) { syncDAQState(); }
+      if (DAQState == IDLE || COMState == IGNITION) { syncFlightState(); }
       quick_disconnect();
       break;
 
     case (IGNITION):
-      if (DAQState == IDLE || COMState == HOTFIRE) { syncDAQState(); }
+      if (DAQState == IDLE || COMState == LAUNCH) { syncFlightState(); }
       ignition();
       break;
 
-    case (HOTFIRE):
-      hotfire();
+    case (LAUNCH):
+      launch();
       break;
 
     case (ABORT):
       abort_sequence();
-      if (COMState == IDLE) { syncDAQState(); }
+      if (COMState == IDLE) { syncFlightState(); }
       break;
   }
 
@@ -390,9 +395,6 @@ void reset() {
   PT_E1.resetReading();
   PT_E2.resetReading();
   PT_C1.resetReading();
-  LC_1.resetReading();
-  LC_2.resetReading();
-  LC_3.resetReading();
   TC_1.resetReading();
   TC_2.resetReading();
   TC_3.resetReading();
@@ -420,17 +422,70 @@ void ignition() {
   sendDelay = GEN_DELAY;
 }
 
-void hotfire() {
+void launch() {
   sendDelay = GEN_DELAY;
 }
 
 void abort_sequence() {
-  sendDelay = GEN_DELAY;
-  // TODO: Add abort sequence valve actuation
+  oxVentComplete = false;
+  ethVentComplete = false;
+  if (DEBUG) {
+    mosfetOpenValve(MOSFET_VENT_LOX);
+    mosfetOpenValve(MOSFET_VENT_ETH);
+  }
+  // mosfetCloseValve(MOSFET_LOX_MAIN);
+  // mosfetCloseValve(MOSFET_ETH_MAIN);
+  // mosfetCloseValve(MOSFET_IGNITER);
+  //
+  int currtime = millis();
+
+  if (!(oxVentComplete && ethVentComplete)) {
+    if (PT_O1.filteredReading > ventTo) {  // vent only lox down to vent to pressure
+      mosfetOpenValve(MOSFET_VENT_LOX);
+      if (DEBUG) {
+        PT_O1.rawReading = PT_O1.rawReading - (0.0005 * GEN_DELAY);
+      }
+    } else {                              // lox vented to acceptable hold pressure
+      mosfetCloseValve(MOSFET_VENT_LOX);  // close lox
+      oxVentComplete = true;
+    }
+    if (PT_E1.filteredReading > ventTo) {
+      mosfetOpenValve(MOSFET_VENT_ETH);  // vent ethanol
+      if (DEBUG) {
+        PT_E1.rawReading = PT_E1.rawReading - (0.0005 * GEN_DELAY);
+      }
+    } else {
+      mosfetCloseValve(MOSFET_VENT_ETH);
+      ethVentComplete = true;
+    }
+  }
+  if (DEBUG) {
+    PT_E1.rawReading = PT_E1.rawReading + (0.00005 * GEN_DELAY);
+    PT_O1.rawReading = PT_O1.rawReading + (0.00005 * GEN_DELAY);
+  }
+}
+
+void mosfetCloseAllValves() {
+digitalWrite(MOSFET_VENT_LOX, LOW);
+digitalWrite(MOSFET_VENT_ETH, LOW);
+}
+
+void mosfetCloseValve(int num) {
+digitalWrite(num, LOW);
+}
+
+void mosfetOpenValve(int num) {
+digitalWrite(num, HIGH);
+}
+
+void CheckAbort() {
+  if (COMState == ABORT || PT_O1.filteredReading >= abortPressure || PT_E1.filteredReading >= abortPressure) {
+    DAQState = ABORT;
+  }
 }
 
 // Sync state of Flight board with DAQ board
-void syncDAQState() {
+void syncFlightState() {
   FlightState = DAQState;
 }
 
@@ -445,7 +500,7 @@ void logData() {
 
 void getReadings() {
   if (DEBUG) { 
-    simulateReadings();
+    // simulateReadings();
     return;
   }
 
@@ -454,9 +509,6 @@ void getReadings() {
   PT_E1.readDataFromBoard();
   PT_E2.readDataFromBoard();
   PT_C1.readDataFromBoard();
-  LC_1.readDataFromBoard();
-  LC_2.readDataFromBoard();
-  LC_3.readDataFromBoard();
   TC_1.readDataFromBoard();
   TC_2.readDataFromBoard();
   TC_3.readDataFromBoard();
@@ -482,9 +534,6 @@ void updateDataPacket() {
   dataPacket.rawReadings.PT_E1 = PT_E1.rawReading;
   dataPacket.rawReadings.PT_E2 = PT_E2.rawReading;
   dataPacket.rawReadings.PT_C1 = PT_C1.rawReading;
-  dataPacket.rawReadings.LC_1 = LC_1.rawReading;
-  dataPacket.rawReadings.LC_2 = LC_2.rawReading;
-  dataPacket.rawReadings.LC_3 = LC_3.rawReading;
   dataPacket.rawReadings.TC_1 = TC_1.rawReading;
   dataPacket.rawReadings.TC_2 = TC_2.rawReading;
   dataPacket.rawReadings.TC_3 = TC_3.rawReading;
@@ -495,9 +544,6 @@ void updateDataPacket() {
   dataPacket.filteredReadings.PT_E1 = PT_E1.filteredReading;
   dataPacket.filteredReadings.PT_E2 = PT_E2.filteredReading;
   dataPacket.filteredReadings.PT_C1 = PT_C1.filteredReading;
-  dataPacket.filteredReadings.LC_1 = LC_1.filteredReading;
-  dataPacket.filteredReadings.LC_2 = LC_2.filteredReading;
-  dataPacket.filteredReadings.LC_3 = LC_3.filteredReading;
   dataPacket.filteredReadings.TC_1 = TC_1.filteredReading;
   dataPacket.filteredReadings.TC_2 = TC_2.filteredReading;
   dataPacket.filteredReadings.TC_3 = TC_3.filteredReading;
@@ -545,12 +591,6 @@ void printSensorReadings() {
   serialMessage.concat(PT_E2.filteredReading);
   serialMessage.concat(" ");
   serialMessage.concat(PT_C1.filteredReading);
-  serialMessage.concat(" ");
-  serialMessage.concat(LC_1.filteredReading);
-  serialMessage.concat(" ");
-  serialMessage.concat(LC_2.filteredReading);
-  serialMessage.concat(" ");
-  serialMessage.concat(LC_3.filteredReading);
   serialMessage.concat(" ");
   serialMessage.concat(TC_1.filteredReading);
   serialMessage.concat(" ");
