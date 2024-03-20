@@ -10,6 +10,7 @@ This code runs on the DAQ ESP32 and has a couple of main tasks.
 FOR DEBUGGING:
 1. Set boolean DEBUG and/or WIFIDEBUG to true
 2. Set your serial input from "New Line" to "No Line Ending"
+2.5. Set Baud Rate to 115200
 3. Run through states using serial inputs 1-6 (1 idle, ..., 6 abort)
 */
 
@@ -285,7 +286,7 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
 void setup() {
   Serial.begin(115200);
   while (!Serial) delay(1);  // wait for Serial on Leonardo/Zero, etc.
-
+  Serial.println("Finished Serial Setup");
   // MOSFET PIN SETUP
   pinMode(MOSFET_VENT_LOX, OUTPUT);
   pinMode(MOSFET_VENT_ETH, OUTPUT);
@@ -349,6 +350,8 @@ void setup() {
 
 // Main Structure of State Machine.
 void loop() {
+  logData();
+  fetchDAQState();
   if (DEBUG || DAQState == ABORT) {
     syncFlightState();
   }
@@ -359,22 +362,22 @@ void loop() {
       break;
 
     case (ARMED):
-      if (DAQState == IDLE || COMState == PRESS) { syncFlightState(); }
+      if (DAQState == IDLE || DAQState == PRESS) { syncFlightState(); }
       armed();
       break;
 
     case (PRESS):
-      if (DAQState == IDLE || (COMState == QD)) { syncFlightState(); }
+      if (DAQState == IDLE || (DAQState == QD)) { syncFlightState(); }
       press();
       break;
 
     case (QD):
-      if (DAQState == IDLE || COMState == IGNITION) { syncFlightState(); }
+      if (DAQState == IDLE || DAQState == IGNITION) { syncFlightState(); }
       quick_disconnect();
       break;
 
     case (IGNITION):
-      if (DAQState == IDLE || COMState == LAUNCH) { syncFlightState(); }
+      if (DAQState == IDLE || DAQState == LAUNCH) { syncFlightState(); }
       ignition();
       break;
 
@@ -384,11 +387,9 @@ void loop() {
 
     case (ABORT):
       abort_sequence();
-      if (COMState == IDLE) { syncFlightState(); }
+      if (DAQState == IDLE) { syncFlightState(); }
       break;
   }
-
-  logData();
 }
 
 // State Functions.
@@ -404,6 +405,22 @@ void reset() {
   TC_2.resetReading();
   TC_3.resetReading();
   TC_4.resetReading();
+}
+
+void fetchDAQState() {
+    if (Serial.available() > 0) {
+    // Serial.read reads a single character as ASCII. Number 1 is 49 in ASCII.
+    // Serial sends character and new line character "\n", which is 10 in ASCII.
+    int SERIALState = Serial.read() - 48;
+    if (SERIALState >= 0 && SERIALState <= 9) {
+      DAQState = SERIALState;
+    }
+  }
+}
+
+// Sync state of Flight board with DAQ board
+void syncFlightState() {
+  FlightState = DAQState;
 }
 
 void idle() {
@@ -487,11 +504,6 @@ void CheckAbort() {
   if (COMState == ABORT || PT_O1.filteredReading >= abortPressure || PT_E1.filteredReading >= abortPressure) {
     DAQState = ABORT;
   }
-}
-
-// Sync state of Flight board with DAQ board
-void syncFlightState() {
-  FlightState = DAQState;
 }
 
 //::::::DATA LOGGING AND COMMUNICATION::::::://
