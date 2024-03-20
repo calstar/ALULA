@@ -6,6 +6,11 @@ This code runs on the DAQ ESP32 and has a couple of main tasks.
 1. Read sensor data
 2. Send sensor data to DAQ ESP32
 3. Follow launch sequence actuation procedures
+
+FOR DEBUGGING:
+1. Set boolean DEBUG and/or WIFIDEBUG to true
+2. Set your serial input from "New Line" to "No Line Ending"
+3. Run through states using serial inputs 1-6 (1 idle, ..., 6 abort)
 */
 
 //::::::Libraries::::::://
@@ -513,6 +518,8 @@ void getReadings() {
   TC_2.readDataFromBoard();
   TC_3.readDataFromBoard();
   TC_4.readDataFromBoard();
+
+  printSensorReadings();
 }
 
 // Send data to COM board.
