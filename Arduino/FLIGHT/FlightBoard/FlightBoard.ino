@@ -9,6 +9,7 @@ This code runs on the DAQ ESP32 and has a couple of main tasks.
 
 TO RUN:
 1. Set Board to ESP32S3 Dev Module
+2. Enable USB DFU on Boot, set Upload Mode to USB-DFT
 
 FOR DEBUGGING:
 1. Set boolean DEBUG and/or WIFIDEBUG to true
