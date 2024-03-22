@@ -7,6 +7,9 @@ This code runs on the DAQ ESP32 and has a couple of main tasks.
 2. Send sensor data to DAQ ESP32
 3. Follow launch sequence actuation procedures
 
+TO RUN:
+1. Set Board to ESP32S3 Dev Module
+
 FOR DEBUGGING:
 1. Set boolean DEBUG and/or WIFIDEBUG to true
 2. Set your serial input from "New Line" to "No Line Ending"
@@ -34,7 +37,7 @@ FOR DEBUGGING:
 // DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE.
 // MOSFET must not trigger while in debug.
 bool DEBUG = true;   // Simulate LOX and Eth fill.
-bool WIFIDEBUG = false; // Don't send/receive data.
+bool WIFIDEBUG = true; // Don't send/receive data.
 // refer to https://docs.google.com/spreadsheets/d/17NrJWC0AR4Gjejme-EYuIJ5uvEJ98FuyQfYVWI3Qlio/edit#gid=1185803967 for all pinouts
 
 // ABORT VARIABLES //
@@ -287,9 +290,13 @@ void setup() {
   Serial.begin(115200);
   while (!Serial) delay(1);  // wait for Serial on Leonardo/Zero, etc.
   Serial.println("Finished Serial Setup");
+
+  Serial.println("Finished Serial Setup1");
+
   // MOSFET PIN SETUP
   pinMode(MOSFET_VENT_LOX, OUTPUT);
   pinMode(MOSFET_VENT_ETH, OUTPUT);
+  Serial.println("Finished MOSFET Setup");
 
   // HX711 Pressure Transduver Setup
   int gain = 128;
@@ -303,6 +310,7 @@ void setup() {
   PT_E2.scale.set_gain(gain);
   PT_C1.scale.begin(PT_C1.gpio, PT_C1.clk);
   PT_C1.scale.set_gain(gain);
+  Serial.println("PT finished");
   // LOAD CELLS UNUSED IN FLIGHT
 
   // Thermocouple.
@@ -310,6 +318,7 @@ void setup() {
   pinMode(TC_2.cs, OUTPUT);
   pinMode(TC_3.cs, OUTPUT);
   pinMode(TC_4.cs, OUTPUT);
+  Serial.println("Finised TC");
 
   // Broadcast setup.
   // Set device as a Wi-Fi Station
@@ -317,14 +326,17 @@ void setup() {
   // Print MAC Accress on startup for easier connections
   Serial.print("My MAC Address :");
   Serial.println(WiFi.macAddress());
+  Serial.println("Finished broadcast wifi");
 
   // Init ESP-NOW
   if (esp_now_init() != ESP_OK) {
     Serial.println("Error initializing ESP-NOW");
     return;
+    Serial.println("working on ESP");
   }
   // Register for a callback function that will be called when data is received
   esp_now_register_recv_cb(OnDataRecv);
+  Serial.println("registering esp");
 
   // Register peer
   peerInfo.channel = 0;
@@ -335,6 +347,7 @@ void setup() {
   if (esp_now_add_peer(&peerInfo) != ESP_OK) {
     Serial.println("Failed to add peer");
     return;
+    
   }
 
   memcpy(peerInfo.peer_addr, DAQBroadcastAddress, 6);
