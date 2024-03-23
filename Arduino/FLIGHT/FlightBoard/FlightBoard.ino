@@ -9,6 +9,7 @@ This code runs on the DAQ ESP32 and has a couple of main tasks.
 
 TO RUN:
 1. Set Board to ESP32S3 Dev Module
+2. Set USB-CDC ON, Flash Size 8MB
 2. hold down BOOT while uploading, til done.
 3. check pinouts 
 4. if nothing else works, plug and unplug (LITERALLY) 
@@ -303,7 +304,7 @@ void setup() {
   pinMode(MOSFET_VENT_ETH, OUTPUT);
   Serial.println("Finished MOSFET Setup");
 
-  // HX711 Pressure Transduver Setup
+  // HX711 Pressure Transducer Setup
   int gain = 128;
   PT_O1.scale.begin(PT_O1.gpio, PT_O1.clk);
   PT_O1.scale.set_gain(gain);
