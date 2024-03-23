@@ -35,14 +35,14 @@ FOR DEBUGGING:
 
 // These are sender ids, this is just a convention, should be same across all scripts
 #define COM_ID 0
-#define DAQ_ID 1debug
+#define DAQ_ID 1
 
 #define FLIGHT_ID 2
 
 // DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE.
 // MOSFET must not trigger while in debug.
-bool DEBUG = false;   // Simulate LOX and Eth fill.
-bool WIFIDEBUG = false; // Don't send/receive data.
+bool DEBUG = true;   // Simulate LOX and Eth fill.
+bool WIFIDEBUG = true; // Don't send/receive data.
 // refer to https://docs.google.com/spreadsheets/d/17NrJWC0AR4Gjejme-EYuIJ5uvEJ98FuyQfYVWI3Qlio/edit#gid=1185803967 for all pinouts
 
 // ABORT VARIABLES //
@@ -534,10 +534,10 @@ void logData() {
 }
 
 void getReadings() {
-  if (DEBUG) { 
-    // simulateReadings();
-    return;
-  }
+  //if (DEBUG) { 
+    // /simulateReadings();
+    // return;
+  //}
 
   PT_O1.readDataFromBoard();
   PT_O2.readDataFromBoard();
