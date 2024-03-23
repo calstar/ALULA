@@ -219,7 +219,7 @@ void loop(){
   // read the incoming byte:
     serialState = Serial.read()-48; //serial monitor input must be set to "No Line Ending"
   }
-  if (serialState != POWER.DAQState) {
+  if (POWER.DAQState != serialState) {
     dataSendCheck(); 
     // Serial.print("sdhgklsdhfljksf");
   }

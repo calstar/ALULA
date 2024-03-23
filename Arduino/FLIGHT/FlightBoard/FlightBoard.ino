@@ -36,13 +36,13 @@ FOR DEBUGGING:
 
 // These are sender ids, this is just a convention, should be same across all scripts
 #define COM_ID 0
-#define DAQ_ID 1debug
+#define DAQ_ID 1
 
 #define FLIGHT_ID 2
 
 // DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE.
 // MOSFET must not trigger while in debug.
-bool DEBUG = false;   // Simulate LOX and Eth fill.
+bool DEBUG = true;   // Simulate LOX and Eth fill.
 bool WIFIDEBUG = false; // Don't send/receive data.
 // refer to https://docs.google.com/spreadsheets/d/17NrJWC0AR4Gjejme-EYuIJ5uvEJ98FuyQfYVWI3Qlio/edit#gid=1185803967 for all pinouts
 
@@ -200,11 +200,11 @@ public:
 
 #define HX_CLK 17
 // EXTRA PIN THAT CAN BE USED: 16 (PT6)
-struct_hx711 PT_O1{ {}, HX_CLK, 4, .offset = -115.9, .slope = 0.0110 }; 
-struct_hx711 PT_O2{ {}, HX_CLK, 5, .offset = -81.62, .slope = 0.00710 };
-struct_hx711 PT_E1{ {}, HX_CLK, 6, .offset = -130.26, .slope = 0.0108 };
-struct_hx711 PT_E2{ {}, HX_CLK, 7, .offset = -62.90, .slope = 0.00763 };
-struct_hx711 PT_C1{ {}, HX_CLK, 15, .offset = -78.422, .slope = 0.00642};
+struct_hx711 PT_O1{ {}, HX_CLK, 4, .offset = 0, .slope = 1 }; 
+struct_hx711 PT_O2{ {}, HX_CLK, 5, .offset = 0, .slope = 1 };
+struct_hx711 PT_E1{ {}, HX_CLK, 6, .offset = 0, .slope = 1 };
+struct_hx711 PT_E2{ {}, HX_CLK, 7, .offset = 0, .slope = 1 }; 
+struct_hx711 PT_C1{ {}, HX_CLK, 15, .offset = 0, .slope = 1 }; 
 
 // LOADCELLS UNUSED IN FLIGHT
 
@@ -372,6 +372,7 @@ void loop() {
   logData();
   fetchDAQState();
   if (DEBUG || DAQState == ABORT) {
+    Serial.println("This tests 2");
     syncFlightState();
   }
   switch (FlightState) {
@@ -444,27 +445,33 @@ void syncFlightState() {
 
 void idle() {
   sendDelay = IDLE_DELAY;
+  mosfetCloseAllValves();
   reset();
 }
 
 void armed() {
   sendDelay = GEN_DELAY;
+  mosfetCloseAllValves();
 }
 
 void press() {
   sendDelay = GEN_DELAY;
+  mosfetCloseAllValves(); //might need changes for le3
 }
 
 void quick_disconnect() {
   sendDelay = GEN_DELAY;
+  mosfetCloseAllValves(); //might need changes for le3
 }
 
 void ignition() {
   sendDelay = GEN_DELAY;
+  mosfetCloseAllValves(); //might need changes for le3
 }
 
 void launch() {
-  sendDelay = GEN_DELAY;
+  sendDelay = GEN_DELAY;  
+  mosfetCloseAllValves(); //might need changes for le3
 }
 
 void abort_sequence() {
@@ -535,10 +542,10 @@ void logData() {
 }
 
 void getReadings() {
-  if (DEBUG) { 
-    // simulateReadings();
-    return;
-  }
+  // if (DEBUG) { 
+  //   simulateReadings();
+  //   return;
+  // }
 
   PT_O1.readDataFromBoard();
   PT_O2.readDataFromBoard();

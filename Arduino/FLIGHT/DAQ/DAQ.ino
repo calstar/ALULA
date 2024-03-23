@@ -55,12 +55,12 @@ float ventTo = 5;          // c2se solenoids at this pressure to preserve lifeti
 #define MOSFET_ETH_PRESS 6   //P06
 #define MOSFET_VENT_ETH 5    //P05
 #define MOSFET_EXTRA 4       //CAN USE THIS PIN FOR ANYTHING JUST CHANGE ASSIGNMENT AND HARNESS
-#define MOSFET_QD_LOX 3      //P03
+#define MOSFET_QD_MUSCLE 3      //P03
 #define MOSFET_IGNITER 8     //P10
 #define MOSFET_LOX_MAIN 9    //P11
 #define MOSFET_LOX_PRESS 10  //P12
 #define MOSFET_VENT_LOX 11   //P13
-#define MOSFET_QD_ETH 12     //P14
+// #define MOSFET_QD_ETH 12     //P14 UNUSED IF A SINGLE QD CAN BE ACTUATED
 
 
 // Initialize mosfets' io expander.
@@ -92,6 +92,7 @@ int hotfireStart;
 
 #define SEND_DELAY 20
 float sendTime = 0;
+bool flight_toggle = false;
 
 // Structure example to send data.
 // Must match the receiver structure.
@@ -134,7 +135,7 @@ struct_message outgoingData;
 
 // Create a struct_message to hold incoming data
 struct_message incomingCOMReadings;
-struct_message incomingFlightReadings;
+struct_message FLIGHT;
 
 uint8_t COMBroadcastAddress[] = { 0xEC, 0x64, 0xC9, 0x86, 0x1E, 0x4C };
 uint8_t FlightBroadcastAddress[] = { 0xEC, 0x64, 0xC9, 0x86, 0x1E, 0x4C };
@@ -148,9 +149,10 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
     incomingCOMReadings = Packet;
     COMState = Packet.COMState;
   } else if (Packet.sender == FLIGHT_ID) {
-    incomingFlightReadings = Packet;
-    FlightState = Packet.FlightState;
+    FLIGHT = Packet;
+    FlightState = FLIGHT.FlightState;
     Serial.println(FlightState);
+    flight_toggle = true; //set flag up to send data to COM
   }
 }
 
@@ -212,14 +214,26 @@ void setup() {
 }
 
 
-//::::::STATE MACHINE::::::://
-
-// Main Structure of State Machine.
 void loop() {
-  if (DEBUG || COMState == ABORT) {
+  
+    if (DEBUG || COMState == ABORT) { //check abort
     syncDAQState();
   }
-  switch (DAQState) {
+
+  if (flight_toggle == true) {  // if flight data received, relay to COM
+    sendTime = millis();
+    sendData(COMBroadcastAddress);
+    flight_toggle = false; //reset toggle
+  }
+
+  if (serialState != FLIGHT.DAQState) { //if state discrepancy, send commands to flight
+    delay(5); //delay so voltage can recover; should change to something better
+    SendData(FlightBroadcastAddress[]); 
+    // Serial.print("sdhgklsdhfljksf");
+  }
+
+  ///////////// STATE MACHINE ///////////
+  switch (DAQState) { //CHANGE STATES BASED ON DATA RECEIVED(ondatarecv) FROM COM
     case (IDLE):
       if (COMState == ARMED) { syncDAQState(); }
       idle();
@@ -264,15 +278,6 @@ void loop() {
       if (COMState == IDLE && oxVentComplete && ethVentComplete) { syncDAQState(); }
       break;
   }
-  // Send data back to DAQ Sense
-  if (millis() - sendTime > SEND_DELAY) {
-    sendTime = millis();
-    sendData(COMBroadcastAddress);
-    delay(10);
-    if (DAQState != FlightState) {
-      sendData(FlightBroadcastAddress);
-    }
-  }
 }
 
 // State Functions.
@@ -293,29 +298,27 @@ void idle() {
 // Oxygen and fuel should not flow yet.
 // This function is the same as idle?
 void armed() {
-  // mosfetCloseValve(MOSFET_LOX_PRESS);
-  // mosfetCloseValve(MOSFET_ETH_PRESS);
   mosfetCloseAllValves();
 }
 
 void press() {
-  if (incomingFlightReadings.filteredReadings.PT_O1 < pressureOx * threshold) {
+  if (FLIGHT.filteredReadings.PT_O1 < pressureOx * threshold) {
     oxComplete = false;
     mosfetOpenValve(MOSFET_LOX_PRESS);
     if (DEBUG) {
-      incomingFlightReadings.filteredReadings.PT_O1 += (0.00075 * SIMULATION_DELAY);
+      FLIGHT.filteredReadings.PT_O1 += (0.00075 * SIMULATION_DELAY);
     }
-  } else if (incomingFlightReadings.filteredReadings.PT_O1 >= pressureOx) {
+  } else if (FLIGHT.filteredReadings.PT_O1 >= pressureOx) {
     mosfetCloseValve(MOSFET_LOX_PRESS);
     oxComplete = true;
   }
-  if (incomingFlightReadings.filteredReadings.PT_E1 < pressureFuel * threshold) {
+  if (FLIGHT.filteredReadings.PT_E1 < pressureFuel * threshold) {
     ethComplete = false;
     mosfetOpenValve(MOSFET_ETH_PRESS);
     if (DEBUG) {
-      incomingFlightReadings.filteredReadings.PT_E1 += (0.001 * SIMULATION_DELAY);
+      FLIGHT.filteredReadings.PT_E1 += (0.001 * SIMULATION_DELAY);
     }
-  } else if (incomingFlightReadings.filteredReadings.PT_E1 >= pressureFuel) {
+  } else if (FLIGHT.filteredReadings.PT_E1 >= pressureFuel) {
     mosfetCloseValve(MOSFET_ETH_PRESS);
     ethComplete = true;
   }
@@ -326,7 +329,7 @@ void press() {
 void quick_disconnect() {
   mosfetCloseValve(MOSFET_ETH_PRESS);  //close press valves
   mosfetCloseValve(MOSFET_LOX_PRESS);
-
+  mosfetOpenValve(QD_MUSCLE);
   // vent valves/vent the lines themselves
   // vent the pressure solenoid for 1 full second
   //if millis() >= (QDStart+1000){
@@ -342,12 +345,7 @@ void ignition() {
 void hotfire() {
   mosfetCloseValve(MOSFET_IGNITER);
   mosfetOpenValve(MOSFET_ETH_MAIN);
-  //
-  //  if (millis() >= hotfireStart+3000) {
-  //    mosfetCloseValve(MOSFET_LOX_MAIN);
-  //  } else {
-
-  if (millis() >= hotfireStart + 5) {
+  if (millis() >= hotfireStart + 5) { //delay lox command by 5ms to bring propellant injection closer together. Still, lox leads into chamber
     mosfetOpenValve(MOSFET_LOX_MAIN);
     // Serial.print(hotfireStart);
   }
@@ -370,19 +368,19 @@ void abort_sequence() {
   int currtime = millis();
 
   if (!(oxVentComplete && ethVentComplete)) {
-    if (incomingFlightReadings.filteredReadings.PT_O1 > ventTo) {  // vent only lox down to vent to pressure
+    if (FLIGHT.filteredReadings.PT_O1 > ventTo) {  // vent only lox down to vent to pressure
       mosfetOpenValve(MOSFET_VENT_LOX);
       if (DEBUG) {
-        incomingFlightReadings.filteredReadings.PT_O1 = incomingFlightReadings.filteredReadings.PT_O1 - (0.0005 * SIMULATION_DELAY);
+        FLIGHT.filteredReadings.PT_O1 = FLIGHT.filteredReadings.PT_O1 - (0.0005 * SIMULATION_DELAY);
       }
     } else {                              // lox vented to acceptable hold pressure
       mosfetCloseValve(MOSFET_VENT_LOX);  // close lox
       oxVentComplete = true;
     }
-    if (incomingFlightReadings.filteredReadings.PT_E1 > ventTo) {
+    if (FLIGHT.filteredReadings.PT_E1 > ventTo) {
       mosfetOpenValve(MOSFET_VENT_ETH);  // vent ethanol
       if (DEBUG) {
-        incomingFlightReadings.filteredReadings.PT_E1 = incomingFlightReadings.filteredReadings.PT_E1 - (0.0005 * SIMULATION_DELAY);
+        FLIGHT.filteredReadings.PT_E1 = FLIGHT.filteredReadings.PT_E1 - (0.0005 * SIMULATION_DELAY);
       }
     } else {
       mosfetCloseValve(MOSFET_VENT_ETH);
@@ -391,8 +389,8 @@ void abort_sequence() {
   }
 
   if (DEBUG) {
-    incomingFlightReadings.filteredReadings.PT_O1 = incomingFlightReadings.filteredReadings.PT_O1 + (0.00005 * SIMULATION_DELAY);
-    incomingFlightReadings.filteredReadings.PT_E1 = incomingFlightReadings.filteredReadings.PT_E1 + (0.00005 * SIMULATION_DELAY);
+    FLIGHT.filteredReadings.PT_O1 = FLIGHT.filteredReadings.PT_O1 + (0.00005 * SIMULATION_DELAY);
+    FLIGHT.filteredReadings.PT_E1 = FLIGHT.filteredReadings.PT_E1 + (0.00005 * SIMULATION_DELAY);
   }
 }
 
@@ -405,7 +403,7 @@ int cumulativeAbortTime = 0; // How long we have been in high-pressure state
 int lastAbortCheckTime = 0; // Last time we called CheckAbort()
 void CheckAbort() {
   int deltaTime = millis() - lastAbortCheckTime;
-  if (incomingFlightReadings.filteredReadings.PT_O1 >= abortPressure || incomingFlightReadings.filteredReadings.PT_E1 >= abortPressure) {
+  if (FLIGHT.filteredReadings.PT_O1 >= abortPressure || FLIGHT.filteredReadings.PT_E1 >= abortPressure) {
     cumulativeAbortTime += deltaTime;
   }
   else {
@@ -441,24 +439,26 @@ void mosfetOpenValve(int num) {
   }
 }
 
+
+//////////////////// COMMUNICATION /////////////////////////////
+
 void sendData(uint8_t broadcastAddress[]) {
   if (WIFIDEBUG) {
     return;
   }
-
   updateDataPacket();
-
   // Send message via ESP-NOW
   esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&outgoingData, sizeof(outgoingData));
-
   if (result != ESP_OK) {
     Serial.println("Error sending the data");
   }
 }
 
+
 void updateDataPacket() {
   outgoingData.messageTime = millis();
   outgoingData.sender = DAQ_ID;
+  outgoingData.COMState = COMState;
   outgoingData.DAQState = DAQState;
   outgoingData.ethComplete = ethComplete;
   outgoingData.oxComplete = oxComplete;
