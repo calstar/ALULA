@@ -9,6 +9,10 @@ This code runs on the DAQ ESP32 and has a couple of main tasks.
 
 TO RUN:
 1. Set Board to ESP32S3 Dev Module
+2. hold down BOOT while uploading, til done.
+3. check pinouts 
+4. if nothing else works, plug and unplug (LITERALLY) 
+5. check if the USB is working
 
 FOR DEBUGGING:
 1. Set boolean DEBUG and/or WIFIDEBUG to true
@@ -31,13 +35,14 @@ FOR DEBUGGING:
 
 // These are sender ids, this is just a convention, should be same across all scripts
 #define COM_ID 0
-#define DAQ_ID 1
+#define DAQ_ID 1debug
+
 #define FLIGHT_ID 2
 
 // DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE.
 // MOSFET must not trigger while in debug.
-bool DEBUG = true;   // Simulate LOX and Eth fill.
-bool WIFIDEBUG = true; // Don't send/receive data.
+bool DEBUG = false;   // Simulate LOX and Eth fill.
+bool WIFIDEBUG = false; // Don't send/receive data.
 // refer to https://docs.google.com/spreadsheets/d/17NrJWC0AR4Gjejme-EYuIJ5uvEJ98FuyQfYVWI3Qlio/edit#gid=1185803967 for all pinouts
 
 // ABORT VARIABLES //
@@ -45,8 +50,8 @@ bool WIFIDEBUG = true; // Don't send/receive data.
 #define ventTo -50   
 bool oxVentComplete = false;
 bool ethVentComplete = false;   
-#define MOSFET_VENT_LOX 25 
-#define MOSFET_VENT_ETH 24 
+#define MOSFET_VENT_LOX 48
+#define MOSFET_VENT_ETH 47
 
 #define DATA_TIMEOUT 100
 #define IDLE_DELAY 250
@@ -192,7 +197,7 @@ public:
   }
 };
 
-#define HX_CLK 27
+#define HX_CLK 17
 // EXTRA PIN THAT CAN BE USED: 16 (PT6)
 struct_hx711 PT_O1{ {}, HX_CLK, 4, .offset = -115.9, .slope = 0.0110 }; 
 struct_hx711 PT_O2{ {}, HX_CLK, 5, .offset = -81.62, .slope = 0.00710 };
@@ -203,13 +208,13 @@ struct_hx711 PT_C1{ {}, HX_CLK, 15, .offset = -78.422, .slope = 0.00642};
 // LOADCELLS UNUSED IN FLIGHT
 
 //THERMOCOUPLE DEFINITIONS//
-#define TC_CLK 20 //NEEDS CHECK
+#define TC_CLK 12//NEEDS CHECK
 // #define TC4_CLK 18
-#define TC_DO 21
+#define TC_DO 13
 // #define TC4_DO 23
 
-#define SD_CLK 18
-#define SD_DO 23
+#define SD_CLK 12
+#define SD_DO 13
 
 struct_max31855 TC_1{ Adafruit_MAX31855(TC_CLK, 39, TC_DO), 39, .offset = 0, .slope = 1 };
 struct_max31855 TC_2{ Adafruit_MAX31855(TC_CLK, 38, TC_DO), 38, .offset = 0, .slope = 1 };
