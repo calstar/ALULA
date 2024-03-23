@@ -217,10 +217,10 @@ struct_hx711 PT_C1{ {}, HX_CLK, 15, .offset = 0, .slope = 1 };
 #define SD_CLK 12
 #define SD_DO 13
 
-struct_max31855 TC_1{ Adafruit_MAX31855(TC_CLK, 39, TC_DO), 39, .offset = 0, .slope = 1 };
-struct_max31855 TC_2{ Adafruit_MAX31855(TC_CLK, 38, TC_DO), 38, .offset = 0, .slope = 1 };
-struct_max31855 TC_3{ Adafruit_MAX31855(TC_CLK, 35, TC_DO), 35, .offset = 0, .slope = 1 };
-struct_max31855 TC_4{ Adafruit_MAX31855(TC_CLK, 34, TC_DO), 34, .offset = 0, .slope = 1 };
+struct_max31855 TC_1{ Adafruit_MAX31855(TC_CLK, 39, TC_DO), 39, .offset = 0, .slope = .01 };
+struct_max31855 TC_2{ Adafruit_MAX31855(TC_CLK, 38, TC_DO), 38, .offset = 0, .slope = .01 };
+struct_max31855 TC_3{ Adafruit_MAX31855(TC_CLK, 35, TC_DO), 35, .offset = 0, .slope = .01 };
+struct_max31855 TC_4{ Adafruit_MAX31855(TC_CLK, 34, TC_DO), 34, .offset = 0, .slope = .01 };
 
 //::::DEFINE READOUT VARIABLES:::://
 float sendTime;
