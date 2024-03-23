@@ -43,7 +43,7 @@ FOR DEBUGGING:
 // DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE.
 // MOSFET must not trigger while in debug.
 bool DEBUG = true;   // Simulate LOX and Eth fill.
-bool WIFIDEBUG = false; // Don't send/receive data.
+bool WIFIDEBUG = true; // Don't send/receive data.
 // refer to https://docs.google.com/spreadsheets/d/17NrJWC0AR4Gjejme-EYuIJ5uvEJ98FuyQfYVWI3Qlio/edit#gid=1185803967 for all pinouts
 
 // ABORT VARIABLES //
@@ -542,10 +542,10 @@ void logData() {
 }
 
 void getReadings() {
-  // if (DEBUG) { 
-  //   simulateReadings();
-  //   return;
-  // }
+  //if (DEBUG) { 
+    // /simulateReadings();
+    // return;
+  //}
 
   PT_O1.readDataFromBoard();
   PT_O2.readDataFromBoard();
