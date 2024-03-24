@@ -9,7 +9,7 @@ This code runs on the DAQ ESP32 and has a couple of main tasks.
 
 TO RUN:
 1. Set Board to ESP32S3 Dev Module
-2. Set USB-CDC ON, Flash Size 8MB
+2. Set USB-CDC ON, Flash Size 4MB
 2. hold down BOOT while uploading, til done.
 3. check pinouts 
 4. if nothing else works, plug and unplug (LITERALLY) 
@@ -42,7 +42,7 @@ FOR DEBUGGING:
 
 // DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE.
 // MOSFET must not trigger while in debug.
-bool DEBUG = true;   // Simulate LOX and Eth fill.
+bool DEBUG = false;   // Simulate LOX and Eth fill.
 bool WIFIDEBUG = true; // Don't send/receive data.
 // refer to https://docs.google.com/spreadsheets/d/17NrJWC0AR4Gjejme-EYuIJ5uvEJ98FuyQfYVWI3Qlio/edit#gid=1185803967 for all pinouts
 
@@ -58,7 +58,7 @@ bool ethVentComplete = false;
 #define IDLE_DELAY 250
 #define GEN_DELAY 20
 
-float readDelay = 20;     // Frequency of data collection [ms]
+float readDelay = 150;     // Frequency of data collection [ms]
 float sendDelay = IDLE_DELAY; // Frequency of sending data [ms]
 
 enum STATES { IDLE, ARMED, PRESS, QD, IGNITION, LAUNCH, ABORT };
@@ -102,7 +102,7 @@ public:
 
 struct MovingMedianFilter {
 private:
-  const unsigned BUFFER_SIZE = 5;
+  const unsigned BUFFER_SIZE = 25;
   RunningMedian medianFilter;
 
 public:
@@ -217,13 +217,14 @@ struct_hx711 PT_C1{ {}, HX_CLK, 15, .offset = 0, .slope = 1 };
 #define SD_CLK 12
 #define SD_DO 13
 
-struct_max31855 TC_1{ Adafruit_MAX31855(TC_CLK, 39, TC_DO), 39, .offset = 0, .slope = .01 };
-struct_max31855 TC_2{ Adafruit_MAX31855(TC_CLK, 38, TC_DO), 38, .offset = 0, .slope = .01 };
-struct_max31855 TC_3{ Adafruit_MAX31855(TC_CLK, 35, TC_DO), 35, .offset = 0, .slope = .01 };
-struct_max31855 TC_4{ Adafruit_MAX31855(TC_CLK, 34, TC_DO), 34, .offset = 0, .slope = .01 };
+struct_max31855 TC_1{ Adafruit_MAX31855(TC_CLK, 39, TC_DO), 39, .offset = 0, .slope = 1 };
+struct_max31855 TC_2{ Adafruit_MAX31855(TC_CLK, 38, TC_DO), 38, .offset = 0, .slope = 1 };
+struct_max31855 TC_3{ Adafruit_MAX31855(TC_CLK, 35, TC_DO), 35, .offset = 0, .slope = 1 };
+struct_max31855 TC_4{ Adafruit_MAX31855(TC_CLK, 34, TC_DO), 34, .offset = 0, .slope = 1 };
 
 //::::DEFINE READOUT VARIABLES:::://
 float sendTime;
+float readTime;
 
 int COMState = IDLE;
 int DAQState = IDLE;
@@ -305,7 +306,7 @@ void setup() {
   Serial.println("Finished MOSFET Setup");
 
   // HX711 Pressure Transducer Setup
-  int gain = 128;
+  int gain = 32;
   PT_O1.scale.begin(PT_O1.gpio, PT_O1.clk);
   PT_O1.scale.set_gain(gain);
   PT_O2.scale.begin(PT_O2.gpio, PT_O2.clk);
@@ -363,6 +364,7 @@ void setup() {
   }
 
   sendTime = millis();
+  readTime = millis();
 }
 
 //::::::STATE MACHINE::::::://
@@ -372,7 +374,6 @@ void loop() {
   logData();
   fetchDAQState();
   if (DEBUG || DAQState == ABORT) {
-    Serial.println("This tests 2");
     syncFlightState();
   }
   switch (FlightState) {
@@ -542,22 +543,20 @@ void logData() {
 }
 
 void getReadings() {
-  //if (DEBUG) { 
-    // /simulateReadings();
-    // return;
-  //}
+  if (millis() - readTime > readDelay) {
+    readTime = millis();
+    PT_O1.readDataFromBoard();
+    PT_O2.readDataFromBoard();
+    PT_E1.readDataFromBoard();
+    PT_E2.readDataFromBoard();
+    PT_C1.readDataFromBoard();
+    TC_1.readDataFromBoard();
+    TC_2.readDataFromBoard();
+    TC_3.readDataFromBoard();
+    TC_4.readDataFromBoard();
 
-  PT_O1.readDataFromBoard();
-  PT_O2.readDataFromBoard();
-  PT_E1.readDataFromBoard();
-  PT_E2.readDataFromBoard();
-  PT_C1.readDataFromBoard();
-  TC_1.readDataFromBoard();
-  TC_2.readDataFromBoard();
-  TC_3.readDataFromBoard();
-  TC_4.readDataFromBoard();
-
-  printSensorReadings();
+    printSensorReadings();
+  }
 }
 
 // Send data to COM board.
@@ -627,9 +626,9 @@ void printSensorReadings() {
   String serialMessage = " ";
   serialMessage.concat(millis());
   serialMessage.concat(" ");
-  serialMessage.concat(PT_O1.filteredReading);
+  serialMessage.concat(PT_O1.rawReading);
   serialMessage.concat(" ");
-  serialMessage.concat(PT_O2.filteredReading);
+  serialMessage.concat(PT_O2.rawReading);
   serialMessage.concat(" ");
   serialMessage.concat(PT_E1.filteredReading);
   serialMessage.concat(" ");
@@ -644,10 +643,10 @@ void printSensorReadings() {
   serialMessage.concat(TC_3.filteredReading);
   serialMessage.concat(" ");
   serialMessage.concat(TC_4.filteredReading);
-  serialMessage.concat("\nEth comp: ");
-  serialMessage.concat(incomingDAQData.ethComplete ? "True" : "False");
-  serialMessage.concat(" Ox comp: ");
-  serialMessage.concat(incomingDAQData.oxComplete  ? "True" : "False");
+  // serialMessage.concat("\nEth comp: ");
+  // serialMessage.concat(incomingDAQData.ethComplete ? "True" : "False");
+  // serialMessage.concat(" Ox comp: ");
+  // serialMessage.concat(incomingDAQData.oxComplete  ? "True" : "False");
   serialMessage.concat("\n COM State: ");
   serialMessage.concat(stateNames[COMState]);
   serialMessage.concat("   Flight State: ");
