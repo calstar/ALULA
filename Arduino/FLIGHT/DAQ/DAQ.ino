@@ -226,9 +226,9 @@ void loop() {
     flight_toggle = false; //reset toggle
   }
 
-  if (serialState != FLIGHT.DAQState) { //if state discrepancy, send commands to flight
+  if (DAQState != FLIGHT.DAQState) { //if state discrepancy, send commands to flight
     delay(5); //delay so voltage can recover; should change to something better
-    SendData(FlightBroadcastAddress[]); 
+    sendData(FlightBroadcastAddress); 
     // Serial.print("sdhgklsdhfljksf");
   }
 
@@ -322,20 +322,20 @@ void press() {
     mosfetCloseValve(MOSFET_ETH_PRESS);
     ethComplete = true;
   }
-  CheckAbort();
+  checkAbort();
 }
 
 // Disconnect harnessings and check state of rocket.
 void quick_disconnect() {
   mosfetCloseValve(MOSFET_ETH_PRESS);  //close press valves
   mosfetCloseValve(MOSFET_LOX_PRESS);
-  mosfetOpenValve(QD_MUSCLE);
+  mosfetOpenValve(MOSFET_QD_MUSCLE);
   // vent valves/vent the lines themselves
   // vent the pressure solenoid for 1 full second
   //if millis() >= (QDStart+1000){
   // then, disconnect the lines from the rocket itself
   // }
-  CheckAbort();
+  checkAbort();
 }
 
 void ignition() {
@@ -352,12 +352,8 @@ void hotfire() {
 }
 
 void abort_sequence() {
-  oxVentComplete = false;
-  ethVentComplete = false;
-  if (!DEBUG) {
-    mosfetOpenValve(MOSFET_VENT_LOX);
-    mosfetOpenValve(MOSFET_VENT_ETH);
-  }
+  mosfetOpenValve(MOSFET_VENT_LOX);
+  mosfetOpenValve(MOSFET_VENT_ETH);
   // Waits for LOX pressure to decrease before venting Eth through pyro
   mosfetCloseValve(MOSFET_LOX_PRESS);
   mosfetCloseValve(MOSFET_ETH_PRESS);
@@ -367,30 +363,23 @@ void abort_sequence() {
 
   int currtime = millis();
 
-  if (!(oxVentComplete && ethVentComplete)) {
-    if (FLIGHT.filteredReadings.PT_O1 > ventTo) {  // vent only lox down to vent to pressure
-      mosfetOpenValve(MOSFET_VENT_LOX);
-      if (DEBUG) {
-        FLIGHT.filteredReadings.PT_O1 = FLIGHT.filteredReadings.PT_O1 - (0.0005 * SIMULATION_DELAY);
-      }
-    } else {                              // lox vented to acceptable hold pressure
-      mosfetCloseValve(MOSFET_VENT_LOX);  // close lox
-      oxVentComplete = true;
+  if (FLIGHT.filteredReadings.PT_O1 > ventTo) {  // vent only lox down to vent to pressure
+    mosfetOpenValve(MOSFET_VENT_LOX);
+    if (DEBUG) {
+      FLIGHT.filteredReadings.PT_O1 = FLIGHT.filteredReadings.PT_O1 - (0.0005 * SIMULATION_DELAY);
     }
-    if (FLIGHT.filteredReadings.PT_E1 > ventTo) {
-      mosfetOpenValve(MOSFET_VENT_ETH);  // vent ethanol
-      if (DEBUG) {
-        FLIGHT.filteredReadings.PT_E1 = FLIGHT.filteredReadings.PT_E1 - (0.0005 * SIMULATION_DELAY);
-      }
-    } else {
-      mosfetCloseValve(MOSFET_VENT_ETH);
-      ethVentComplete = true;
-    }
+  } else {                              // lox vented to acceptable hold pressure
+    mosfetCloseValve(MOSFET_VENT_LOX);  // close lox
+    oxVentComplete = true;
   }
-
-  if (DEBUG) {
-    FLIGHT.filteredReadings.PT_O1 = FLIGHT.filteredReadings.PT_O1 + (0.00005 * SIMULATION_DELAY);
-    FLIGHT.filteredReadings.PT_E1 = FLIGHT.filteredReadings.PT_E1 + (0.00005 * SIMULATION_DELAY);
+  if (FLIGHT.filteredReadings.PT_E1 > ventTo) {
+    mosfetOpenValve(MOSFET_VENT_ETH);  // vent ethanol
+    if (DEBUG) {
+      FLIGHT.filteredReadings.PT_E1 = FLIGHT.filteredReadings.PT_E1 - (0.0005 * SIMULATION_DELAY);
+    }
+  } else {
+    mosfetCloseValve(MOSFET_VENT_ETH);
+    ethVentComplete = true;
   }
 }
 
@@ -400,8 +389,8 @@ void syncDAQState() {
 }
 
 int cumulativeAbortTime = 0; // How long we have been in high-pressure state
-int lastAbortCheckTime = 0; // Last time we called CheckAbort()
-void CheckAbort() {
+int lastAbortCheckTime = 0; // Last time we called checkAbort()
+void checkAbort() {
   int deltaTime = millis() - lastAbortCheckTime;
   if (FLIGHT.filteredReadings.PT_O1 >= abortPressure || FLIGHT.filteredReadings.PT_E1 >= abortPressure) {
     cumulativeAbortTime += deltaTime;
