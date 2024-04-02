@@ -43,7 +43,7 @@ FOR DEBUGGING:
 // DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE.
 // MOSFET must not trigger while in debug.
 bool DEBUG = false;   // Simulate LOX and Eth fill.
-bool WIFIDEBUG = true; // Don't send/receive data.
+bool WIFIDEBUG = false; // Don't send/receive data.
 // refer to https://docs.google.com/spreadsheets/d/17NrJWC0AR4Gjejme-EYuIJ5uvEJ98FuyQfYVWI3Qlio/edit#gid=1185803967 for all pinouts
 
 // ABORT VARIABLES //
@@ -287,9 +287,6 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
   // Update states
   COMState = incomingDAQData.COMState;
   DAQState = incomingDAQData.DAQState;
-  FlightState = incomingDAQData.FlightState;
-
-  Serial.println(DAQState);
 }
 
 // Initialize all sensors and parameters.
@@ -297,8 +294,6 @@ void setup() {
   Serial.begin(115200);
   while (!Serial) delay(1);  // wait for Serial on Leonardo/Zero, etc.
   Serial.println("Finished Serial Setup");
-
-  Serial.println("Finished Serial Setup1");
 
   // MOSFET PIN SETUP
   pinMode(MOSFET_VENT_LOX, OUTPUT);
