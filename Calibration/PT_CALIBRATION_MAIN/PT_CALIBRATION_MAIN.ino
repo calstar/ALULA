@@ -16,22 +16,22 @@ This code runs on the DAQ ESP32 and has a couple of main functions.
 
 //define pins to use for the various sensors and connections. define takes up less space on the chip
 #define ONBOARD_LED  13
-#define PTDOUT1 36 //PT-O1
-#define CLKPT1 27 
-#define PTDOUT2 39 //PT-O2
-#define CLKPT2 27 
-#define PTDOUT3 34 //PT-E1
-#define CLKPT3 27
-#define PTDOUT4 35 //PT-E2
-#define CLKPT4 27
-#define PTDOUT5 32 //PT-C1
-#define CLKPT5 27
-#define PTDOUT6 33 //LC1
-#define CLKPT6 27
-#define PTDOUT7 25
-#define CLKPT7 27
-#define PTDOUT8 26
-#define CLKPT8 27
+#define PTDOUT1 4 //PT-O1
+#define CLKPT1 17 
+#define PTDOUT2 5 //PT-O2
+#define CLKPT2 17 
+#define PTDOUT3 6 //PT-E1
+#define CLKPT3 17
+#define PTDOUT4 7 //PT-E2
+#define CLKPT4 17
+#define PTDOUT5 15 //PT-C1
+#define CLKPT5 17
+#define PTDOUT6 16 //LC1
+#define CLKPT6 17
+// #define PTDOUT7 25
+// #define CLKPT7 27
+// #define PTDOUT8 26
+// #define CLKPT8 27
 
 
 
@@ -72,37 +72,37 @@ void setup() {
  
 //set gains for pt pins
   scale1.begin(PTDOUT1, CLKPT1); //LOX tank
-  scale1.set_gain(128);
+  scale1.set_gain(64);
      //Sets the pin as an input
 
 // set gains for pt pins
   scale2.begin(PTDOUT2, CLKPT2);
-  scale2.set_gain(128);
+  scale2.set_gain(64);
 
   //set gains for pt pins
   scale3.begin(PTDOUT3, CLKPT3); //ethanol tank
-  scale3.set_gain(128);
+  scale3.set_gain(64);
 
   //set gains for pt pins
   scale4.begin(PTDOUT4, CLKPT4); //ethanol injector
-  scale4.set_gain(128);
+  scale4.set_gain(64);
 
   //set gains for pt pins
   scale5.begin(PTDOUT5, CLKPT5); //chamber
-  scale5.set_gain(128);
+  scale5.set_gain(64);
 
 
   //set gains for pt pins
   scale6.begin(PTDOUT6, CLKPT6); //chamber
-  scale6.set_gain(128);
+  scale6.set_gain(64);
 
-  //set gains for pt pins
-  scale7.begin(PTDOUT7, CLKPT7); //chamber
-  scale7.set_gain(128);
+  // //set gains for pt pins
+  // scale7.begin(PTDOUT7, CLKPT7); //chamber
+  // scale7.set_gain(128);
 
-  //set gains for pt pins
-  scale8.begin(PTDOUT8, CLKPT8); //chamber
-  scale8.set_gain(128);
+  // //set gains for pt pins
+  // scale8.begin(PTDOUT8, CLKPT8); //chamber
+  // scale8.set_gain(128);
   Serial.begin(115200);
 }
 

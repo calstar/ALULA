@@ -200,8 +200,8 @@ public:
 
 #define HX_CLK 17
 // EXTRA PIN THAT CAN BE USED: 16 (PT6)
-struct_hx711 PT_O1{ {}, HX_CLK, 4, .offset = 0, .slope = 1 }; 
-struct_hx711 PT_O2{ {}, HX_CLK, 5, .offset = 0, .slope = 1 };
+struct_hx711 PT_O1{ {}, HX_CLK, 4, .offset = 0, .slope = 0.1 }; 
+struct_hx711 PT_O2{ {}, HX_CLK, 5, .offset = 0, .slope = 0.1 };
 struct_hx711 PT_E1{ {}, HX_CLK, 6, .offset = 0, .slope = 1 };
 struct_hx711 PT_E2{ {}, HX_CLK, 7, .offset = 0, .slope = 1 }; 
 struct_hx711 PT_C1{ {}, HX_CLK, 15, .offset = 0, .slope = 1 }; 
@@ -301,17 +301,17 @@ void setup() {
   Serial.println("Finished MOSFET Setup");
 
   // HX711 Pressure Transducer Setup
-  // int gain = 32;
-  // PT_O1.scale.begin(PT_O1.gpio, PT_O1.clk);
-  // PT_O1.scale.set_gain(gain);
-  // PT_O2.scale.begin(PT_O2.gpio, PT_O2.clk);
-  // PT_O2.scale.set_gain(gain);
-  // PT_E1.scale.begin(PT_E1.gpio, PT_E1.clk);
-  // PT_E1.scale.set_gain(gain);
-  // PT_E2.scale.begin(PT_E2.gpio, PT_E2.clk);
-  // PT_E2.scale.set_gain(gain);
-  // PT_C1.scale.begin(PT_C1.gpio, PT_C1.clk);
-  // PT_C1.scale.set_gain(gain);
+  int gain = 128;
+  PT_O1.scale.begin(PT_O1.gpio, PT_O1.clk);
+  PT_O1.scale.set_gain(gain);
+  PT_O2.scale.begin(PT_O2.gpio, PT_O2.clk);
+  PT_O2.scale.set_gain(gain);
+  PT_E1.scale.begin(PT_E1.gpio, PT_E1.clk);
+  PT_E1.scale.set_gain(gain);
+  PT_E2.scale.begin(PT_E2.gpio, PT_E2.clk);
+  PT_E2.scale.set_gain(gain);
+  PT_C1.scale.begin(PT_C1.gpio, PT_C1.clk);
+  PT_C1.scale.set_gain(gain);
   Serial.println("PT finished");
   // LOAD CELLS UNUSED IN FLIGHT
 
