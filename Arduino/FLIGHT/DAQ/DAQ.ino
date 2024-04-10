@@ -31,7 +31,7 @@ PCF8575 pcf8575(0x20);
 
 // DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE.
 // MOSFET must not trigger while in debug.
-bool DEBUG = true;       // Simulate LOX and Eth fill.
+bool DEBUG = false;       // Simulate LOX and Eth fill.
 bool WIFIDEBUG = false;  // Don't send/receive data.
 
 #define SIMULATION_DELAY 25
@@ -138,7 +138,7 @@ struct_message incomingCOMReadings;
 struct_message FLIGHT;
 
 uint8_t COMBroadcastAddress[] = { 0xEC, 0x64, 0xC9, 0x86, 0x1E, 0x4C };
-uint8_t FlightBroadcastAddress[] = { 0xEC, 0x64, 0xC9, 0x86, 0x1E, 0x4C };
+uint8_t FlightBroadcastAddress[] = { 0xE8, 0x6B, 0xEA, 0xD4, 0x10, 0x4C };
 
 // Callback when data is received
 void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
@@ -153,6 +153,7 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
     FlightState = FLIGHT.FlightState;
     Serial.println(FlightState);
     flight_toggle = true; //set flag up to send data to COM
+    Serial.println("Data: ");
   }
 }
 
@@ -214,9 +215,35 @@ void setup() {
 }
 
 
+int cumulativeAbortTime = 0; // How long we have been in high-pressure state
+int lastAbortCheckTime = -1; // Last time we called checkAbort()
+void checkAbort() {
+  if (lastAbortCheckTime == -1) {
+    lastAbortCheckTime = millis();
+    return;
+  }
+
+  int deltaTime = millis() - lastAbortCheckTime;
+  if (FLIGHT.filteredReadings.PT_O1 >= abortPressure || FLIGHT.filteredReadings.PT_E1 >= abortPressure) {
+    cumulativeAbortTime += deltaTime;
+  }
+  else {
+    cumulativeAbortTime = max(cumulativeAbortTime - deltaTime, 0);
+  }
+  lastAbortCheckTime = millis();
+
+  if (COMState == ABORT || cumulativeAbortTime >= ABORT_ACTIVATION_DELAY) {
+    mosfetCloseValve(MOSFET_ETH_PRESS);
+    mosfetCloseValve(MOSFET_LOX_PRESS);
+    DAQState = ABORT;
+  }
+
+}
+
+
 void loop() {
   
-    if (DEBUG || COMState == ABORT) { //check abort
+  if (DEBUG || COMState == ABORT) { //check abort
     syncDAQState();
   }
 
@@ -386,26 +413,6 @@ void abort_sequence() {
 // Sync state of DAQ board with COM board.
 void syncDAQState() {
   DAQState = COMState;
-}
-
-int cumulativeAbortTime = 0; // How long we have been in high-pressure state
-int lastAbortCheckTime = 0; // Last time we called checkAbort()
-void checkAbort() {
-  int deltaTime = millis() - lastAbortCheckTime;
-  if (FLIGHT.filteredReadings.PT_O1 >= abortPressure || FLIGHT.filteredReadings.PT_E1 >= abortPressure) {
-    cumulativeAbortTime += deltaTime;
-  }
-  else {
-    cumulativeAbortTime = max(cumulativeAbortTime - deltaTime, 0);
-  }
-  lastAbortCheckTime = millis();
-
-  if (COMState == ABORT || cumulativeAbortTime >= ABORT_ACTIVATION_DELAY) {
-    mosfetCloseValve(MOSFET_ETH_PRESS);
-    mosfetCloseValve(MOSFET_LOX_PRESS);
-    DAQState = ABORT;
-  }
-
 }
 
 void mosfetCloseAllValves() {

@@ -42,7 +42,7 @@ FOR DEBUGGING:
 
 // DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE.
 // MOSFET must not trigger while in debug.
-bool DEBUG = false;   // Simulate LOX and Eth fill.
+bool DEBUG = true;   // Simulate LOX and Eth fill.
 bool WIFIDEBUG = false; // Don't send/receive data.
 // refer to https://docs.google.com/spreadsheets/d/17NrJWC0AR4Gjejme-EYuIJ5uvEJ98FuyQfYVWI3Qlio/edit#gid=1185803967 for all pinouts
 
@@ -277,7 +277,7 @@ Queue<struct_message> DAQQueue = Queue<struct_message>();
 esp_now_peer_info_t peerInfo;
 
 uint8_t COMBroadcastAddress[] = {0xEC, 0x64, 0xC9, 0x86, 0x1E, 0x4C};
-uint8_t DAQBroadcastAddress[] = {0xE8, 0x6B, 0xEA, 0xD4, 0x10, 0x4C};
+uint8_t DAQBroadcastAddress[] = {0x48, 0xE7, 0x29, 0xA3, 0x0D, 0xA8};
 
 void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
   struct_message Packet;
@@ -296,22 +296,22 @@ void setup() {
   Serial.println("Finished Serial Setup");
 
   // MOSFET PIN SETUP
-  pinMode(MOSFET_VENT_LOX, OUTPUT);
-  pinMode(MOSFET_VENT_ETH, OUTPUT);
+  // pinMode(MOSFET_VENT_LOX, OUTPUT);
+  // pinMode(MOSFET_VENT_ETH, OUTPUT);
   Serial.println("Finished MOSFET Setup");
 
   // HX711 Pressure Transducer Setup
-  int gain = 32;
-  PT_O1.scale.begin(PT_O1.gpio, PT_O1.clk);
-  PT_O1.scale.set_gain(gain);
-  PT_O2.scale.begin(PT_O2.gpio, PT_O2.clk);
-  PT_O2.scale.set_gain(gain);
-  PT_E1.scale.begin(PT_E1.gpio, PT_E1.clk);
-  PT_E1.scale.set_gain(gain);
-  PT_E2.scale.begin(PT_E2.gpio, PT_E2.clk);
-  PT_E2.scale.set_gain(gain);
-  PT_C1.scale.begin(PT_C1.gpio, PT_C1.clk);
-  PT_C1.scale.set_gain(gain);
+  // int gain = 32;
+  // PT_O1.scale.begin(PT_O1.gpio, PT_O1.clk);
+  // PT_O1.scale.set_gain(gain);
+  // PT_O2.scale.begin(PT_O2.gpio, PT_O2.clk);
+  // PT_O2.scale.set_gain(gain);
+  // PT_E1.scale.begin(PT_E1.gpio, PT_E1.clk);
+  // PT_E1.scale.set_gain(gain);
+  // PT_E2.scale.begin(PT_E2.gpio, PT_E2.clk);
+  // PT_E2.scale.set_gain(gain);
+  // PT_C1.scale.begin(PT_C1.gpio, PT_C1.clk);
+  // PT_C1.scale.set_gain(gain);
   Serial.println("PT finished");
   // LOAD CELLS UNUSED IN FLIGHT
 
@@ -538,6 +538,9 @@ void logData() {
 }
 
 void getReadings() {
+  if (DEBUG) {
+    return;
+  }
   if (millis() - readTime > readDelay) {
     readTime = millis();
     PT_O1.readDataFromBoard();
@@ -560,7 +563,7 @@ void sendData() {
   COMQueue.addPacket(dataPacket);
   DAQQueue.addPacket(dataPacket);
   sendQueue(DAQQueue, DAQBroadcastAddress);
-  delay(10);
+  // delay(10);
   sendQueue(COMQueue, COMBroadcastAddress);
 }
 
