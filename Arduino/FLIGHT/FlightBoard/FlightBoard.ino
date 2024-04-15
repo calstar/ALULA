@@ -265,8 +265,10 @@ struct struct_message {
 
 struct_message dataPacket;
 
-// Received Commands from COM
+// Received State from DAQ, abort from COM
 struct_message incomingDAQData;
+struct_message incomingCOMData;
+
 
 // Create a queue for Packet in case Packets are dropped.
 Queue<struct_message> COMQueue = Queue<struct_message>();
@@ -282,11 +284,16 @@ uint8_t DAQBroadcastAddress[] = {0x48, 0xE7, 0x29, 0xA3, 0x0D, 0xA8};
 void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
   struct_message Packet;
   memcpy(&Packet, incomingData, sizeof(Packet));
-    
-  incomingDAQData = Packet;
-  // Update states
-  COMState = incomingDAQData.COMState;
-  DAQState = incomingDAQData.DAQState;
+
+  if (Packet.sender == COM_ID) {
+    incomingCOMData = Packet;
+    COMState = Packet.COMState;
+  } else if (Packet.sender == DAQ_ID) {
+    incomingDAQData = Packet;
+    DAQState = Packet.FlightState;
+    Serial.println(DAQState);
+    Serial.println("Data: ");
+  }
 }
 
 // Initialize all sensors and parameters.
@@ -368,7 +375,7 @@ void setup() {
 void loop() {
   logData();
   fetchDAQState();
-  if (DEBUG || DAQState == ABORT) {
+  if (DEBUG || DAQState || COMState == ABORT) {
     syncFlightState();
   }
   switch (FlightState) {
@@ -437,6 +444,7 @@ void fetchDAQState() {
 // Sync state of Flight board with DAQ board
 void syncFlightState() {
   FlightState = DAQState;
+  if (COMState == ABORT) {FlightState = ABORT;}
 }
 
 void idle() {
