@@ -51,16 +51,16 @@ float ventTo = 5;          // c2se solenoids at this pressure to preserve lifeti
 #define I2C_SCL 22
 
 ////////////////////////////// MOSFETS ///////////////////////////////////////////////////////////////////
-#define MOSFET_ETH_MAIN 7    //P07
-#define MOSFET_ETH_PRESS 6   //P06
-#define MOSFET_VENT_ETH 5    //P05
-#define MOSFET_EXTRA 4       //CAN USE THIS PIN FOR ANYTHING JUST CHANGE ASSIGNMENT AND HARNESS
-#define MOSFET_QD_MUSCLE 3      //P03
-#define MOSFET_IGNITER 8     //P10
-#define MOSFET_LOX_MAIN 9    //P11
-#define MOSFET_LOX_PRESS 10  //P12
-#define MOSFET_VENT_LOX 11   //P13
-// #define MOSFET_QD_ETH 12     //P14 UNUSED IF A SINGLE QD CAN BE ACTUATED
+#define MOSFET_ETH_MAIN 10    
+#define MOSFET_ETH_PRESS 6   
+#define MOSFET_VENT_ETH 12   
+#define MOSFET_QD_MUSCLE 7      
+#define MOSFET_IGNITER 8     
+#define MOSFET_LOX_MAIN 9    
+#define MOSFET_LOX_PRESS 4  
+#define MOSFET_VENT_LOX 11   
+#define MOSFET_ETH_LINE_VENT 5     
+#define MOSFET_LOX_LINE_VENT 3     
 
 
 // Initialize mosfets' io expander.
@@ -128,6 +128,8 @@ struct struct_message {
 };
 
 esp_now_peer_info_t peerInfo;
+
+unsigned long QD_start_time;
 
 // Struct that holds data being sent out
 struct_message outgoingData;
@@ -274,7 +276,7 @@ void loop() {
     case (PRESS):
       if (COMState == IDLE || (COMState == QD)) {
         syncDAQState();
-        int QDStart = millis();
+        QD_start_time = millis();
         mosfetCloseAllValves();
       }
       press();
@@ -354,14 +356,17 @@ void press() {
 
 // Disconnect harnessings and check state of rocket.
 void quick_disconnect() {
-  mosfetCloseValve(MOSFET_ETH_PRESS);  //close press valves
-  mosfetCloseValve(MOSFET_LOX_PRESS);
-  mosfetOpenValve(MOSFET_QD_MUSCLE);
-  // vent valves/vent the lines themselves
-  // vent the pressure solenoid for 1 full second
-  //if millis() >= (QDStart+1000){
-  // then, disconnect the lines from the rocket itself
-  // }
+  if (millis() - QD_start_time <= 1000){
+    mosfetCloseValve(MOSFET_ETH_PRESS);  //close press valves
+    mosfetCloseValve(MOSFET_LOX_PRESS);
+  }
+  if (millis() - QD_start_time > 1000 && millis() - QD_start_time <= 2000){
+    mosfetOpenValve(MOSFET_ETH_LINE_VENT);
+    mosfetOpenValve(MOSFET_LOX_LINE_VENT);
+  }
+  if (millis() - QD_start_time > 2000){
+    mosfetOpenValve(MOSFET_QD_MUSCLE);
+  }
   checkAbort();
 }
 
