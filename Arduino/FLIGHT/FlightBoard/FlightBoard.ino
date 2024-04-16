@@ -594,7 +594,9 @@ void getReadings() {
     TC_4.readDataFromBoard();
 
     updateDataPacket();
-    writeSDCard(packetToString(&dataPacket));
+    if (COMState != IDLE) {
+      writeSDCard(packetToString(&dataPacket));
+    }
     printSensorReadings();
   }
 }
