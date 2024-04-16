@@ -333,9 +333,10 @@ void receiveDataPrint(struct_message incomingReadings) {
   serialMessage.concat(" Ox comp: ");
   serialMessage.concat(incomingDAQReadings.oxComplete  ? "True" : "False");
   serialMessage.concat("\nEth vent: ");
-  serialMessage.concat(incomingDAQReadings.ethVentComplete ? "True" : "False");
+  // If either FLIGHT or DAQ is in Abort mode
+  serialMessage.concat(incomingDAQReadings.ethVentComplete | incomingFlightReadings.ethVentComplete ? "True" : "False");
   serialMessage.concat(" Ox vent: ");
-  serialMessage.concat(incomingDAQReadings.oxVentComplete  ? "True" : "False");
+  serialMessage.concat(incomingDAQReadings.oxVentComplete | incomingFlightReadings.oxVentComplete ? "True" : "False");
   serialMessage.concat("\n COM State: ");
   serialMessage.concat(stateNames[COMState]);
   serialMessage.concat("   DAQ State: ");

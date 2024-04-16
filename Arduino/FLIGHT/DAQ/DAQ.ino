@@ -235,8 +235,7 @@ void checkAbort() {
   lastAbortCheckTime = millis();
 
   if (COMState == ABORT || cumulativeAbortTime >= ABORT_ACTIVATION_DELAY) {
-    mosfetCloseValve(MOSFET_ETH_PRESS);
-    mosfetCloseValve(MOSFET_LOX_PRESS);
+    abort_sequence();
     DAQState = ABORT;
   }
 
@@ -249,7 +248,10 @@ void loop() {
     syncDAQState();
   }
 
-  if (flight_toggle == true) {  // if flight data received, relay to COM
+  // if flight data received, relay to COM
+  // We also relay data if we are in Abort; this is in case of an emergency where
+  // Flight breaks; we still want COM to receive updates from DAQ
+  if (flight_toggle == true || DAQState == ABORT) {
     sendTime = millis();
     sendData(COMBroadcastAddress);
     flight_toggle = false; //reset toggle
@@ -417,7 +419,10 @@ void abort_sequence() {
 
 // Sync state of DAQ board with COM board.
 void syncDAQState() {
-  DAQState = COMState;
+  // Sync with COM only if DAQ doesn't detect an Abort, and COM doesn't want us to go back to Idle after Abort
+  if (DAQState != ABORT || COMState == IDLE) {
+    DAQState = COMState;
+  }
 }
 
 void mosfetCloseAllValves() {

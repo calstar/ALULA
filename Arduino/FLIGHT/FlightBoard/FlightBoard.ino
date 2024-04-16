@@ -37,8 +37,9 @@ FOR DEBUGGING:
 // These are sender ids, this is just a convention, should be same across all scripts
 #define COM_ID 0
 #define DAQ_ID 1
-
 #define FLIGHT_ID 2
+
+#define SIMULATION_DELAY 25
 
 // DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE.
 // MOSFET must not trigger while in debug.
@@ -53,10 +54,17 @@ bool oxVentComplete = false;
 bool ethVentComplete = false;   
 #define MOSFET_VENT_LOX 48
 #define MOSFET_VENT_ETH 47
+#define MOSFET_LOX_MAIN 9    
+#define MOSFET_LOX_PRESS 4
+#define MOSFET_ETH_MAIN 10    
+#define MOSFET_ETH_PRESS 6   
+#define MOSFET_IGNITER 8
 
 #define DATA_TIMEOUT 100
 #define IDLE_DELAY 250
 #define GEN_DELAY 20
+
+#define ABORT_ACTIVATION_DELAY 500 // Number of milliseconds to wait at high pressure before activating abort
 
 float readDelay = 150;     // Frequency of data collection [ms]
 float sendDelay = IDLE_DELAY; // Frequency of sending data [ms]
@@ -290,9 +298,7 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
     COMState = Packet.COMState;
   } else if (Packet.sender == DAQ_ID) {
     incomingDAQData = Packet;
-    DAQState = Packet.FlightState;
-    Serial.println(DAQState);
-    Serial.println("Data: ");
+    DAQState = Packet.DAQState;
   }
 }
 
@@ -443,8 +449,13 @@ void fetchDAQState() {
 
 // Sync state of Flight board with DAQ board
 void syncFlightState() {
-  FlightState = DAQState;
-  if (COMState == ABORT) {FlightState = ABORT;}
+  // Sync with DAQ only if Flight doesn't detect an Abort, and DAQ doesn't want us to go back to Idle after Abort
+  if (FlightState != ABORT || DAQState == IDLE) {
+    FlightState = DAQState;
+  }
+  if (COMState == ABORT) {
+    FlightState = ABORT;
+  }
 }
 
 void idle() {
@@ -461,11 +472,13 @@ void armed() {
 void press() {
   sendDelay = GEN_DELAY;
   mosfetCloseAllValves(); //might need changes for le3
+  checkAbort();
 }
 
 void quick_disconnect() {
   sendDelay = GEN_DELAY;
   mosfetCloseAllValves(); //might need changes for le3
+  checkAbort();
 }
 
 void ignition() {
@@ -479,41 +492,34 @@ void launch() {
 }
 
 void abort_sequence() {
-  oxVentComplete = false;
-  ethVentComplete = false;
-  if (DEBUG) {
-    mosfetOpenValve(MOSFET_VENT_LOX);
-    mosfetOpenValve(MOSFET_VENT_ETH);
-  }
-  // mosfetCloseValve(MOSFET_LOX_MAIN);
-  // mosfetCloseValve(MOSFET_ETH_MAIN);
-  // mosfetCloseValve(MOSFET_IGNITER);
-  //
+  mosfetOpenValve(MOSFET_VENT_LOX);
+  mosfetOpenValve(MOSFET_VENT_ETH);
+  // Waits for LOX pressure to decrease before venting Eth through pyro
+  mosfetCloseValve(MOSFET_LOX_PRESS);
+  mosfetCloseValve(MOSFET_ETH_PRESS);
+  mosfetCloseValve(MOSFET_LOX_MAIN);
+  mosfetCloseValve(MOSFET_ETH_MAIN);
+  mosfetCloseValve(MOSFET_IGNITER);
+
   int currtime = millis();
 
-  if (!(oxVentComplete && ethVentComplete)) {
-    if (PT_O1.filteredReading > ventTo) {  // vent only lox down to vent to pressure
-      mosfetOpenValve(MOSFET_VENT_LOX);
-      if (DEBUG) {
-        PT_O1.rawReading = PT_O1.rawReading - (0.0005 * GEN_DELAY);
-      }
-    } else {                              // lox vented to acceptable hold pressure
-      mosfetCloseValve(MOSFET_VENT_LOX);  // close lox
-      oxVentComplete = true;
+  if (dataPacket.filteredReadings.PT_O1 > ventTo) {  // vent only lox down to vent to pressure
+    mosfetOpenValve(MOSFET_VENT_LOX);
+    if (DEBUG) {
+      dataPacket.filteredReadings.PT_O1 = dataPacket.filteredReadings.PT_O1 - (0.0005 * SIMULATION_DELAY);
     }
-    if (PT_E1.filteredReading > ventTo) {
-      mosfetOpenValve(MOSFET_VENT_ETH);  // vent ethanol
-      if (DEBUG) {
-        PT_E1.rawReading = PT_E1.rawReading - (0.0005 * GEN_DELAY);
-      }
-    } else {
-      mosfetCloseValve(MOSFET_VENT_ETH);
-      ethVentComplete = true;
-    }
+  } else {                              // lox vented to acceptable hold pressure
+    mosfetCloseValve(MOSFET_VENT_LOX);  // close lox
+    oxVentComplete = true;
   }
-  if (DEBUG) {
-    PT_E1.rawReading = PT_E1.rawReading + (0.00005 * GEN_DELAY);
-    PT_O1.rawReading = PT_O1.rawReading + (0.00005 * GEN_DELAY);
+  if (dataPacket.filteredReadings.PT_E1 > ventTo) {
+    mosfetOpenValve(MOSFET_VENT_ETH);  // vent ethanol
+    if (DEBUG) {
+      dataPacket.filteredReadings.PT_E1 = dataPacket.filteredReadings.PT_E1 - (0.0005 * SIMULATION_DELAY);
+    }
+  } else {
+    mosfetCloseValve(MOSFET_VENT_ETH);
+    ethVentComplete = true;
   }
 }
 
@@ -530,9 +536,25 @@ void mosfetOpenValve(int num) {
 digitalWrite(num, HIGH);
 }
 
-// Flight does not have functionality to initiate abort yet
-void CheckAbort() {
-  if (COMState == ABORT || PT_O1.filteredReading >= abortPressure || PT_E1.filteredReading >= abortPressure) {
+int cumulativeAbortTime = 0; // How long we have been in high-pressure state
+int lastAbortCheckTime = -1; // Last time we called checkAbort()
+void checkAbort() {
+  if (lastAbortCheckTime == -1) {
+    lastAbortCheckTime = millis();
+    return;
+  }
+
+  int deltaTime = millis() - lastAbortCheckTime;
+  if (dataPacket.filteredReadings.PT_O1 >= abortPressure || dataPacket.filteredReadings.PT_E1 >= abortPressure) {
+    cumulativeAbortTime += deltaTime;
+  }
+  else {
+    cumulativeAbortTime = max(cumulativeAbortTime - deltaTime, 0);
+  }
+  lastAbortCheckTime = millis();
+
+  if (COMState == ABORT || cumulativeAbortTime >= ABORT_ACTIVATION_DELAY) {
+    abort_sequence();
     FlightState = ABORT;
   }
 }
@@ -562,13 +584,13 @@ void getReadings() {
     TC_3.readDataFromBoard();
     TC_4.readDataFromBoard();
 
+    updateDataPacket();
     printSensorReadings();
   }
 }
 
 // Send data to COM board.
 void sendData() {
-  updateDataPacket();
   COMQueue.addPacket(dataPacket);
   DAQQueue.addPacket(dataPacket);
   sendQueue(DAQQueue, DAQBroadcastAddress);
@@ -605,6 +627,9 @@ void updateDataPacket() {
   dataPacket.FlightState = FlightState;
   dataPacket.FlightToCOMQueueLength = COMQueue.size();
   dataPacket.FlightToDAQQueueLength = DAQQueue.size();
+
+  dataPacket.ethVentComplete = ethVentComplete;
+  dataPacket.oxVentComplete = oxVentComplete;
 }
 
 void sendQueue(Queue<struct_message> queue, uint8_t broadcastAddress[]) {
