@@ -44,7 +44,7 @@ float ventTo = 5;          // c2se solenoids at this pressure to preserve lifeti
 #define abortPressure 525  // Cutoff pressure to automatically trigger abort
 // refer to https://docs.google.com/spreadsheets/d/17NrJWC0AR4Gjejme-EYuIJ5uvEJ98FuyQfYVWI3Qlio/edit#gid=1185803967 for all pinouts
 
-#define ABORT_ACTIVATION_DELAY 3000 // Number of milliseconds to wait at high pressure before activating abort
+#define ABORT_ACTIVATION_DELAY 500 // Number of milliseconds to wait at high pressure before activating abort
 
 // GPIO expander
 #define I2C_SDA 21

@@ -530,9 +530,10 @@ void mosfetOpenValve(int num) {
 digitalWrite(num, HIGH);
 }
 
+// Flight does not have functionality to initiate abort yet
 void CheckAbort() {
   if (COMState == ABORT || PT_O1.filteredReading >= abortPressure || PT_E1.filteredReading >= abortPressure) {
-    DAQState = ABORT;
+    FlightState = ABORT;
   }
 }
 
@@ -571,7 +572,7 @@ void sendData() {
   COMQueue.addPacket(dataPacket);
   DAQQueue.addPacket(dataPacket);
   sendQueue(DAQQueue, DAQBroadcastAddress);
-  // delay(10);
+  delay(5);
   sendQueue(COMQueue, COMBroadcastAddress);
 }
 
