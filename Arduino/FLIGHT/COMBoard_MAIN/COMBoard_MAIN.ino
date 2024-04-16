@@ -274,15 +274,19 @@ void checkAbort() {
 }
 
 void dataSend() {
-  // Don't send data if states are already synced
-  if (COMState == DAQState) {
-    return;
-  }
   // Set values to send
   sendCommands.sender = COM_ID;
   sendCommands.COMState = COMState;
-  // Send message via ESP-NOW
-  esp_err_t result = esp_now_send(DAQBroadcastAddress, (uint8_t *) &sendCommands, sizeof(sendCommands));
+
+  // Send ABORT to flight
+  if (COMState == ABORT && COMState != FlightState) {
+    esp_err_t result = esp_now_send(FlightBroadcastAddress, (uint8_t *) &sendCommands, sizeof(sendCommands));
+  }
+
+  // Don't send data if states are already synced
+  if (COMState != DAQState) {
+    esp_err_t result = esp_now_send(DAQBroadcastAddress, (uint8_t *) &sendCommands, sizeof(sendCommands));
+  }
 }
 
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {

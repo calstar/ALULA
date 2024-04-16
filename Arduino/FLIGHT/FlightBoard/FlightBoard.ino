@@ -31,6 +31,7 @@ FOR DEBUGGING:
 #include "HX711.h"
 #include "Adafruit_MAX31855.h"
 #include "RunningMedian.h"
+#include <SD.h>
 // #include <EasyPCF8575.h>
 // #include "PCF8575.h"  //use this one. Add zip from https://github.com/xreef/PCF8575_library
 
@@ -71,6 +72,12 @@ float sendDelay = IDLE_DELAY; // Frequency of sending data [ms]
 
 enum STATES { IDLE, ARMED, PRESS, QD, IGNITION, LAUNCH, ABORT };
 String stateNames[] = { "Idle", "Armed", "Press", "QD", "Ignition", "LAUNCH", "Abort" };
+
+// SD Card Parameters
+#define SD_CARD_CS 5 // Chip select pin
+const char* sdCardFilename = "./test.txt";
+File sdCardFile;
+
 
 #define MAX_QUEUE_LENGTH 40
 
@@ -371,6 +378,8 @@ void setup() {
     return;
   }
 
+  setupSDCard();
+
   sendTime = millis();
   readTime = millis();
 }
@@ -585,6 +594,7 @@ void getReadings() {
     TC_4.readDataFromBoard();
 
     updateDataPacket();
+    writeSDCard(packetToString(&dataPacket));
     printSensorReadings();
   }
 }
@@ -654,6 +664,29 @@ void sendQueue(Queue<struct_message> queue, uint8_t broadcastAddress[]) {
   }
 }
 
+void setupSDCard() {
+  Serial.print("Initializing SD card...");
+  if (!SD.begin(SD_CARD_CS)) {
+    Serial.println("initialization failed!");
+  }
+  Serial.println("SD card initialization done.");
+  sdCardFile = SD.open(sdCardFilename, FILE_WRITE);
+
+  if (!sdCardFile) {
+    Serial.println("Error opening SD card file"); // Error handling if file opening fails
+  }
+}
+
+void writeSDCard(String data) {
+  if (sdCardFile) {
+    sdCardFile.println(data);
+    sdCardFile.flush();
+  }
+  else {
+    Serial.println("Error writing to sd card"); // Error handling
+  }
+}
+
 void printSensorReadings() {
   String serialMessage = " ";
   serialMessage.concat(millis());
@@ -693,5 +726,37 @@ void printSensorReadings() {
   serialMessage.concat("  DAQ Q Length: ");
   serialMessage.concat(DAQQueue.size());
   Serial.println(serialMessage);
+}
+
+String readingsToString(const struct_readings *packet) {
+  String data = "";
+  data = data + packet->PT_O1 + " ";
+  data = data + packet->PT_O2 + " ";
+  data = data + packet->PT_E1 + " ";
+  data = data + packet->PT_E2 + " ";
+  data = data + packet->PT_C1 + " ";
+
+  data = data + packet->LC_1 + " ";
+  data = data + packet->LC_2 + " ";
+  data = data + packet->LC_3 + " ";
+
+  data = data + packet->TC_1 + " ";
+  data = data + packet->TC_2 + " ";
+  data = data + packet->TC_3 + " ";
+  data = data + packet->TC_4;
+
+  return data;
+}
+
+String packetToString(const struct_message *packet) {
+  String data = "START\n";
+  data = data + millis() + "\n";
+  data += readingsToString(&(packet->rawReadings)) + "\n";
+  data += readingsToString(&(packet->filteredReadings)) + "\n";
+  data = data + packet->COMState + " " + packet->DAQState + " " + packet->FlightState + "\n";
+  data = data + packet->FlightToDAQQueueLength + " " + packet->FlightToDAQQueueLength + "\n";
+  data = data + packet->oxComplete + " " + packet->ethComplete + " " + packet->oxVentComplete + " " + packet->ethVentComplete + "\n";
+
+  return data;
 }
 
