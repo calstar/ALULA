@@ -381,7 +381,7 @@ void setup() {
 void loop() {
   logData();
   fetchDAQState();
-  if (DEBUG || DAQState || COMState == ABORT) {
+  if (DEBUG || COMState == ABORT) {
     syncFlightState();
   }
   switch (FlightState) {
