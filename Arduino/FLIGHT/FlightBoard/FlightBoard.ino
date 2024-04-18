@@ -66,6 +66,7 @@ bool ethVentComplete = false;
 #define GEN_DELAY 20
 
 #define ABORT_ACTIVATION_DELAY 500 // Number of milliseconds to wait at high pressure before activating abort
+#define SD_CARD_FLUSH_PERIOD 15000 // Interval duration for periodically flushing SD card
 
 float readDelay = 150;     // Frequency of data collection [ms]
 float sendDelay = IDLE_DELAY; // Frequency of sending data [ms]
@@ -77,6 +78,9 @@ String stateNames[] = { "Idle", "Armed", "Press", "QD", "Ignition", "LAUNCH", "A
 #define SD_CARD_CS 5 // Chip select pin
 const char* sdCardFilename = "./test.txt";
 File sdCardFile;
+
+// Last SD card write time
+int lastSDCardWriteTime = 0;
 
 
 #define MAX_QUEUE_LENGTH 40
@@ -498,7 +502,8 @@ void ignition() {
 }
 
 void launch() {
-  sendDelay = GEN_DELAY;  
+  sendDelay = GEN_DELAY;
+  lastSDCardWriteTime = millis();  // Ensures SD card will not flush during burn
   mosfetCloseAllValves(); //might need changes for le3
 }
 
@@ -681,13 +686,17 @@ void setupSDCard() {
   }
 }
 
-void writeSDCard(String data) {
-  if (sdCardFile) {
-    sdCardFile.println(data);
-    sdCardFile.flush();
+void writeSDCard(String data) { 
+  if (!sdCardFile) {
+    if (DEBUG) { Serial.println("Error writing to sd card"); }
+    return;
   }
-  else {
-    Serial.println("Error writing to sd card"); // Error handling
+    
+  int currTime = millis();
+  sdCardFile.println(data);
+  if (currTime - lastSDCardWriteTime >= SD_CARD_FLUSH_PERIOD) {
+    sdCardFile.flush();
+    lastSDCardWriteTime = currTime;
   }
 }
 
