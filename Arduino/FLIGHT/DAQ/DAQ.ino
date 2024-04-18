@@ -125,6 +125,7 @@ struct struct_message {
   bool oxComplete;
   bool oxVentComplete;
   bool ethVentComplete;
+  bool sdCardInitialized;
 };
 
 esp_now_peer_info_t peerInfo;

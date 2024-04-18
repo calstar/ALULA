@@ -94,6 +94,7 @@ struct struct_message {
   bool oxComplete;
   bool oxVentComplete;
   bool ethVentComplete;
+  bool sdCardInitialized;
 };
 
 // Create a struct_message called Readings to recieve sensor readings remotely
@@ -305,7 +306,7 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   }
 }
 
-void receiveDataPrint(struct_message incomingReadings) {
+void receiveDataPrint(struct_message &incomingReadings) {
   String serialMessage = " ";
   serialMessage.concat(millis());
   serialMessage.concat(" ");
@@ -337,10 +338,11 @@ void receiveDataPrint(struct_message incomingReadings) {
   serialMessage.concat(" Ox comp: ");
   serialMessage.concat(incomingDAQReadings.oxComplete  ? "True" : "False");
   serialMessage.concat("\nEth vent: ");
-  // If either FLIGHT or DAQ is in Abort mode
+  // OR the bits in case either FLIGHT or DAQ is in Abort mode
   serialMessage.concat(incomingDAQReadings.ethVentComplete | incomingFlightReadings.ethVentComplete ? "True" : "False");
   serialMessage.concat(" Ox vent: ");
   serialMessage.concat(incomingDAQReadings.oxVentComplete | incomingFlightReadings.oxVentComplete ? "True" : "False");
+
   serialMessage.concat("\n COM State: ");
   serialMessage.concat(stateNames[COMState]);
   serialMessage.concat("   DAQ State: ");
@@ -351,5 +353,7 @@ void receiveDataPrint(struct_message incomingReadings) {
   serialMessage.concat(incomingReadings.FlightToCOMQueueLength);
   serialMessage.concat("  DAQPower Q Length: ");
   serialMessage.concat(incomingReadings.FlightToDAQQueueLength);
+  serialMessage.concat("\n SD Card Initialized");
+  serialMessage.concat(incomingReadings.sdCardInitialized);
   Serial.println(serialMessage);
 }

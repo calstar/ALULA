@@ -260,6 +260,7 @@ struct struct_readings {
   float TC_2;
   float TC_3;
   float TC_4;
+  bool sdCardInitialized;
 };
 
 struct struct_message {
@@ -276,6 +277,7 @@ struct struct_message {
   bool oxComplete;
   bool oxVentComplete;
   bool ethVentComplete;
+  bool sdCardInitialized;
 };
 
 struct_message dataPacket;
@@ -668,7 +670,7 @@ void sendQueue(Queue<struct_message> queue, uint8_t broadcastAddress[]) {
 
 void setupSDCard() {
   Serial.print("Initializing SD card...");
-  if (!SD.begin(SD_CARD_CS)) {
+  if (!(dataPacket.sdCardInitialized = SD.begin(SD_CARD_CS))) {
     Serial.println("initialization failed!");
   }
   Serial.println("SD card initialization done.");
