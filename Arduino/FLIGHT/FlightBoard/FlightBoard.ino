@@ -275,8 +275,7 @@ struct struct_message {
   int COMState;
   int DAQState;
   int FlightState;
-  short int FlightToDAQQueueLength;
-  short int FlightToCOMQueueLength;
+  short int FlightQueueLength;
   bool ethComplete;
   bool oxComplete;
   bool oxVentComplete;
@@ -292,9 +291,7 @@ struct_message incomingCOMData;
 
 
 // Create a queue for Packet in case Packets are dropped.
-Queue<struct_message> COMQueue = Queue<struct_message>();
-Queue<struct_message> DAQQueue = Queue<struct_message>();
-
+Queue<struct_message> dataQueue = Queue<struct_message>();
 
 //::::::Broadcast Variables::::::://
 esp_now_peer_info_t peerInfo;
@@ -608,13 +605,10 @@ void getReadings() {
   }
 }
 
-// Send data to COM board.
+// Send data to COM and DAQ board.
 void sendData() {
-  COMQueue.addPacket(dataPacket);
-  DAQQueue.addPacket(dataPacket);
-  sendQueue(DAQQueue, DAQBroadcastAddress);
-  delay(5);
-  sendQueue(COMQueue, COMBroadcastAddress);
+  dataQueue.addPacket(dataPacket);
+  sendQueue(dataQueue, 0);
 }
 
 void updateDataPacket() {
@@ -644,8 +638,7 @@ void updateDataPacket() {
   dataPacket.COMState = COMState;
   dataPacket.DAQState = DAQState;
   dataPacket.FlightState = FlightState;
-  dataPacket.FlightToCOMQueueLength = COMQueue.size();
-  dataPacket.FlightToDAQQueueLength = DAQQueue.size();
+  dataPacket.FlightQueueLength = dataQueue.size();
 
   dataPacket.ethVentComplete = ethVentComplete;
   dataPacket.oxVentComplete = oxVentComplete;
@@ -734,10 +727,8 @@ void printSensorReadings() {
   //  serialMessage.concat(readingCap1);
   //  serialMessage.concat(" ");
   //  serialMessage.concat(readingCap2);
-  serialMessage.concat("\nCOM Q Length: ");
-  serialMessage.concat(COMQueue.size());
-  serialMessage.concat("  DAQ Q Length: ");
-  serialMessage.concat(DAQQueue.size());
+  serialMessage.concat("\Flight Q Length: ");
+  serialMessage.concat(dataQueue.size());
   Serial.println(serialMessage);
 }
 
@@ -767,7 +758,7 @@ String packetToString(const struct_message *packet) {
   data += readingsToString(&(packet->rawReadings)) + "\n";
   data += readingsToString(&(packet->filteredReadings)) + "\n";
   data = data + packet->COMState + " " + packet->DAQState + " " + packet->FlightState + "\n";
-  data = data + packet->FlightToDAQQueueLength + " " + packet->FlightToDAQQueueLength + "\n";
+  data = data + packet->FlightQueueLength + "\n";
   data = data + packet->oxComplete + " " + packet->ethComplete + " " + packet->oxVentComplete + " " + packet->ethVentComplete + "\n";
 
   return data;

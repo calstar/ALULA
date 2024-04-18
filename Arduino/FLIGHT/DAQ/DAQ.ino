@@ -91,7 +91,7 @@ bool ethVentComplete = false;
 int hotfireStart;
 
 #define SEND_DELAY 20
-float sendTime = 0;
+
 bool flight_toggle = false;
 
 // Structure example to send data.
@@ -119,8 +119,7 @@ struct struct_message {
   int COMState;
   int DAQState;
   int FlightState;
-  short int FlightToDAQQueueLength;
-  short int FlightToCOMQueueLength;
+  short int FlightQueueLength;
   bool ethComplete;
   bool oxComplete;
   bool oxVentComplete;
@@ -250,18 +249,12 @@ void loop() {
   }
 
   // if flight data received, relay to COM
+  // if Flight and DAQ are not synced, relay to Flight
   // We also relay data if we are in Abort; this is in case of an emergency where
   // Flight breaks; we still want COM to receive updates from DAQ
-  if (flight_toggle == true || DAQState == ABORT) {
-    sendTime = millis();
-    sendData(COMBroadcastAddress);
+  if (flight_toggle == true || DAQState == ABORT || DAQState != FLIGHT.DAQState) {
+    sendData(0); // This sends to both COM and Flight
     flight_toggle = false; //reset toggle
-  }
-
-  if (DAQState != FLIGHT.DAQState) { //if state discrepancy, send commands to flight
-    delay(5); //delay so voltage can recover; should change to something better
-    sendData(FlightBroadcastAddress); 
-    // Serial.print("sdhgklsdhfljksf");
   }
 
   ///////////// STATE MACHINE ///////////

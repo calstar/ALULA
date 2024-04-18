@@ -62,6 +62,7 @@ String stateNames[] = { "Idle", "Armed", "Press", "QD", "Ignition", "HOTFIRE", "
 //{0x30, 0xC6, 0xF7, 0x2A, 0x28, 0x04}
 
 uint8_t DAQBroadcastAddress[] = {0xE8, 0x6B, 0xEA, 0xD4, 0x10, 0x4C};
+uint8_t FlightBroadcastAddress[] = {0xE8, 0x6B, 0xEA, 0xD4, 0x10, 0x4C};
 
 //Structure example to send data
 //Must match the receiver structure
@@ -88,8 +89,7 @@ struct struct_message {
   int COMState;
   int DAQState;
   int FlightState;
-  short int FlightToDAQQueueLength;
-  short int FlightToCOMQueueLength;
+  short int FlightQueueLength;
   bool ethComplete;
   bool oxComplete;
   bool oxVentComplete;
@@ -349,11 +349,9 @@ void receiveDataPrint(struct_message &incomingReadings) {
   serialMessage.concat(stateNames[DAQState]);
   serialMessage.concat("   Flight State: ");
   serialMessage.concat(stateNames[FlightState]);
-  serialMessage.concat("\nCOM Q Length: ");
-  serialMessage.concat(incomingReadings.FlightToCOMQueueLength);
-  serialMessage.concat("  DAQPower Q Length: ");
-  serialMessage.concat(incomingReadings.FlightToDAQQueueLength);
+  serialMessage.concat("\Flight Q Length: ");
+  serialMessage.concat(incomingReadings.FlightQueueLength);
   serialMessage.concat("\n SD Card Initialized");
-  serialMessage.concat(incomingReadings.sdCardInitialized);
+  serialMessage.concat(incomingReadings.sdCardInitialized ? "True" : "False");
   Serial.println(serialMessage);
 }
