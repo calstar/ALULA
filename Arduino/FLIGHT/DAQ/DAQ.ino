@@ -47,20 +47,20 @@ float ventTo = 5;          // c2se solenoids at this pressure to preserve lifeti
 #define ABORT_ACTIVATION_DELAY 500 // Number of milliseconds to wait at high pressure before activating abort
 
 // GPIO expander
-#define I2C_SDA 21
-#define I2C_SCL 22
+#define I2C_SDA 32 //21
+#define I2C_SCL 32 //22
 
 ////////////////////////////// MOSFETS ///////////////////////////////////////////////////////////////////
-#define MOSFET_ETH_MAIN 10    
-#define MOSFET_ETH_PRESS 6   
-#define MOSFET_VENT_ETH 12   
-#define MOSFET_QD_MUSCLE 7      
-#define MOSFET_IGNITER 8     
-#define MOSFET_LOX_MAIN 9    
-#define MOSFET_LOX_PRESS 4  
-#define MOSFET_VENT_LOX 11   
-#define MOSFET_ETH_LINE_VENT 5     
-#define MOSFET_LOX_LINE_VENT 3     
+#define MOSFET_ETH_MAIN 32 //10    
+#define MOSFET_ETH_PRESS 32 //6   
+#define MOSFET_VENT_ETH 32 //12   
+#define MOSFET_QD_MUSCLE 32 //7      
+#define MOSFET_IGNITER 32 //8     
+#define MOSFET_LOX_MAIN 32 //9    
+#define MOSFET_LOX_PRESS 32 //4  
+#define MOSFET_VENT_LOX 32 //11   
+#define MOSFET_ETH_LINE_VENT 32 //5     
+#define MOSFET_LOX_LINE_VENT 32 //3     
 
 
 // Initialize mosfets' io expander.
@@ -139,8 +139,8 @@ struct_message outgoingData;
 struct_message incomingCOMReadings;
 struct_message FLIGHT;
 
-uint8_t COMBroadcastAddress[] = { 0xEC, 0x64, 0xC9, 0x86, 0x1E, 0x4C };
-uint8_t FlightBroadcastAddress[] = { 0xE8, 0x6B, 0xEA, 0xD4, 0x10, 0x4C };
+uint8_t COMBroadcastAddress[] = { 0xE8, 0x6B, 0xEA, 0xD4, 0x10, 0x4C};
+uint8_t FlightBroadcastAddress[] = { 0xEC, 0x64, 0xC9, 0x85, 0x83, 0x74};
 
 // Callback when data is received
 void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
@@ -170,12 +170,12 @@ void setup() {
   mosfet_pcf_found = true;
 
   // Set pinMode to OUTPUT
-  for (int i = 0; i < 16; i++) {
-    pcf8575.pinMode(i, OUTPUT);
-  }
-  pcf8575.begin();
-  mosfet_pcf_found = true;
-  mosfetCloseAllValves();  // make sure everything is off by default (NMOS: Down = Off, Up = On)
+  // for (int i = 0; i < 16; i++) {
+  //   pcf8575.pinMode(i, OUTPUT);
+  // }
+  // pcf8575.begin();
+  // mosfet_pcf_found = true;
+  // mosfetCloseAllValves();  // make sure everything is off by default (NMOS: Down = Off, Up = On)
   delay(500);              // startup time to make sure its good for personal testing
 
   // Broadcast setup.
@@ -253,7 +253,10 @@ void loop() {
   // We also relay data if we are in Abort; this is in case of an emergency where
   // Flight breaks; we still want COM to receive updates from DAQ
   if (flight_toggle == true || DAQState == ABORT || DAQState != FLIGHT.DAQState) {
-    sendData(0); // This sends to both COM and Flight
+    // sendData(COMBroadcastAddress); // This sends to both COM and Flight
+    // delay(10);
+    // sendData(FlightBroadcastAddress); // This sends to both COM and Flight
+    sendData(0);
     flight_toggle = false; //reset toggle
   }
 
