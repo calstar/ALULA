@@ -35,7 +35,6 @@ This code runs on the DAQ ESP32 and has a couple of main functions.
 
 
 
-
 float pt1=-1;
 float pt2=-1;
 float pt3=-1;

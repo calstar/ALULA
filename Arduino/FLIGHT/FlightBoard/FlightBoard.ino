@@ -55,11 +55,6 @@ bool oxVentComplete = false;
 bool ethVentComplete = false;   
 #define MOSFET_VENT_LOX 48
 #define MOSFET_VENT_ETH 47
-#define MOSFET_LOX_MAIN 9    
-#define MOSFET_LOX_PRESS 4
-#define MOSFET_ETH_MAIN 10    
-#define MOSFET_ETH_PRESS 6   
-#define MOSFET_IGNITER 8
 
 #define DATA_TIMEOUT 100
 #define IDLE_DELAY 250
@@ -169,7 +164,6 @@ public:
   void readDataFromBoard() {
     float newReading = readRawFromBoard();
     filter.addReading(newReading);
-
     unshiftedRawReading = newReading;
     rawReading = slope * newReading + offset;
     filteredReading = slope * filter.getReading() + offset;
@@ -219,11 +213,11 @@ public:
 
 #define HX_CLK 17
 // EXTRA PIN THAT CAN BE USED: 16 (PT6)
-struct_hx711 PT_O1{ {}, HX_CLK, 4, .offset = 0, .slope = 0.1 }; 
-struct_hx711 PT_O2{ {}, HX_CLK, 5, .offset = 0, .slope = 0.1 };
-struct_hx711 PT_E1{ {}, HX_CLK, 6, .offset = 0, .slope = 1 };
-struct_hx711 PT_E2{ {}, HX_CLK, 7, .offset = 0, .slope = 1 }; 
-struct_hx711 PT_C1{ {}, HX_CLK, 15, .offset = 0, .slope = 1 }; 
+struct_hx711 PT_O1{ {}, HX_CLK, 15, .offset = -104.6, .slope = 0.0304 }; //swapped w/C1 04/19
+struct_hx711 PT_O2{ {}, HX_CLK, 5, .offset = -90.9, .slope = 0.0288 };
+struct_hx711 PT_E1{ {}, HX_CLK, 6, .offset = -195.1, .slope = 0.0414 };
+struct_hx711 PT_E2{ {}, HX_CLK, 7, .offset = -200.4, .slope = 0.0486 }; 
+struct_hx711 PT_C1{ {}, HX_CLK, 4, .offset = 0, .slope = 0.01 }; //currently broken
 
 // LOADCELLS UNUSED IN FLIGHT
 
@@ -295,8 +289,8 @@ Queue<struct_message> dataQueue = Queue<struct_message>();
 //::::::Broadcast Variables::::::://
 esp_now_peer_info_t peerInfo;
 
-uint8_t COMBroadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x50, 0x23, 0x34};
-uint8_t DAQBroadcastAddress[] = {0xEC, 0x64, 0xC9, 0x86, 0x1E, 0x4C};
+uint8_t COMBroadcastAddress[] = {0x24, 0xDC, 0xC3, 0x4B, 0x61, 0xE0};
+uint8_t DAQBroadcastAddress[] = {0xE8, 0x6B, 0xEA, 0xD3, 0x93, 0x88};
 
 void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
   struct_message Packet;
@@ -469,10 +463,37 @@ void syncFlightState() {
   }
 }
 
+bool resetflag = true;
 void idle() {
   sendDelay = IDLE_DELAY;
   mosfetCloseAllValves();
+  if (millis() > 3000 && resetflag == true) {
+  updateOffsetsForIdle();
+  resetflag = false;}
   reset();
+}
+
+void updateOffsetsForIdle() {
+    // Assuming you have access to a function that can fetch a stable, current reading
+    float currentReadingO1 = PT_O1.filteredReading;
+    float currentReadingO2 = PT_O2.filteredReading;
+    float currentReadingE1 = PT_E1.filteredReading;
+    float currentReadingE2 = PT_E2.filteredReading;
+    float currentReadingC1 = PT_C1.filteredReading;
+
+    // Update the offset to make the current reading zero
+    PT_O1.offset = PT_O1.offset-currentReadingO1;
+    PT_O2.offset = PT_O2.offset-currentReadingO2;
+    PT_E1.offset = PT_E1.offset-currentReadingE1;
+    PT_E2.offset = PT_E2.offset-currentReadingE2;
+    PT_C1.offset = PT_C1.offset-currentReadingC1;
+    
+    // Reset the filter to start fresh with new offset
+    PT_O1.resetReading();
+    PT_O2.resetReading();
+    PT_E1.resetReading();
+    PT_E2.resetReading();
+    PT_C1.resetReading();
 }
 
 void armed() {
@@ -484,6 +505,10 @@ void press() {
   sendDelay = GEN_DELAY;
   mosfetCloseAllValves(); //might need changes for le3
   checkAbort();
+    if (DEBUG) { //simulate pressurization
+      dataPacket.filteredReadings.PT_O1 = dataPacket.filteredReadings.PT_O1 + (0.001 * SIMULATION_DELAY);
+      dataPacket.filteredReadings.PT_E1 = dataPacket.filteredReadings.PT_E1 + (0.001 * SIMULATION_DELAY);
+    }
 }
 
 void quick_disconnect() {
@@ -506,12 +531,6 @@ void launch() {
 void abort_sequence() {
   mosfetOpenValve(MOSFET_VENT_LOX);
   mosfetOpenValve(MOSFET_VENT_ETH);
-  // Waits for LOX pressure to decrease before venting Eth through pyro
-  mosfetCloseValve(MOSFET_LOX_PRESS);
-  mosfetCloseValve(MOSFET_ETH_PRESS);
-  mosfetCloseValve(MOSFET_LOX_MAIN);
-  mosfetCloseValve(MOSFET_ETH_MAIN);
-  mosfetCloseValve(MOSFET_IGNITER);
 
   int currtime = millis();
 
@@ -550,6 +569,7 @@ digitalWrite(num, HIGH);
 
 int cumulativeAbortTime = 0; // How long we have been in high-pressure state
 int lastAbortCheckTime = -1; // Last time we called checkAbort()
+
 void checkAbort() {
   if (lastAbortCheckTime == -1) {
     lastAbortCheckTime = millis();
@@ -581,13 +601,6 @@ void logData() {
 }
 
 void getReadings() {
-  if (DEBUG) {
-    // Make Flight use DAQ readings; this is purely for simulating fill sequence
-    // since DAQ has simulation logic
-    dataPacket.filteredReadings = incomingDAQData.filteredReadings;
-    dataPacket.rawReadings = incomingDAQData.rawReadings;
-    return;
-  }
   if (millis() - readTime > readDelay) {
     readTime = millis();
     PT_O1.readDataFromBoard();
