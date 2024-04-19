@@ -9,7 +9,7 @@ This code runs on the COM ESP32 and has a couple of main tasks.
 #include <Wire.h>
 #include <Arduino.h>
 #include "HX711.h"
-#include <ezButton.h>
+//#include <ezButton.h>
 #include "avdweb_Switch.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/Task.h"
@@ -61,8 +61,8 @@ String stateNames[] = { "Idle", "Armed", "Press", "QD", "Ignition", "HOTFIRE", "
 //uint8_t broadcastAddress[] = {0x08, 0x3A, 0xF2, 0xB7, 0xEE, 0x00}; //TEST
 //{0x30, 0xC6, 0xF7, 0x2A, 0x28, 0x04}
 
-uint8_t DAQBroadcastAddress[] = {0xE8, 0x6B, 0xEA, 0xD4, 0x10, 0x4C};
-uint8_t FlightBroadcastAddress[] = {0xE8, 0x6B, 0xEA, 0xD4, 0x10, 0x4C};
+uint8_t DAQBroadcastAddress[] = {0xEC, 0x64, 0xC9, 0x86, 0x1E, 0x4C};
+uint8_t FlightBroadcastAddress[] = {0xEC, 0x64, 0xC9, 0x85, 0x83, 0x74};
 
 //Structure example to send data
 //Must match the receiver structure
@@ -281,7 +281,7 @@ void dataSend() {
 
   // Send ABORT to flight
   if (COMState == ABORT && COMState != FlightState) {
-    esp_err_t result = esp_now_send(FlightBroadcastAddress, (uint8_t *) &sendCommands, sizeof(sendCommands));
+    esp_err_t result = esp_now_send(0, (uint8_t *) &sendCommands, sizeof(sendCommands));
   }
 
   // Don't send data if states are already synced
