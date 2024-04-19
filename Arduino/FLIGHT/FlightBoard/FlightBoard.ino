@@ -53,13 +53,13 @@ bool WIFIDEBUG = false; // Don't send/receive data.
 #define ventTo -50   
 bool oxVentComplete = false;
 bool ethVentComplete = false;   
-#define MOSFET_VENT_LOX 32 // 48
-#define MOSFET_VENT_ETH 32 // 47
-#define MOSFET_LOX_MAIN 32 // 9    
-#define MOSFET_LOX_PRESS 32 // 4
-#define MOSFET_ETH_MAIN 32 // 10    
-#define MOSFET_ETH_PRESS 32 // 6   
-#define MOSFET_IGNITER 32 // 8
+#define MOSFET_VENT_LOX 48
+#define MOSFET_VENT_ETH 47
+#define MOSFET_LOX_MAIN 9    
+#define MOSFET_LOX_PRESS 4
+#define MOSFET_ETH_MAIN 10    
+#define MOSFET_ETH_PRESS 6   
+#define MOSFET_IGNITER 8
 
 #define DATA_TIMEOUT 100
 #define IDLE_DELAY 250
@@ -305,7 +305,6 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
   if (Packet.sender == COM_ID) {
     incomingCOMData = Packet;
     COMState = Packet.COMState;
-    Serial.println("COM input");
   } else if (Packet.sender == DAQ_ID) {
     incomingDAQData = Packet;
     DAQState = Packet.DAQState;
