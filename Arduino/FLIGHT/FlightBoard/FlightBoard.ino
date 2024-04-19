@@ -76,7 +76,7 @@ String stateNames[] = { "Idle", "Armed", "Press", "QD", "Ignition", "LAUNCH", "A
 
 // SD Card Parameters
 #define SD_CARD_CS 5 // Chip select pin
-const char* sdCardFilename = "./test.txt";
+const char* sdCardFilename = "./data.txt";
 File sdCardFile;
 
 // Last SD card write time
@@ -295,7 +295,7 @@ Queue<struct_message> dataQueue = Queue<struct_message>();
 //::::::Broadcast Variables::::::://
 esp_now_peer_info_t peerInfo;
 
-uint8_t COMBroadcastAddress[] = {0xE8, 0x6B, 0xEA, 0xD4, 0x10, 0x4C};
+uint8_t COMBroadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x50, 0x23, 0x34};
 uint8_t DAQBroadcastAddress[] = {0xEC, 0x64, 0xC9, 0x86, 0x1E, 0x4C};
 
 void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
@@ -323,26 +323,26 @@ void setup() {
   Serial.println("Finished MOSFET Setup");
 
   // HX711 Pressure Transducer Setup
-  // int gain = 128;
-  // PT_O1.scale.begin(PT_O1.gpio, PT_O1.clk);
-  // PT_O1.scale.set_gain(gain);
-  // PT_O2.scale.begin(PT_O2.gpio, PT_O2.clk);
-  // PT_O2.scale.set_gain(gain);
-  // PT_E1.scale.begin(PT_E1.gpio, PT_E1.clk);
-  // PT_E1.scale.set_gain(gain);
-  // PT_E2.scale.begin(PT_E2.gpio, PT_E2.clk);
-  // PT_E2.scale.set_gain(gain);
-  // PT_C1.scale.begin(PT_C1.gpio, PT_C1.clk);
-  // PT_C1.scale.set_gain(gain);
-  // Serial.println("PT finished");
-  // // LOAD CELLS UNUSED IN FLIGHT
+  int gain = 128;
+  PT_O1.scale.begin(PT_O1.gpio, PT_O1.clk);
+  PT_O1.scale.set_gain(gain);
+  PT_O2.scale.begin(PT_O2.gpio, PT_O2.clk);
+  PT_O2.scale.set_gain(gain);
+  PT_E1.scale.begin(PT_E1.gpio, PT_E1.clk);
+  PT_E1.scale.set_gain(gain);
+  PT_E2.scale.begin(PT_E2.gpio, PT_E2.clk);
+  PT_E2.scale.set_gain(gain);
+  PT_C1.scale.begin(PT_C1.gpio, PT_C1.clk);
+  PT_C1.scale.set_gain(gain);
+  Serial.println("PT finished");
+  // LOAD CELLS UNUSED IN FLIGHT
 
-  // // Thermocouple.
-  // pinMode(TC_1.cs, OUTPUT);
-  // pinMode(TC_2.cs, OUTPUT);
-  // pinMode(TC_3.cs, OUTPUT);
-  // pinMode(TC_4.cs, OUTPUT);
-  // Serial.println("Finised TC");
+  // Thermocouple.
+  pinMode(TC_1.cs, OUTPUT);
+  pinMode(TC_2.cs, OUTPUT);
+  pinMode(TC_3.cs, OUTPUT);
+  pinMode(TC_4.cs, OUTPUT);
+  Serial.println("Finised TC");
 
   // Broadcast setup.
   // Set device as a Wi-Fi Station
