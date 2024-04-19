@@ -44,7 +44,7 @@ FOR DEBUGGING:
 
 // DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE.
 // MOSFET must not trigger while in debug.
-bool DEBUG = true;   // Simulate LOX and Eth fill.
+bool DEBUG = false;   // Simulate LOX and Eth fill.
 bool WIFIDEBUG = false; // Don't send/receive data.
 // refer to https://docs.google.com/spreadsheets/d/17NrJWC0AR4Gjejme-EYuIJ5uvEJ98FuyQfYVWI3Qlio/edit#gid=1185803967 for all pinouts
 
@@ -53,13 +53,13 @@ bool WIFIDEBUG = false; // Don't send/receive data.
 #define ventTo -50   
 bool oxVentComplete = false;
 bool ethVentComplete = false;   
-#define MOSFET_VENT_LOX 48
-#define MOSFET_VENT_ETH 47
-#define MOSFET_LOX_MAIN 9    
-#define MOSFET_LOX_PRESS 4
-#define MOSFET_ETH_MAIN 10    
-#define MOSFET_ETH_PRESS 6   
-#define MOSFET_IGNITER 8
+#define MOSFET_VENT_LOX 32 // 48
+#define MOSFET_VENT_ETH 32 // 47
+#define MOSFET_LOX_MAIN 32 // 9    
+#define MOSFET_LOX_PRESS 32 // 4
+#define MOSFET_ETH_MAIN 32 // 10    
+#define MOSFET_ETH_PRESS 32 // 6   
+#define MOSFET_IGNITER 32 // 8
 
 #define DATA_TIMEOUT 100
 #define IDLE_DELAY 250
@@ -264,7 +264,6 @@ struct struct_readings {
   float TC_2;
   float TC_3;
   float TC_4;
-  bool sdCardInitialized;
 };
 
 struct struct_message {
@@ -296,8 +295,8 @@ Queue<struct_message> dataQueue = Queue<struct_message>();
 //::::::Broadcast Variables::::::://
 esp_now_peer_info_t peerInfo;
 
-uint8_t COMBroadcastAddress[] = {0xEC, 0x64, 0xC9, 0x86, 0x1E, 0x4C};
-uint8_t DAQBroadcastAddress[] = {0x48, 0xE7, 0x29, 0xA3, 0x0D, 0xA8};
+uint8_t COMBroadcastAddress[] = {0xE8, 0x6B, 0xEA, 0xD4, 0x10, 0x4C};
+uint8_t DAQBroadcastAddress[] = {0xEC, 0x64, 0xC9, 0x86, 0x1E, 0x4C};
 
 void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
   struct_message Packet;
@@ -306,6 +305,7 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
   if (Packet.sender == COM_ID) {
     incomingCOMData = Packet;
     COMState = Packet.COMState;
+    Serial.println("COM input");
   } else if (Packet.sender == DAQ_ID) {
     incomingDAQData = Packet;
     DAQState = Packet.DAQState;
@@ -324,26 +324,26 @@ void setup() {
   Serial.println("Finished MOSFET Setup");
 
   // HX711 Pressure Transducer Setup
-  int gain = 128;
-  PT_O1.scale.begin(PT_O1.gpio, PT_O1.clk);
-  PT_O1.scale.set_gain(gain);
-  PT_O2.scale.begin(PT_O2.gpio, PT_O2.clk);
-  PT_O2.scale.set_gain(gain);
-  PT_E1.scale.begin(PT_E1.gpio, PT_E1.clk);
-  PT_E1.scale.set_gain(gain);
-  PT_E2.scale.begin(PT_E2.gpio, PT_E2.clk);
-  PT_E2.scale.set_gain(gain);
-  PT_C1.scale.begin(PT_C1.gpio, PT_C1.clk);
-  PT_C1.scale.set_gain(gain);
-  Serial.println("PT finished");
-  // LOAD CELLS UNUSED IN FLIGHT
+  // int gain = 128;
+  // PT_O1.scale.begin(PT_O1.gpio, PT_O1.clk);
+  // PT_O1.scale.set_gain(gain);
+  // PT_O2.scale.begin(PT_O2.gpio, PT_O2.clk);
+  // PT_O2.scale.set_gain(gain);
+  // PT_E1.scale.begin(PT_E1.gpio, PT_E1.clk);
+  // PT_E1.scale.set_gain(gain);
+  // PT_E2.scale.begin(PT_E2.gpio, PT_E2.clk);
+  // PT_E2.scale.set_gain(gain);
+  // PT_C1.scale.begin(PT_C1.gpio, PT_C1.clk);
+  // PT_C1.scale.set_gain(gain);
+  // Serial.println("PT finished");
+  // // LOAD CELLS UNUSED IN FLIGHT
 
-  // Thermocouple.
-  pinMode(TC_1.cs, OUTPUT);
-  pinMode(TC_2.cs, OUTPUT);
-  pinMode(TC_3.cs, OUTPUT);
-  pinMode(TC_4.cs, OUTPUT);
-  Serial.println("Finised TC");
+  // // Thermocouple.
+  // pinMode(TC_1.cs, OUTPUT);
+  // pinMode(TC_2.cs, OUTPUT);
+  // pinMode(TC_3.cs, OUTPUT);
+  // pinMode(TC_4.cs, OUTPUT);
+  // Serial.println("Finised TC");
 
   // Broadcast setup.
   // Set device as a Wi-Fi Station
@@ -392,8 +392,8 @@ void setup() {
 // Main Structure of State Machine.
 void loop() {
   logData();
-  fetchDAQState();
-  if (DEBUG || COMState == ABORT) {
+  serialReadFlightState();
+  if (DEBUG || COMState == ABORT || DAQState == ABORT) {
     syncFlightState();
   }
   switch (FlightState) {
@@ -408,7 +408,7 @@ void loop() {
       break;
 
     case (PRESS):
-      if (DAQState == IDLE || (DAQState == QD)) { syncFlightState(); }
+      if (DAQState == IDLE || DAQState == QD) { syncFlightState(); }
       press();
       break;
 
@@ -448,13 +448,13 @@ void reset() {
   TC_4.resetReading();
 }
 
-void fetchDAQState() {
+void serialReadFlightState() {
     if (Serial.available() > 0) {
     // Serial.read reads a single character as ASCII. Number 1 is 49 in ASCII.
     // Serial sends character and new line character "\n", which is 10 in ASCII.
     int SERIALState = Serial.read() - 48;
     if (SERIALState >= 0 && SERIALState <= 9) {
-      DAQState = SERIALState;
+      FlightState = SERIALState;
     }
   }
 }
@@ -583,6 +583,10 @@ void logData() {
 
 void getReadings() {
   if (DEBUG) {
+    // Make Flight use DAQ readings; this is purely for simulating fill sequence
+    // since DAQ has simulation logic
+    dataPacket.filteredReadings = incomingDAQData.filteredReadings;
+    dataPacket.rawReadings = incomingDAQData.rawReadings;
     return;
   }
   if (millis() - readTime > readDelay) {
@@ -598,7 +602,7 @@ void getReadings() {
     TC_4.readDataFromBoard();
 
     updateDataPacket();
-    if (COMState != IDLE) {
+    if (FlightState != IDLE) {
       writeSDCard(packetToString(&dataPacket));
     }
     printSensorReadings();
@@ -607,6 +611,9 @@ void getReadings() {
 
 // Send data to COM and DAQ board.
 void sendData() {
+  if (DEBUG) {
+    printSensorReadings();
+  }
   dataQueue.addPacket(dataPacket);
   sendQueue(dataQueue, 0);
 }
@@ -670,11 +677,13 @@ void setupSDCard() {
   Serial.print("Initializing SD card...");
   if (!(dataPacket.sdCardInitialized = SD.begin(SD_CARD_CS))) {
     Serial.println("initialization failed!");
+    return;
   }
-  Serial.println("SD card initialization done.");
-  sdCardFile = SD.open(sdCardFilename, FILE_WRITE);
 
-  if (!sdCardFile) {
+  Serial.println("SD card initialization done.");
+  dataPacket.sdCardInitialized = SD.open(sdCardFilename, FILE_WRITE);
+
+  if (!dataPacket.sdCardInitialized) {
     Serial.println("Error opening SD card file"); // Error handling if file opening fails
   }
 }
