@@ -143,11 +143,18 @@ void setup() {
   }
 
   // Register peer
-  memcpy(peerInfo.peer_addr, DAQBroadcastAddress, 6);
   peerInfo.channel = 0;
   peerInfo.encrypt = false;
   
   // Add peer
+  memcpy(peerInfo.peer_addr, DAQBroadcastAddress, 6);
+
+  if (esp_now_add_peer(&peerInfo) != ESP_OK){
+    Serial.println("Failed to add peer");
+  }
+
+  memcpy(peerInfo.peer_addr, FlightBroadcastAddress, 6);
+  
   if (esp_now_add_peer(&peerInfo) != ESP_OK){
     Serial.println("Failed to add peer");
     return;
@@ -281,7 +288,16 @@ void dataSend() {
 
   // Send ABORT to flight
   if (COMState == ABORT && COMState != FlightState) {
+    Serial.print("SENDER: ");
+    Serial.println(sendCommands.sender);
+    Serial.print("COMSTATE: ");
+    Serial.println(sendCommands.COMState);
+
     esp_err_t result = esp_now_send(0, (uint8_t *) &sendCommands, sizeof(sendCommands));
+
+    Serial.println("aborting");
+    if (result != ESP_OK) { Serial.println("ABORT NOT SENT"); }
+    delay(1000);
   }
 
   // Don't send data if states are already synced
@@ -349,7 +365,7 @@ void receiveDataPrint(struct_message &incomingReadings) {
   serialMessage.concat(stateNames[DAQState]);
   serialMessage.concat("   Flight State: ");
   serialMessage.concat(stateNames[FlightState]);
-  serialMessage.concat("\Flight Q Length: ");
+  serialMessage.concat("\n Flight Q Length: ");
   serialMessage.concat(incomingReadings.FlightQueueLength);
   serialMessage.concat("\n SD Card Initialized");
   serialMessage.concat(incomingReadings.sdCardInitialized ? "True" : "False");
