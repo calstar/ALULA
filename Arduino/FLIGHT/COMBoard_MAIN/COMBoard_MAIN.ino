@@ -295,14 +295,14 @@ void dataSend() {
 
     esp_err_t result = esp_now_send(FlightBroadcastAddress, (uint8_t *) &sendCommands, sizeof(sendCommands));
 
-    Serial.println("changing FLIGHT");
+    // Serial.println("changing FLIGHT");
     if (result != ESP_OK) { Serial.println("ABORT NOT SENT"); }
   }
-
+  
   // Don't send data if states are already synced
   if (COMState != DAQState) {
     esp_err_t result = esp_now_send(DAQBroadcastAddress, (uint8_t *) &sendCommands, sizeof(sendCommands));
-    Serial.println("changing Daq");
+    // Serial.println("changing Daq");
   }
 }
 
