@@ -384,6 +384,8 @@ void setup() {
 
 // Main Structure of State Machine.
 void loop() {
+  mosfetOpenValve(MOSFET_VENT_LOX);
+  mosfetOpenValve(MOSFET_VENT_ETH);
   logData();
   serialReadFlightState();
   // mosfetOpenValve(MOSFET_VENT_LOX);

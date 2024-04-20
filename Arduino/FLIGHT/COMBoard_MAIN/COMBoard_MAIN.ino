@@ -287,22 +287,22 @@ void dataSend() {
   sendCommands.COMState = COMState;
 
   // Send ABORT to flight
-  if (COMState == ABORT && COMState != FlightState) {
+  if (COMState != FlightState) {
     Serial.print("SENDER: ");
     Serial.println(sendCommands.sender);
     Serial.print("COMSTATE: ");
     Serial.println(sendCommands.COMState);
 
-    esp_err_t result = esp_now_send(0, (uint8_t *) &sendCommands, sizeof(sendCommands));
+    esp_err_t result = esp_now_send(FlightBroadcastAddress, (uint8_t *) &sendCommands, sizeof(sendCommands));
 
-    Serial.println("aborting");
+    Serial.println("changing FLIGHT");
     if (result != ESP_OK) { Serial.println("ABORT NOT SENT"); }
-    delay(1000);
   }
 
   // Don't send data if states are already synced
   if (COMState != DAQState) {
     esp_err_t result = esp_now_send(DAQBroadcastAddress, (uint8_t *) &sendCommands, sizeof(sendCommands));
+    Serial.println("changing Daq");
   }
 }
 
