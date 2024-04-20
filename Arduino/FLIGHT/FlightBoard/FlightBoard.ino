@@ -317,7 +317,7 @@ void setup() {
   Serial.println("Finished MOSFET Setup");
 
   // HX711 Pressure Transducer Setup
-  int gain = 128;
+  int gain = 64;
   PT_O1.scale.begin(PT_O1.gpio, PT_O1.clk);
   PT_O1.scale.set_gain(gain);
   PT_O2.scale.begin(PT_O2.gpio, PT_O2.clk);
