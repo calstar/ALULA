@@ -312,8 +312,8 @@ void setup() {
   Serial.println("Finished Serial Setup");
 
   // MOSFET PIN SETUP
-  // pinMode(MOSFET_VENT_LOX, OUTPUT);
-  // pinMode(MOSFET_VENT_ETH, OUTPUT);
+  pinMode(MOSFET_VENT_LOX, OUTPUT);
+  pinMode(MOSFET_VENT_ETH, OUTPUT);
   Serial.println("Finished MOSFET Setup");
 
   // HX711 Pressure Transducer Setup
