@@ -31,7 +31,7 @@ PCF8575 pcf8575(0x20);
 
 // DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE.
 // MOSFET must not trigger while in debug.
-bool DEBUG = false;       // Simulate LOX and Eth fill.
+bool DEBUG = true;       // Simulate LOX and Eth fill.
 bool WIFIDEBUG = false;  // Don't send/receive data.
 
 #define SIMULATION_DELAY 25
@@ -134,13 +134,12 @@ unsigned long QD_start_time;
 // Struct that holds data being sent out
 struct_message outgoingData;
 
-
 // Create a struct_message to hold incoming data
 struct_message incomingCOMReadings;
 struct_message FLIGHT;
 
-uint8_t COMBroadcastAddress[] = { 0xE8, 0x6B, 0xEA, 0xD4, 0x10, 0x4C};
-uint8_t FlightBroadcastAddress[] = { 0xEC, 0x64, 0xC9, 0x85, 0x83, 0x74};
+uint8_t COMBroadcastAddress[] = {0x24, 0xDC, 0xC3, 0x4B, 0x61, 0xE0};
+uint8_t FlightBroadcastAddress[] = { 0x48, 0x27, 0xE2, 0x2C, 0x80, 0xD8};
 
 // Callback when data is received
 void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
@@ -162,7 +161,6 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
 // Initialize all sensors and parameters.
 void setup() {
   Serial.begin(115200);
-
   while (!Serial) delay(1);  // wait for Serial on Leonardo/Zero, etc.
 
   // MOSFET.
@@ -243,11 +241,9 @@ void checkAbort() {
 
 
 void loop() {
-  
   if (DEBUG || COMState == ABORT) { //check abort
     syncDAQState();
   }
-
   // if flight data received, relay to COM
   // if Flight and DAQ are not synced, relay to Flight
   // We also relay data if we are in Abort; this is in case of an emergency where
@@ -259,7 +255,7 @@ void loop() {
     sendData(0);
     flight_toggle = false; //reset toggle
   }
-
+  Serial.println(DAQState);
   ///////////// STATE MACHINE ///////////
   switch (DAQState) { //CHANGE STATES BASED ON DATA RECEIVED(ondatarecv) FROM COM
     case (IDLE):
@@ -419,6 +415,14 @@ void syncDAQState() {
   // Sync with COM only if DAQ doesn't detect an Abort, and COM doesn't want us to go back to Idle after Abort
   if (DAQState != ABORT || COMState == IDLE) {
     DAQState = COMState;
+  }
+  if (Serial.available() > 0) {
+  // Serial.read reads a single character as ASCII. Number 1 is 49 in ASCII.
+  // Serial sends character and new line character "\n", which is 10 in ASCII.
+  int SERIALState = Serial.read() - 48;
+  if (SERIALState >= 0 && SERIALState <= 9) {
+    FlightState = SERIALState;
+  }
   }
 }
 
