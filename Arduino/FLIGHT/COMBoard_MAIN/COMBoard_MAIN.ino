@@ -61,8 +61,8 @@ String stateNames[] = { "Idle", "Armed", "Press", "QD", "Ignition", "HOTFIRE", "
 //uint8_t broadcastAddress[] = {0x08, 0x3A, 0xF2, 0xB7, 0xEE, 0x00}; //TEST
 //{0x30, 0xC6, 0xF7, 0x2A, 0x28, 0x04}
 
-uint8_t DAQBroadcastAddress[] = {0xEC, 0x64, 0xC9, 0x86, 0x1E, 0x4C};
-uint8_t FlightBroadcastAddress[] = {0xEC, 0x64, 0xC9, 0x85, 0x83, 0x74};
+uint8_t DAQBroadcastAddress[] = {0xE8, 0x6B, 0xEA, 0xD3, 0x93, 0x88};
+uint8_t FlightBroadcastAddress[] = {0x48, 0x27, 0xE2, 0x2C, 0x80, 0xD8};
 
 //Structure example to send data
 //Must match the receiver structure
@@ -322,33 +322,33 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   }
 }
 
-void receiveDataPrint(struct_message &incomingReadings) {
+void receiveDataPrint(struct_message incomingReadings) {
   String serialMessage = " ";
   serialMessage.concat(millis());
   serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.filteredReadings.PT_O1);
+  serialMessage.concat(incomingFlightReadings.filteredReadings.PT_O1);
   serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.filteredReadings.PT_O2);
+  serialMessage.concat(incomingFlightReadings.filteredReadings.PT_O2);
   serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.filteredReadings.PT_E1);
+  serialMessage.concat(incomingFlightReadings.filteredReadings.PT_E1);
   serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.filteredReadings.PT_E2);
+  serialMessage.concat(incomingFlightReadings.filteredReadings.PT_E2);
   serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.filteredReadings.PT_C1);
+  serialMessage.concat(incomingFlightReadings.filteredReadings.PT_C1);
   serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.filteredReadings.LC_1);
+  serialMessage.concat(incomingFlightReadings.filteredReadings.LC_1);
   serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.filteredReadings.LC_2);
+  serialMessage.concat(incomingFlightReadings.filteredReadings.LC_2);
   serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.filteredReadings.LC_3);
+  serialMessage.concat(incomingFlightReadings.filteredReadings.LC_3);
   serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.filteredReadings.TC_1);
+  serialMessage.concat(incomingFlightReadings.filteredReadings.TC_1);
   serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.filteredReadings.TC_2);
+  serialMessage.concat(incomingFlightReadings.filteredReadings.TC_2);
   serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.filteredReadings.TC_3);
+  serialMessage.concat(incomingFlightReadings.filteredReadings.TC_3);
   serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.filteredReadings.TC_4);
+  serialMessage.concat(incomingFlightReadings.filteredReadings.TC_4);
   serialMessage.concat("\nEth comp: ");
   serialMessage.concat(incomingDAQReadings.ethComplete ? "True" : "False");
   serialMessage.concat(" Ox comp: ");
