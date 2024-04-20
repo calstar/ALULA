@@ -31,7 +31,7 @@ PCF8575 pcf8575(0x20);
 
 // DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE.
 // MOSFET must not trigger while in debug.
-bool DEBUG = true;       // Simulate LOX and Eth fill.
+bool DEBUG = false;       // Simulate LOX and Eth fill.
 bool WIFIDEBUG = false;  // Don't send/receive data.
 
 #define SIMULATION_DELAY 25
@@ -360,6 +360,8 @@ void quick_disconnect() {
     mosfetOpenValve(MOSFET_LOX_LINE_VENT);
   }
   if (millis() - QD_start_time > 2000){
+    mosfetCloseValve(MOSFET_ETH_LINE_VENT);
+    mosfetCloseValve(MOSFET_LOX_LINE_VENT);
     mosfetOpenValve(MOSFET_QD_MUSCLE);
   }
   checkAbort();

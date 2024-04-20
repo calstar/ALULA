@@ -77,7 +77,6 @@ File sdCardFile;
 // Last SD card write time
 int lastSDCardWriteTime = 0;
 
-
 #define MAX_QUEUE_LENGTH 40
 
 template <class T>
@@ -297,6 +296,7 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
   memcpy(&Packet, incomingData, sizeof(Packet));
 
   if (Packet.sender == COM_ID) {
+    Serial.print("lsi;djliga;osidjfa;osidjg;oasijgliudsfa");
     incomingCOMData = Packet;
     COMState = Packet.COMState;
   } else if (Packet.sender == DAQ_ID) {
@@ -386,6 +386,7 @@ void setup() {
 void loop() {
   logData();
   serialReadFlightState();
+  // mosfetOpenValve(MOSFET_VENT_LOX);
   if (DEBUG || COMState == ABORT || DAQState == ABORT) {
     syncFlightState();
   }
@@ -421,7 +422,7 @@ void loop() {
 
     case (ABORT):
       abort_sequence();
-      if (DAQState == IDLE) { syncFlightState(); }
+      if (COMState == IDLE) { syncFlightState(); }
       break;
   }
 }
