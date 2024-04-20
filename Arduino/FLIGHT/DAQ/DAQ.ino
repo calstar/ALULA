@@ -47,21 +47,20 @@ float ventTo = 5;          // c2se solenoids at this pressure to preserve lifeti
 #define ABORT_ACTIVATION_DELAY 500 // Number of milliseconds to wait at high pressure before activating abort
 
 // GPIO expander
-#define I2C_SDA 32 //21
-#define I2C_SCL 32 //22
+#define I2C_SDA 21 //21
+#define I2C_SCL 22 //22
 
 ////////////////////////////// MOSFETS ///////////////////////////////////////////////////////////////////
-#define MOSFET_ETH_MAIN 32 //10    
-#define MOSFET_ETH_PRESS 32 //6   
-#define MOSFET_VENT_ETH 32 //12   
-#define MOSFET_QD_MUSCLE 32 //7      
-#define MOSFET_IGNITER 32 //8     
-#define MOSFET_LOX_MAIN 32 //9    
-#define MOSFET_LOX_PRESS 32 //4  
-#define MOSFET_VENT_LOX 32 //11   
-#define MOSFET_ETH_LINE_VENT 32 //5     
-#define MOSFET_LOX_LINE_VENT 32 //3     
-
+#define MOSFET_ETH_MAIN 10 //10    
+#define MOSFET_ETH_PRESS 6 //6   
+#define MOSFET_VENT_ETH 12 //12   
+#define MOSFET_QD_MUSCLE 7 //7      
+#define MOSFET_IGNITER 8 //8     
+#define MOSFET_LOX_MAIN 9 //9    
+#define MOSFET_LOX_PRESS 4 //4  
+#define MOSFET_VENT_LOX 11 //11   
+#define MOSFET_ETH_LINE_VENT 5 //5     
+#define MOSFET_LOX_LINE_VENT 3 //3     
 
 // Initialize mosfets' io expander.
 //#define MOSFET_PCF_ADDR 0x20
@@ -168,12 +167,12 @@ void setup() {
   mosfet_pcf_found = true;
 
   // Set pinMode to OUTPUT
-  // for (int i = 0; i < 16; i++) {
-  //   pcf8575.pinMode(i, OUTPUT);
-  // }
-  // pcf8575.begin();
-  // mosfet_pcf_found = true;
-  // mosfetCloseAllValves();  // make sure everything is off by default (NMOS: Down = Off, Up = On)
+  for (int i = 0; i < 16; i++) {
+    pcf8575.pinMode(i, OUTPUT);
+  }
+  pcf8575.begin();
+  mosfet_pcf_found = true;
+  mosfetCloseAllValves();  // make sure everything is off by default (NMOS: Down = Off, Up = On)
   delay(500);              // startup time to make sure its good for personal testing
 
   // Broadcast setup.
@@ -241,6 +240,7 @@ void checkAbort() {
 
 
 void loop() {
+  Serial.println(DAQState);
   if (DEBUG || COMState == ABORT) { //check abort
     syncDAQState();
   }
@@ -255,7 +255,6 @@ void loop() {
     sendData(0);
     flight_toggle = false; //reset toggle
   }
-  Serial.println(DAQState);
   ///////////// STATE MACHINE ///////////
   switch (DAQState) { //CHANGE STATES BASED ON DATA RECEIVED(ondatarecv) FROM COM
     case (IDLE):
@@ -355,11 +354,11 @@ void quick_disconnect() {
     mosfetCloseValve(MOSFET_ETH_PRESS);  //close press valves
     mosfetCloseValve(MOSFET_LOX_PRESS);
   }
-  if (millis() - QD_start_time > 1000 && millis() - QD_start_time <= 2000){
+  if (millis() - QD_start_time > 1000 && millis() - QD_start_time <= 3000){
     mosfetOpenValve(MOSFET_ETH_LINE_VENT);
     mosfetOpenValve(MOSFET_LOX_LINE_VENT);
   }
-  if (millis() - QD_start_time > 2000){
+  if (millis() - QD_start_time > 3000){
     mosfetCloseValve(MOSFET_ETH_LINE_VENT);
     mosfetCloseValve(MOSFET_LOX_LINE_VENT);
     mosfetOpenValve(MOSFET_QD_MUSCLE);
@@ -448,7 +447,6 @@ void mosfetOpenValve(int num) {
   }
 }
 
-
 //////////////////// COMMUNICATION /////////////////////////////
 
 void sendData(uint8_t broadcastAddress[]) {
@@ -462,7 +460,6 @@ void sendData(uint8_t broadcastAddress[]) {
     Serial.println("Error sending the data");
   }
 }
-
 
 void updateDataPacket() {
   outgoingData.messageTime = millis();
