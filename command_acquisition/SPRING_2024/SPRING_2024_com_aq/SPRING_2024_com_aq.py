@@ -106,6 +106,16 @@ def collection():
             except:
                 continue
      
+def updateOffsetsForIdle():
+    # Update the offset to make the current reading zero
+    PT_O1_offset = PT_O1[-1]
+    PT_O2_offset = PT_O2[-1]
+    PT_E1_offset = PT_E1[-1]
+    PT_E2_offset = PT_E2[-1]
+    PT_C1_offset = PT_C1[-1]
+    PT_X_offset = PT_X[-1]
+
+
 
 class LivePlotter(QMainWindow):
     def __init__(self, *args, **kwargs):
@@ -150,8 +160,7 @@ class LivePlotter(QMainWindow):
         self.layout.setColumnStretch(0, 3) 
         self.layout.setColumnStretch(1, 3)
         self.layout.setColumnStretch(2, 3)
-        self.layout.setColumnStretch(3, 1) 
-
+        
         # # ########################################################### 
        
         self.timer = QTimer()

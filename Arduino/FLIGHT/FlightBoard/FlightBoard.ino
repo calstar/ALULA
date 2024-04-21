@@ -44,8 +44,8 @@ FOR DEBUGGING:
 
 // DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE.
 // MOSFET must not trigger while in debug.
-bool DEBUG = true;   // Simulate LOX and Eth fill.
-bool WIFIDEBUG = false; // Don't send/receive data.
+bool DEBUG = false;   // RUN THROUGH STATES MANUALLY.
+bool WIFIDEBUG = false; // PRINT OUT A BUNCH OF DEBUG STATEMENTS.
 // refer to https://docs.google.com/spreadsheets/d/17NrJWC0AR4Gjejme-EYuIJ5uvEJ98FuyQfYVWI3Qlio/edit#gid=1185803967 for all pinouts
 
 // ABORT VARIABLES //
@@ -58,13 +58,13 @@ bool ethVentComplete = false;
 
 #define DATA_TIMEOUT 100
 #define IDLE_DELAY 250
-#define GEN_DELAY 20
+#define GEN_DELAY 25
+
+float readDelay = 25;     // Frequency of data collection [ms]
+float sendDelay = IDLE_DELAY; // Frequency of sending data [ms]
 
 #define ABORT_ACTIVATION_DELAY 500 // Number of milliseconds to wait at high pressure before activating abort
 #define SD_CARD_FLUSH_PERIOD 15000 // Interval duration for periodically flushing SD card
-
-float readDelay = 150;     // Frequency of data collection [ms]
-float sendDelay = IDLE_DELAY; // Frequency of sending data [ms]
 
 enum STATES { IDLE, ARMED, PRESS, QD, IGNITION, LAUNCH, ABORT };
 String stateNames[] = { "Idle", "Armed", "Press", "QD", "Ignition", "LAUNCH", "Abort" };
@@ -261,21 +261,23 @@ struct struct_readings {
   float TC_4;
 };
 
-struct struct_message {
-  int COMState;
+struct struct_message { //MUST LINE UP SEQUENTIALLY
   int messageTime;
+  int sender;
+  int COMState;
   int DAQState;
   int FlightState;
+
   short int FlightQueueLength;
   bool ethComplete;
   bool oxComplete;
   bool oxVentComplete;
   bool ethVentComplete;
   bool sdCardInitialized;
-  int sender;
+
   struct_readings rawReadings;
   struct_readings filteredReadings;
-  
+
 };
 
 struct_message dataPacket;
@@ -306,25 +308,20 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
   memcpy(&Packet, incomingData, sizeof(Packet));
 
   if (Packet.sender == COM_ID) {
-    Serial.print("lsi;djliga;osidjfa;osidjg;oasijgliudsfa                                    "); //debug
+    if (WIFIDEBUG) {Serial.print("lsi;djliga;osidjfa;osidjg;oasijgliudsfa");} //wifidebug
     incomingCOMData = Packet;
     
     COMState = Packet.COMState;
-    Serial.print("TEST: ");
-    Serial.print(Packet.test);
     Serial.print("COMSTATE: ");
     Serial.println(Packet.COMState);
 
   } else if (Packet.sender == DAQ_ID) {
     incomingDAQData = Packet;
     DAQState = Packet.DAQState;
-    Serial.print("DAQSTATE: ");
-    Serial.println(DAQState);
+    if (WIFIDEBUG) {Serial.print("DAQSTATE: "); Serial.println(DAQState);}
   }
-
-  //DEBUG ONLY
-  Serial.print("SenderID: ");
-  Serial.print(Packet.sender);
+  if (WIFIDEBUG) {Serial.print("SenderID: ");
+  Serial.print(Packet.sender);}
 }
 
 // Initialize all sensors and parameters.
@@ -408,37 +405,31 @@ void setup() {
 
 // Main Structure of State Machine.
 void loop() {
-  mosfetOpenValve(MOSFET_VENT_LOX); //tests
-  mosfetOpenValve(MOSFET_VENT_ETH); //tests
+  // mosfetOpenValve(MOSFET_VENT_LOX); //tests
+  // mosfetOpenValve(MOSFET_VENT_ETH); //tests
   logData();
-  serialReadFlightState();
-  // mosfetOpenValve(MOSFET_VENT_LOX);
-  if (DEBUG || COMState == ABORT || DAQState == ABORT) {
-    syncFlightState();
-  }
+  if (DEBUG) {serialReadFlightState();}
+  syncFlightState();
   switch (FlightState) {
     case (IDLE):
-      if (DAQState == ARMED) { syncFlightState(); }
-      idle();
+      sendDelay = IDLE_DELAY;
+      mosfetCloseAllValves();
       break;
 
     case (ARMED):
-      if (DAQState == IDLE || DAQState == PRESS) { syncFlightState(); }
-      armed();
+      sendDelay = GEN_DELAY;
+      mosfetCloseAllValves();
       break;
 
     case (PRESS):
-      if (DAQState == IDLE || DAQState == QD) { syncFlightState(); }
       press();
       break;
 
     case (QD):
-      if (DAQState == IDLE || DAQState == IGNITION) { syncFlightState(); }
       quick_disconnect();
       break;
 
     case (IGNITION):
-      if (DAQState == IDLE || DAQState == LAUNCH) { syncFlightState(); }
       ignition();
       break;
 
@@ -448,12 +439,11 @@ void loop() {
 
     case (ABORT):
       abort_sequence();
-      if (COMState == IDLE) { syncFlightState(); }
       break;
   }
 }
 
-// State Functions.
+////// State Functions. /////////
 
 // Everything should be off.
 void reset() {
@@ -482,57 +472,10 @@ void serialReadFlightState() {
 
 // Sync state of Flight board with DAQ board
 void syncFlightState() {
-  // Sync with DAQ only if Flight doesn't detect an Abort, and DAQ doesn't want us to go back to Idle after Abort
-  // if (FlightState != ABORT || DAQState == IDLE) {
-  //   FlightState = DAQState;
-  // }
-
   FlightState = COMState;
-
-  // if (COMState == ABORT) {
-  //   FlightState = ABORT;
-  // }
-}
-
-bool resetflag = true;
-void idle() {
-  sendDelay = IDLE_DELAY;
-  mosfetCloseAllValves();
-  if (millis() > 3000 && resetflag == true) {
-  updateOffsetsForIdle();
-  resetflag = false;}
-  reset();
-}
-
-void updateOffsetsForIdle() {
-    // Assuming you have access to a function that can fetch a stable, current reading
-    float currentReadingO1 = PT_O1.filteredReading;
-    float currentReadingO2 = PT_O2.filteredReading;
-    float currentReadingE1 = PT_E1.filteredReading;
-    float currentReadingE2 = PT_E2.filteredReading;
-    float currentReadingC1 = PT_C1.filteredReading;
-    float currentReadingX = PT_X.filteredReading;
-
-    // Update the offset to make the current reading zero
-    PT_O1.offset = PT_O1.offset-currentReadingO1;
-    PT_O2.offset = PT_O2.offset-currentReadingO2;
-    PT_E1.offset = PT_E1.offset-currentReadingE1;
-    PT_E2.offset = PT_E2.offset-currentReadingE2;
-    PT_C1.offset = PT_C1.offset-currentReadingC1;
-    PT_X.offset = PT_X.offset-currentReadingX;
-    
-    // Reset the filter to start fresh with new offset
-    PT_O1.resetReading();
-    PT_O2.resetReading();
-    PT_E1.resetReading();
-    PT_E2.resetReading();
-    PT_C1.resetReading();
-    PT_X.resetReading();
-}
-
-void armed() {
-  sendDelay = GEN_DELAY;
-  mosfetCloseAllValves();
+  if (DAQState == ABORT) {
+    FlightState = ABORT;
+  }
 }
 
 void press() {
@@ -647,7 +590,6 @@ void getReadings() {
     TC_2.readDataFromBoard();
     TC_3.readDataFromBoard();
     TC_4.readDataFromBoard();
-
     updateDataPacket();
     if (FlightState != IDLE) {
       writeSDCard(packetToString(&dataPacket));
@@ -664,6 +606,7 @@ void sendData() {
   printSensorReadings();
   dataQueue.addPacket(dataPacket);
   sendQueue(dataQueue, COMBroadcastAddress);
+  delay(5);
   sendQueue(dataQueue, DAQBroadcastAddress);
 }
 
@@ -725,9 +668,6 @@ void updateDataPacket() {
 // }
 
 void sendQueue(Queue<struct_message> queue, uint8_t broadcastAddress[]) {
-  if (WIFIDEBUG) {
-    return;
-  }
 
   if (queue.size() == 0) {
     return;
@@ -738,8 +678,7 @@ void sendQueue(Queue<struct_message> queue, uint8_t broadcastAddress[]) {
 
   // Send message via ESP-NOW
   esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&Packet, sizeof(Packet));
-  Serial.print("FLIGHT STATE:  ");
-  Serial.println(FlightState);
+  if (WIFIDEBUG) {Serial.print("FLIGHT STATE:  "); Serial.println(FlightState);}
 
   if (result == ESP_OK) {
     queue.popPacket();
@@ -813,8 +752,7 @@ void printSensorReadings() {
   //  serialMessage.concat(readingCap1);
   //  serialMessage.concat(" ");
   //  serialMessage.concat(readingCap2);
-  serialMessage.concat("\Flight Q Length hkjhnnf: ");
-  serialMessage.concat(dataQueue.size());
+  if (WIFIDEBUG) {serialMessage.concat("\Flight Q Length:"); serialMessage.concat(dataQueue.size());}
   Serial.println(serialMessage);
 
 }
