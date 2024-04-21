@@ -45,7 +45,7 @@ FOR DEBUGGING:
 // DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE.
 // MOSFET must not trigger while in debug.
 bool DEBUG = false;   // Simulate LOX and Eth fill.
-bool WIFIDEBUG = false; // Don't send/receive data.
+bool WIFIDEBUG = true; // Don't send/receive data.
 // refer to https://docs.google.com/spreadsheets/d/17NrJWC0AR4Gjejme-EYuIJ5uvEJ98FuyQfYVWI3Qlio/edit#gid=1185803967 for all pinouts
 
 // ABORT VARIABLES //
@@ -170,9 +170,9 @@ public:
 
   void resetReading() {
     filter.resetReadings();
-    filteredReading = -1;
-    rawReading = -1;
-    unshiftedRawReading = -1;
+    filteredReading = -4;
+    rawReading = -4;
+    unshiftedRawReading = -4;
   }
 };
 
@@ -213,10 +213,11 @@ public:
 #define HX_CLK 17
 // EXTRA PIN THAT CAN BE USED: 16 (PT6)
 struct_hx711 PT_O1{ {}, HX_CLK, 15, .offset = -104.6, .slope = 0.0304 }; //swapped w/C1 04/19
-struct_hx711 PT_O2{ {}, HX_CLK, 5, .offset = -90.9, .slope = 0.0288 };
+struct_hx711 PT_O2{ {}, HX_CLK, 16, .offset = -90.9, .slope = 0.0288 };
 struct_hx711 PT_E1{ {}, HX_CLK, 6, .offset = -195.1, .slope = 0.0414 };
 struct_hx711 PT_E2{ {}, HX_CLK, 7, .offset = -200.4, .slope = 0.0486 }; 
 struct_hx711 PT_C1{ {}, HX_CLK, 4, .offset = 0, .slope = 0.01 }; //currently broken
+struct_hx711 PT_X{ {}, HX_CLK, 5, .offset = 0, .slope = 1 }; //pt6 - extra
 
 // LOADCELLS UNUSED IN FLIGHT
 
@@ -250,6 +251,7 @@ struct struct_readings {
   float PT_E1;
   float PT_E2;
   float PT_C1;
+  float PT_X;
   float LC_1;
   float LC_2;
   float LC_3;
@@ -288,15 +290,19 @@ Queue<struct_message> dataQueue = Queue<struct_message>();
 //::::::Broadcast Variables::::::://
 esp_now_peer_info_t peerInfo;
 
-uint8_t COMBroadcastAddress[] = {0x24, 0xDC, 0xC3, 0x4B, 0x61, 0xE0};
-uint8_t DAQBroadcastAddress[] = {0xE8, 0x6B, 0xEA, 0xD3, 0x93, 0x88};
+// uint8_t COMBroadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x4F, 0x3C, 0xA4}; //temp only: c8:f0:9e:4f:3c:a4
+
+uint8_t COMBroadcastAddress[] = {0x24, 0xBC, 0xC3, 0x4B, 0x61, 0xE0}; //temp only: c8:f0:9e:4f:3c:a4
+// uint8_t DAQBroadcastAddress[] = {0x44, 0x17, 0x93, 0x5C, 0x13, 0x60}; //temp only: 44:17:93:5c:13:60
+uint8_t DAQBroadcastAddress[] = {0xE8, 0x6B, 0xEA, 0xD3, 0x93, 0x88}; //temp only: 44:17:93:5c:13:60
+
 
 void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
   struct_message Packet;
   memcpy(&Packet, incomingData, sizeof(Packet));
 
   if (Packet.sender == COM_ID) {
-    Serial.print("lsi;djliga;osidjfa;osidjg;oasijgliudsfa");
+    Serial.print("lsi;djliga;osidjfa;osidjg;oasijgliudsfa"); //debug
     incomingCOMData = Packet;
     COMState = Packet.COMState;
   } else if (Packet.sender == DAQ_ID) {
@@ -317,7 +323,7 @@ void setup() {
   Serial.println("Finished MOSFET Setup");
 
   // HX711 Pressure Transducer Setup
-  int gain = 128;
+  int gain = 64;
   PT_O1.scale.begin(PT_O1.gpio, PT_O1.clk);
   PT_O1.scale.set_gain(gain);
   PT_O2.scale.begin(PT_O2.gpio, PT_O2.clk);
@@ -328,6 +334,8 @@ void setup() {
   PT_E2.scale.set_gain(gain);
   PT_C1.scale.begin(PT_C1.gpio, PT_C1.clk);
   PT_C1.scale.set_gain(gain);
+  PT_X.scale.begin(PT_X.gpio, PT_X.clk);
+  PT_X.scale.set_gain(gain);
   Serial.println("PT finished");
   // LOAD CELLS UNUSED IN FLIGHT
 
@@ -438,6 +446,7 @@ void reset() {
   PT_E1.resetReading();
   PT_E2.resetReading();
   PT_C1.resetReading();
+  PT_X.resetReading();
   TC_1.resetReading();
   TC_2.resetReading();
   TC_3.resetReading();
@@ -461,6 +470,7 @@ void syncFlightState() {
   if (FlightState != ABORT || DAQState == IDLE) {
     FlightState = DAQState;
   }
+  FlightState = COMState;
   if (COMState == ABORT) {
     FlightState = ABORT;
   }
@@ -483,6 +493,7 @@ void updateOffsetsForIdle() {
     float currentReadingE1 = PT_E1.filteredReading;
     float currentReadingE2 = PT_E2.filteredReading;
     float currentReadingC1 = PT_C1.filteredReading;
+    float currentReadingX = PT_X.filteredReading;
 
     // Update the offset to make the current reading zero
     PT_O1.offset = PT_O1.offset-currentReadingO1;
@@ -490,6 +501,7 @@ void updateOffsetsForIdle() {
     PT_E1.offset = PT_E1.offset-currentReadingE1;
     PT_E2.offset = PT_E2.offset-currentReadingE2;
     PT_C1.offset = PT_C1.offset-currentReadingC1;
+    PT_X.offset = PT_X.offset-currentReadingX;
     
     // Reset the filter to start fresh with new offset
     PT_O1.resetReading();
@@ -497,6 +509,7 @@ void updateOffsetsForIdle() {
     PT_E1.resetReading();
     PT_E2.resetReading();
     PT_C1.resetReading();
+    PT_X.resetReading();
 }
 
 void armed() {
@@ -611,6 +624,7 @@ void getReadings() {
     PT_E1.readDataFromBoard();
     PT_E2.readDataFromBoard();
     PT_C1.readDataFromBoard();
+    PT_X.readDataFromBoard();
     TC_1.readDataFromBoard();
     TC_2.readDataFromBoard();
     TC_3.readDataFromBoard();
@@ -626,11 +640,13 @@ void getReadings() {
 
 // Send data to COM and DAQ board.
 void sendData() {
-  if (DEBUG) {
-    printSensorReadings();
-  }
+  // if (DEBUG) {
+  //   printSensorReadings();
+  // }
+  printSensorReadings();
   dataQueue.addPacket(dataPacket);
-  sendQueue(dataQueue, 0);
+  sendQueue(dataQueue, COMBroadcastAddress);
+  sendQueue(dataQueue, DAQBroadcastAddress);
 }
 
 void updateDataPacket() {
@@ -642,6 +658,7 @@ void updateDataPacket() {
   dataPacket.rawReadings.PT_E1 = PT_E1.rawReading;
   dataPacket.rawReadings.PT_E2 = PT_E2.rawReading;
   dataPacket.rawReadings.PT_C1 = PT_C1.rawReading;
+  dataPacket.rawReadings.PT_X = PT_X.rawReading;
   dataPacket.rawReadings.TC_1 = TC_1.rawReading;
   dataPacket.rawReadings.TC_2 = TC_2.rawReading;
   dataPacket.rawReadings.TC_3 = TC_3.rawReading;
@@ -652,6 +669,7 @@ void updateDataPacket() {
   dataPacket.filteredReadings.PT_E1 = PT_E1.filteredReading;
   dataPacket.filteredReadings.PT_E2 = PT_E2.filteredReading;
   dataPacket.filteredReadings.PT_C1 = PT_C1.filteredReading;
+  dataPacket.filteredReadings.PT_X = PT_X.filteredReading;
   dataPacket.filteredReadings.TC_1 = TC_1.filteredReading;
   dataPacket.filteredReadings.TC_2 = TC_2.filteredReading;
   dataPacket.filteredReadings.TC_3 = TC_3.filteredReading;
@@ -665,6 +683,28 @@ void updateDataPacket() {
   dataPacket.ethVentComplete = ethVentComplete;
   dataPacket.oxVentComplete = oxVentComplete;
 }
+
+// void sendBoth(Queue<struct_message> queue) {
+//   if (WIFIDEBUG) {
+//     return;
+//   }
+
+//   if (queue.size() == 0) {
+//     return;
+//   }
+//   // Set values to send
+//   struct_message Packet = queue.peekPacket();
+
+
+//   // Send message via ESP-NOW
+//   esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&Packet, sizeof(Packet));
+
+//   if (result == ESP_OK) {
+//     queue.popPacket();
+//   } else {
+//     Serial.println("Error sending the data");
+//   }
+// }
 
 void sendQueue(Queue<struct_message> queue, uint8_t broadcastAddress[]) {
   if (WIFIDEBUG) {
@@ -680,6 +720,8 @@ void sendQueue(Queue<struct_message> queue, uint8_t broadcastAddress[]) {
 
   // Send message via ESP-NOW
   esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&Packet, sizeof(Packet));
+  Serial.print("FLIGHT STATE:  ");
+  Serial.println(FlightState);
 
   if (result == ESP_OK) {
     queue.popPacket();
@@ -731,6 +773,8 @@ void printSensorReadings() {
   serialMessage.concat(" ");
   serialMessage.concat(PT_C1.filteredReading);
   serialMessage.concat(" ");
+  serialMessage.concat(PT_X.rawReading);
+  serialMessage.concat(" ");
   serialMessage.concat(TC_1.filteredReading);
   serialMessage.concat(" ");
   serialMessage.concat(TC_2.filteredReading);
@@ -751,7 +795,7 @@ void printSensorReadings() {
   //  serialMessage.concat(readingCap1);
   //  serialMessage.concat(" ");
   //  serialMessage.concat(readingCap2);
-  serialMessage.concat("\Flight Q Length: ");
+  serialMessage.concat("\Flight Q Length hkjhnnf: ");
   serialMessage.concat(dataQueue.size());
   Serial.println(serialMessage);
 }
@@ -763,6 +807,7 @@ String readingsToString(const struct_readings *packet) {
   data = data + packet->PT_E1 + " ";
   data = data + packet->PT_E2 + " ";
   data = data + packet->PT_C1 + " ";
+  data = data + packet->PT_X + " ";
 
   data = data + packet->LC_1 + " ";
   data = data + packet->LC_2 + " ";
