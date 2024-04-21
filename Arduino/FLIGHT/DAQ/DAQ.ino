@@ -31,7 +31,7 @@ PCF8575 pcf8575(0x20);
 
 // DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE.
 // MOSFET must not trigger while in debug.
-bool DEBUG = false;       // Simulate LOX and Eth fill.
+bool DEBUG = true;       // Simulate LOX and Eth fill.
 bool WIFIDEBUG = false;  // Don't send/receive data.
 
 #define SIMULATION_DELAY 25
@@ -111,10 +111,10 @@ struct struct_readings {
 };
 
 struct struct_message {
+  
   int messageTime;
   int sender;
-  struct_readings rawReadings;
-  struct_readings filteredReadings;
+
   int COMState;
   int DAQState;
   int FlightState;
@@ -124,6 +124,9 @@ struct struct_message {
   bool oxVentComplete;
   bool ethVentComplete;
   bool sdCardInitialized;
+  
+  struct_readings rawReadings;
+  struct_readings filteredReadings;
 };
 
 esp_now_peer_info_t peerInfo;
@@ -137,17 +140,22 @@ struct_message outgoingData;
 struct_message incomingCOMReadings;
 struct_message FLIGHT;
 
-uint8_t COMBroadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x4F, 0x3C, 0xA4}; //temp only: c8:f0:9e:4f:3c:a4
-uint8_t FlightBroadcastAddress[] = { 0x48, 0x27, 0xE2, 0x2C, 0x80, 0xD8}; 
+uint8_t COMBroadcastAddress[] = {0x24, 0xDC, 0xC3, 0x4B, 0x61, 0xE0}; //temp only: c8:f0:9e:4f:3c:a4
+uint8_t FlightBroadcastAddress[] = { 0x48, 0x27, 0xE2, 0x2F, 0x22, 0x08}; 
 
 // Callback when data is received
 void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
   struct_message Packet;
   memcpy(&Packet, incomingData, sizeof(Packet));
 
+  Serial.print("INCOMING ID: ");
+  Serial.println(Packet.sender);
+
   if (Packet.sender == COM_ID) {
     incomingCOMReadings = Packet;
     COMState = Packet.COMState;
+    Serial.print("COMState: ");
+    Serial.println(COMState);
   } else if (Packet.sender == FLIGHT_ID) {
     FLIGHT = Packet;
     FlightState = FLIGHT.FlightState;
@@ -173,7 +181,7 @@ void setup() {
   pcf8575.begin();
   mosfet_pcf_found = true;
   mosfetCloseAllValves();  // make sure everything is off by default (NMOS: Down = Off, Up = On)
-  delay(500);              // startup time to make sure its good for personal testing
+  delay(500);              // startup time to make sure its good for personel testing
 
   // Broadcast setup.
   // Set device as a Wi-Fi Station
@@ -248,11 +256,12 @@ void loop() {
   // if Flight and DAQ are not synced, relay to Flight
   // We also relay data if we are in Abort; this is in case of an emergency where
   // Flight breaks; we still want COM to receive updates from DAQ
-  if (flight_toggle == true || DAQState == ABORT || DAQState != FLIGHT.DAQState) {
+  if (flight_toggle == true || DAQState != FLIGHT.DAQState) {
     // sendData(COMBroadcastAddress); // This sends to both COM and Flight
     // delay(10);
-    // sendData(FlightBroadcastAddress); // This sends to both COM and Flight
-    sendData(0);
+    sendData(FlightBroadcastAddress); // This sends to both COM and Flight
+    sendData(COMBroadcastAddress); 
+    // sendData(0);
     flight_toggle = false; //reset toggle
   }
   ///////////// STATE MACHINE ///////////
@@ -457,6 +466,7 @@ void sendData(uint8_t broadcastAddress[]) {
   // Send message via ESP-NOW
   esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&outgoingData, sizeof(outgoingData));
   if (result != ESP_OK) {
+    // Serial.println(broadcastAddress);
     Serial.println("Error sending the data");
   }
 }
