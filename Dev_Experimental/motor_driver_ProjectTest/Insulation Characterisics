@@ -1,0 +1,29 @@
+import numpy as np
+import matplotlib.pyplot as plt
+
+% Constants and Parameters
+k_values = linspace(0, 10, 100); % conductivities
+r_inner = 0.05; % Inner radius of the pipe (meters)
+r_outer = linspace(0.06, 0.2, 100); % Outer radius varies as insulation thickness changes
+T_inner = 150; % Temperature at the inner surface (degrees Celsius)
+T_ambient = 25; % Ambient temperature (degrees Celsius)
+h_conv = 5; % Convective heat transfer coefficient (W/m^2K)
+
+# Initialize an array to store the results
+T = np.zeros((len(r), len(k)))
+
+# Calculate the Bessel function values for each combination of r and k
+for i in range(len(k)):
+    T[:, i] = np.special.jv(0, k[i] * r)
+
+# Plotting
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
+r, k = np.meshgrid(r, k)
+ax.plot_surface(r, k, T.T)
+ax.set_title('Bessel Function J_0(kr) Values Over Varying k and Fixed r')
+ax.set_xlabel('Radius (r)')
+ax.set_ylabel('Parameter (k)')
+ax.set_zlabel('Bessel Function Value')
+
+plt.show()

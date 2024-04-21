@@ -9,7 +9,7 @@ import csv
 import math
 
 def read_serial():
-    port_num = "COM14"
+    port_num = "COM4"
     esp32 = Serial(port=port_num, baudrate=115200)
 
     try:
@@ -18,10 +18,11 @@ def read_serial():
             try:
                 decoded_bytes = data[:len(data)-2].decode("utf-8")
                 str_data = decoded_bytes.split(" ")
+                # 5str_data = str_data[1:]
                 print("got it", str_data)
 
-                if len(str_data) == instrument_count:
-                   [i.append(float(x)) for i, x in zip(instrument_deques, str_data)]
+                # if len(str_data) == instrument_count:
+                [i.append(float(x)) for i, x in zip(instrument_deques, str_data)]
                 
             except:
                 continue
@@ -54,7 +55,6 @@ def graphing(X, Y):
     val_row = []
     for j in range(instrument_count):
         row, col = divmod(j, num_cols)
-
         x = np.array(X[j])
         y = np.array(Y)
         # Find line of best fit
@@ -87,7 +87,7 @@ if __name__ == "__main__":
     global instrument_count
     instrument_count = int(input("Pls input the number of instruments for calibration (INT ONLY): "))
 
-    data_point_num = 5
+    data_point_num = 6
 
     instrument_deques = [deque(maxlen=data_point_num) for _ in range(instrument_count)]
     X = [[] for _ in range(instrument_count)]
