@@ -287,22 +287,22 @@ void dataSend() {
   sendCommands.COMState = COMState;
 
   // Send ABORT to flight
-  if (COMState != FlightState) {
+  if (COMState == ABORT && COMState != FlightState) {
     Serial.print("SENDER: ");
     Serial.println(sendCommands.sender);
     Serial.print("COMSTATE: ");
     Serial.println(sendCommands.COMState);
 
-    esp_err_t result = esp_now_send(FlightBroadcastAddress, (uint8_t *) &sendCommands, sizeof(sendCommands));
+    esp_err_t result = esp_now_send(0, (uint8_t *) &sendCommands, sizeof(sendCommands));
 
-    // Serial.println("changing FLIGHT");
+    Serial.println("aborting");
     if (result != ESP_OK) { Serial.println("ABORT NOT SENT"); }
+    delay(1000);
   }
-  
+
   // Don't send data if states are already synced
   if (COMState != DAQState) {
     esp_err_t result = esp_now_send(DAQBroadcastAddress, (uint8_t *) &sendCommands, sizeof(sendCommands));
-    // Serial.println("changing Daq");
   }
 }
 
@@ -313,7 +313,7 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   if (incomingReadings.sender == DAQ_ID) {
     incomingDAQReadings = incomingReadings;
     DAQState = incomingReadings.DAQState;
-    receiveDataPrint(incomingDAQReadings);
+    // receiveDataPrint(incomingDAQReadings);
   }
   else if (incomingReadings.sender == FLIGHT_ID) {
     incomingFlightReadings = incomingReadings;
@@ -322,33 +322,33 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   }
 }
 
-void receiveDataPrint(struct_message incomingReadings) {
+void receiveDataPrint(struct_message &incomingReadings) {
   String serialMessage = " ";
   serialMessage.concat(millis());
   serialMessage.concat(" ");
-  serialMessage.concat(incomingFlightReadings.filteredReadings.PT_O1);
+  serialMessage.concat(incomingReadings.filteredReadings.PT_O1);
   serialMessage.concat(" ");
-  serialMessage.concat(incomingFlightReadings.filteredReadings.PT_O2);
+  serialMessage.concat(incomingReadings.filteredReadings.PT_O2);
   serialMessage.concat(" ");
-  serialMessage.concat(incomingFlightReadings.filteredReadings.PT_E1);
+  serialMessage.concat(incomingReadings.filteredReadings.PT_E1);
   serialMessage.concat(" ");
-  serialMessage.concat(incomingFlightReadings.filteredReadings.PT_E2);
+  serialMessage.concat(incomingReadings.filteredReadings.PT_E2);
   serialMessage.concat(" ");
-  serialMessage.concat(incomingFlightReadings.filteredReadings.PT_C1);
+  serialMessage.concat(incomingReadings.filteredReadings.PT_C1);
   serialMessage.concat(" ");
-  serialMessage.concat(incomingFlightReadings.filteredReadings.LC_1);
+  serialMessage.concat(incomingReadings.filteredReadings.LC_1);
   serialMessage.concat(" ");
-  serialMessage.concat(incomingFlightReadings.filteredReadings.LC_2);
+  serialMessage.concat(incomingReadings.filteredReadings.LC_2);
   serialMessage.concat(" ");
-  serialMessage.concat(incomingFlightReadings.filteredReadings.LC_3);
+  serialMessage.concat(incomingReadings.filteredReadings.LC_3);
   serialMessage.concat(" ");
-  serialMessage.concat(incomingFlightReadings.filteredReadings.TC_1);
+  serialMessage.concat(incomingReadings.filteredReadings.TC_1);
   serialMessage.concat(" ");
-  serialMessage.concat(incomingFlightReadings.filteredReadings.TC_2);
+  serialMessage.concat(incomingReadings.filteredReadings.TC_2);
   serialMessage.concat(" ");
-  serialMessage.concat(incomingFlightReadings.filteredReadings.TC_3);
+  serialMessage.concat(incomingReadings.filteredReadings.TC_3);
   serialMessage.concat(" ");
-  serialMessage.concat(incomingFlightReadings.filteredReadings.TC_4);
+  serialMessage.concat(incomingReadings.filteredReadings.TC_4);
   serialMessage.concat("\nEth comp: ");
   serialMessage.concat(incomingDAQReadings.ethComplete ? "True" : "False");
   serialMessage.concat(" Ox comp: ");
