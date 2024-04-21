@@ -62,7 +62,7 @@ String stateNames[] = { "Idle", "Armed", "Press", "QD", "Ignition", "HOTFIRE", "
 //{0x30, 0xC6, 0xF7, 0x2A, 0x28, 0x04}
 
 uint8_t DAQBroadcastAddress[] = {0xE8, 0x6B, 0xEA, 0xD3, 0x93, 0x88};
-uint8_t FlightBroadcastAddress[] = {0x48, 0x27, 0xE2, 0x2C, 0x80, 0xD8};
+uint8_t FlightBroadcastAddress[] = {0x48, 0x27, 0xE2, 0x2F, 0x22, 0x08};
 
 //Structure example to send data
 //Must match the receiver structure
@@ -84,8 +84,7 @@ struct struct_readings {
 struct struct_message {
   int messageTime;
   int sender;
-  struct_readings rawReadings;
-  struct_readings filteredReadings;
+  
   int COMState;
   int DAQState;
   int FlightState;
@@ -95,6 +94,12 @@ struct struct_message {
   bool oxVentComplete;
   bool ethVentComplete;
   bool sdCardInitialized;
+
+  
+
+  struct_readings rawReadings;
+  struct_readings filteredReadings;
+  
 };
 
 // Create a struct_message called Readings to recieve sensor readings remotely
@@ -191,7 +196,9 @@ void loop() {
     Serial.print(DAQState);
     Serial.print(" \tFlight State: ");
     Serial.println(FlightState);
-    if(!SWITCH_PRESS.on() && !SWITCH_ARMED.on() && !SWITCH_ABORT.on() && !SWITCH_QD.on() && !SWITCH_IGNITION.on() && !SWITCH_HOTFIRE.on()) { COMState = IDLE; }
+    // if(!SWITCH_PRESS.on() && !SWITCH_ARMED.on() && !SWITCH_ABORT.on() && !SWITCH_QD.on() && !SWITCH_IGNITION.on() && !SWITCH_HOTFIRE.on()) {
+    //   Serial.println("GOING BACK TO IDLE");
+    //    COMState = IDLE; }
   }
 
   switch (COMState) {
@@ -213,13 +220,13 @@ void loop() {
 
     case (PRESS):
       dataSend();
-      if (DAQState == PRESS) { digitalWrite(LED_PRESS, HIGH); }
-      if (incomingDAQReadings.ethComplete) { digitalWrite(LED_PRESSETH, HIGH); }
-      if (incomingDAQReadings.oxComplete) { digitalWrite(LED_PRESSLOX, HIGH); }
-      if (!incomingDAQReadings.ethComplete) { digitalWrite(LED_PRESSETH, LOW); }
-      if (!incomingDAQReadings.oxComplete) { digitalWrite(LED_PRESSLOX, LOW); }
-      if (SWITCH_QD.on()) { COMState = QD; }
-      if(!SWITCH_PRESS.on() && !SWITCH_ARMED.on() && SWITCHES) { COMState = IDLE; }
+      // if (DAQState == PRESS) { digitalWrite(LED_PRESS, HIGH); }
+      // // if (incomingDAQReadings.ethComplete) { digitalWrite(LED_PRESSETH, HIGH); }
+      // // if (incomingDAQReadings.oxComplete) { digitalWrite(LED_PRESSLOX, HIGH); }
+      // // if (!incomingDAQReadings.ethComplete) { digitalWrite(LED_PRESSETH, LOW); }
+      // // if (!incomingDAQReadings.oxComplete) { digitalWrite(LED_PRESSLOX, LOW); }
+      // if (SWITCH_QD.on()) { COMState = QD; }
+      // if(!SWITCH_PRESS.on() && !SWITCH_ARMED.on() && SWITCHES) { COMState = IDLE; }
       break;
 
     case (QD):
@@ -284,16 +291,18 @@ void checkAbort() {
 void dataSend() {
   // Set values to send
   sendCommands.sender = COM_ID;
+
   sendCommands.COMState = COMState;
 
   // Send ABORT to flight
-  if (COMState == ABORT && COMState != FlightState) {
-    Serial.print("SENDER: ");
-    Serial.println(sendCommands.sender);
-    Serial.print("COMSTATE: ");
-    Serial.println(sendCommands.COMState);
+  if (COMState != FlightState) { 
 
-    esp_err_t result = esp_now_send(0, (uint8_t *) &sendCommands, sizeof(sendCommands));
+    esp_err_t result = esp_now_send(FlightBroadcastAddress, (uint8_t *) &sendCommands, sizeof(sendCommands));
+    if(result == ESP_OK) {
+      Serial.println("Successful Send!");
+    } else {
+      Serial.println("Failed Send");
+    }
 
     Serial.println("aborting");
     if (result != ESP_OK) { Serial.println("ABORT NOT SENT"); }
@@ -302,7 +311,15 @@ void dataSend() {
 
   // Don't send data if states are already synced
   if (COMState != DAQState) {
+    
     esp_err_t result = esp_now_send(DAQBroadcastAddress, (uint8_t *) &sendCommands, sizeof(sendCommands));
+    if (result == ESP_OK) {
+    Serial.println("Sent with success");
+    }
+    else {
+      Serial.println("Error sending the data");
+    }
+
   }
 }
 
