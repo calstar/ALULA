@@ -16,7 +16,6 @@ This code runs on the COM ESP32 and has a couple of main tasks.
 
 //IF YOU WANT TO DEBUG, SET THIS TO 1. IF NOT SET ZERO
 int DEBUG = 0;
-// IF SWITCHES ARE ON, SET TO TRUE
 bool SWITCHES = false;
 
 #define COM_ID 1
@@ -376,7 +375,7 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
 void receiveDataPrint() {
   serialMessage.clear();
   serialMessage.concat(" ");
-  serialMessage.concat(millis());
+  serialMessage.concat(SENSE.messageTime);
   serialMessage.concat(" ");
   serialMessage.concat(SENSE.messageTime);
   serialMessage.concat(" ");
@@ -416,6 +415,7 @@ void receiveDataPrint() {
   serialMessage.concat(" ");
   serialMessage.concat(SENSE.queueLength);
   Serial.println(serialMessage);
+  serialMessage = "";
 }
 
 

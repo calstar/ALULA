@@ -44,8 +44,8 @@ FOR DEBUGGING:
 
 // DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE.
 // MOSFET must not trigger while in debug.
-bool DEBUG = false;   // Simulate LOX and Eth fill.
-bool WIFIDEBUG = true; // Don't send/receive data.
+bool DEBUG = true;   // Simulate LOX and Eth fill.
+bool WIFIDEBUG = false; // Don't send/receive data.
 // refer to https://docs.google.com/spreadsheets/d/17NrJWC0AR4Gjejme-EYuIJ5uvEJ98FuyQfYVWI3Qlio/edit#gid=1185803967 for all pinouts
 
 // ABORT VARIABLES //
@@ -262,11 +262,8 @@ struct struct_readings {
 };
 
 struct struct_message {
-  int messageTime;
-  int sender;
-  struct_readings rawReadings;
-  struct_readings filteredReadings;
   int COMState;
+  int messageTime;
   int DAQState;
   int FlightState;
   short int FlightQueueLength;
@@ -275,6 +272,10 @@ struct struct_message {
   bool oxVentComplete;
   bool ethVentComplete;
   bool sdCardInitialized;
+  int sender;
+  struct_readings rawReadings;
+  struct_readings filteredReadings;
+  
 };
 
 struct_message dataPacket;
@@ -292,23 +293,38 @@ esp_now_peer_info_t peerInfo;
 
 // uint8_t COMBroadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x4F, 0x3C, 0xA4}; //temp only: c8:f0:9e:4f:3c:a4
 
-uint8_t COMBroadcastAddress[] = {0x24, 0xBC, 0xC3, 0x4B, 0x61, 0xE0}; //temp only: c8:f0:9e:4f:3c:a4
+uint8_t COMBroadcastAddress[] = {0x24, 0xDC, 0xC3, 0x4B, 0x61, 0xE0}; //temp only: c8:f0:9e:4f:3c:a4
 // uint8_t DAQBroadcastAddress[] = {0x44, 0x17, 0x93, 0x5C, 0x13, 0x60}; //temp only: 44:17:93:5c:13:60
 uint8_t DAQBroadcastAddress[] = {0xE8, 0x6B, 0xEA, 0xD3, 0x93, 0x88}; //temp only: 44:17:93:5c:13:60
 
+void print_struct_message(struct_message s){
+
+}
 
 void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
   struct_message Packet;
   memcpy(&Packet, incomingData, sizeof(Packet));
 
   if (Packet.sender == COM_ID) {
-    Serial.print("lsi;djliga;osidjfa;osidjg;oasijgliudsfa"); //debug
+    Serial.print("lsi;djliga;osidjfa;osidjg;oasijgliudsfa                                    "); //debug
     incomingCOMData = Packet;
+    
     COMState = Packet.COMState;
+    Serial.print("TEST: ");
+    Serial.print(Packet.test);
+    Serial.print("COMSTATE: ");
+    Serial.println(Packet.COMState);
+
   } else if (Packet.sender == DAQ_ID) {
     incomingDAQData = Packet;
     DAQState = Packet.DAQState;
+    Serial.print("DAQSTATE: ");
+    Serial.println(DAQState);
   }
+
+  //DEBUG ONLY
+  Serial.print("SenderID: ");
+  Serial.print(Packet.sender);
 }
 
 // Initialize all sensors and parameters.
@@ -467,13 +483,15 @@ void serialReadFlightState() {
 // Sync state of Flight board with DAQ board
 void syncFlightState() {
   // Sync with DAQ only if Flight doesn't detect an Abort, and DAQ doesn't want us to go back to Idle after Abort
-  if (FlightState != ABORT || DAQState == IDLE) {
-    FlightState = DAQState;
-  }
+  // if (FlightState != ABORT || DAQState == IDLE) {
+  //   FlightState = DAQState;
+  // }
+
   FlightState = COMState;
-  if (COMState == ABORT) {
-    FlightState = ABORT;
-  }
+
+  // if (COMState == ABORT) {
+  //   FlightState = ABORT;
+  // }
 }
 
 bool resetflag = true;
@@ -798,6 +816,7 @@ void printSensorReadings() {
   serialMessage.concat("\Flight Q Length hkjhnnf: ");
   serialMessage.concat(dataQueue.size());
   Serial.println(serialMessage);
+
 }
 
 String readingsToString(const struct_readings *packet) {
