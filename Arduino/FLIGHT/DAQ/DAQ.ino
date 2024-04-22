@@ -154,8 +154,6 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
   if (Packet.sender == COM_ID) {
     incomingCOMReadings = Packet;
     COMState = Packet.COMState;
-    Serial.print("COMState: ");
-    Serial.println(COMState);
   } else if (Packet.sender == FLIGHT_ID) {
     FLIGHT = Packet;
     FlightState = FLIGHT.FlightState;
@@ -224,6 +222,9 @@ void setup() {
 
 
 void loop() {
+  Serial.print("COMState: ");
+  Serial.print(COMState);
+  Serial.print("        DAQState: ");
   Serial.println(DAQState);
   syncDAQState();
   if (flight_toggle == true || DAQState != FLIGHT.DAQState) {

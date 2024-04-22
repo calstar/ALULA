@@ -20,7 +20,7 @@ This code runs on the COM ESP32 and has a couple of main tasks.
 
 //IF YOU WANT TO DEBUG, SET THIS TO True, if not, set False
 bool DEBUG = true;
-bool WIFIDEBUG = false;
+bool WIFIDEBUG = true;
 bool SWITCHES = false; // If we are using switches
 
 Switch SWITCH_ARMED = Switch(14);  //correct
@@ -171,12 +171,12 @@ void setup() {
 
 
 void loop() {
+  dataSend(); //initiate send process
   // Get the state from Serial input
   if (Serial.available() > 0) {
     COMState = Serial.read() - '0';
     Serial.println(COMState);
   }
-
   SWITCH_ARMED.poll();
   SWITCH_PRESS.poll();
   SWITCH_QD.poll();
@@ -197,24 +197,20 @@ void loop() {
   }
 
   switch (COMState) {
-    checkAbort();
 
+    checkAbort();
     case (IDLE): //Includes polling
       idle();
-      dataSend();
-
       if (SWITCH_ARMED.on()) {COMState=ARMED;}
       break;
 
     case (ARMED):
-      dataSend();
       if (DAQState == ARMED) {digitalWrite(LED_ARMED, HIGH);}
       if (SWITCH_PRESS.on()) { COMState=PRESS; }
       if(!SWITCH_ARMED.on() && SWITCHES) { COMState=IDLE; }
       break;
 
     case (PRESS):
-      dataSend();
       // if (DAQState == PRESS) { digitalWrite(LED_PRESS, HIGH); }
       // // if (incomingDAQReadings.ethComplete) { digitalWrite(LED_PRESSETH, HIGH); }
       // // if (incomingDAQReadings.oxComplete) { digitalWrite(LED_PRESSLOX, HIGH); }
@@ -228,7 +224,6 @@ void loop() {
       if (DAQState == QD) {digitalWrite(LED_QD, HIGH);}
       if (SWITCH_IGNITION.on()) { COMState = IGNITION; }
       if(!SWITCH_QD.on() && !SWITCH_PRESS.on() && !SWITCH_ARMED.on() && SWITCHES) { COMState = IDLE; }
-      dataSend();
       break;
 
 
@@ -236,13 +231,11 @@ void loop() {
       if (DAQState == IGNITION) {digitalWrite(LED_IGNITION, HIGH);}
       if (SWITCH_HOTFIRE.on()) { COMState = HOTFIRE; }
       if(!SWITCH_QD.on() && !SWITCH_PRESS.on() && !SWITCH_ARMED.on() && !SWITCH_IGNITION.on() && SWITCHES) { COMState = IDLE; }
-      dataSend();
       break;
 
     case (HOTFIRE):
       if (DAQState == HOTFIRE) {digitalWrite(LED_HOTFIRE, HIGH);}
       if (!SWITCH_ARMED.on() && !SWITCH_HOTFIRE.on() && SWITCHES) { COMState = IDLE; }
-      dataSend();
       break;
 
     case (ABORT):
@@ -256,7 +249,6 @@ void loop() {
       digitalWrite(LED_PRESSLOX, LOW);
       digitalWrite(LED_HOTFIRE, LOW);
       COMState = ABORT;
-      dataSend();
       if(!SWITCH_QD.on() && !SWITCH_PRESS.on() && !SWITCH_ARMED.on() && !SWITCH_IGNITION.on() && !SWITCH_HOTFIRE.on() && !SWITCH_ABORT.on() && SWITCHES) {COMState = IDLE;}
       break;
   }
@@ -287,35 +279,34 @@ void dataSend() {
   // Set values to send
   sendCommands.sender = COM_ID;
   sendCommands.COMState = COMState;
-  if (DEBUG){
-    Serial.print("COMSTATE: ");
-    Serial.println(COMState);
-  }
 
   // Send ABORT to flight
   if (COMState != FlightState) { 
-
     esp_err_t result = esp_now_send(FlightBroadcastAddress, (uint8_t *) &sendCommands, sizeof(sendCommands));
-    if(result == ESP_OK) {
-      Serial.println("Successful Send to FLIGHT!");
-    } else {
-      Serial.println("Failed Send to FLIGHT");
+    if (WIFIDEBUG) {
+      if(result == ESP_OK) {
+        Serial.println("Successful Send to FLIGHT!");
+      } else {
+        Serial.println("Failed Send to FLIGHT");
+      }
     }
   }
 
   // Don't send data if states are already synced
   if (COMState != DAQState) {
-    
     esp_err_t result = esp_now_send(DAQBroadcastAddress, (uint8_t *) &sendCommands, sizeof(sendCommands));
-    if (result == ESP_OK) {
-    Serial.println("Sent with success to DAQ");
+    if (WIFIDEBUG) { //printouts to debug wifi/comms
+      if (result == ESP_OK) {
+      Serial.println("Sent with success to DAQ");
+      }
+      else {
+        Serial.println("Error sending the data to DAQ");
+      }
+      Serial.print("Size of sendCommands: ");
+      Serial.println(sizeof(sendCommands));
     }
-    else {
-      Serial.println("Error sending the data to DAQ");
-    }
-
   }
-}
+} 
 
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   struct_message incomingReadings;
