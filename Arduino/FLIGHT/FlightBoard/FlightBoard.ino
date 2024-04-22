@@ -299,10 +299,6 @@ uint8_t COMBroadcastAddress[] = {0x24, 0xDC, 0xC3, 0x4B, 0x61, 0xE0}; //temp onl
 // uint8_t DAQBroadcastAddress[] = {0x44, 0x17, 0x93, 0x5C, 0x13, 0x60}; //temp only: 44:17:93:5c:13:60
 uint8_t DAQBroadcastAddress[] = {0xE8, 0x6B, 0xEA, 0xD3, 0x93, 0x88}; //temp only: 44:17:93:5c:13:60
 
-void print_struct_message(struct_message s){
-
-}
-
 void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
   struct_message Packet;
   memcpy(&Packet, incomingData, sizeof(Packet));
