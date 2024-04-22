@@ -254,14 +254,16 @@ void loop() {
   // We also relay data if we are in Abort; this is in case of an emergency where
   // Flight breaks; we still want COM to receive updates from DAQ
   if (flight_toggle == true || DAQState != FLIGHT.DAQState) {
-    // sendData(COMBroadcastAddress); // This sends to both COM and Flight
-    // delay(10);
     sendData(FlightBroadcastAddress); // This sends to both COM and Flight
-    sendData(COMBroadcastAddress); 
-    // sendData(0);
     flight_toggle = false; //reset toggle
   }
-  ///////////// STATE MACHINE ///////////
+  if (DAQState != incomingCOMReadings.DAQState) {
+    sendData(COMBroadcastAddress); 
+  }
+
+
+  
+  ////////////////////////// STATE MACHINE /////////////////////////////////////////////////////
   switch (DAQState) { //CHANGE STATES BASED ON DATA RECEIVED(ondatarecv) FROM COM
     case (IDLE):
       if (COMState == ARMED) { syncDAQState(); }
@@ -308,6 +310,7 @@ void loop() {
       break;
   }
 }
+
 
 // State Functions.
 
