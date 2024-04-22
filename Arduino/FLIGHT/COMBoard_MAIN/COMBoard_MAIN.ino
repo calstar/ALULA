@@ -62,7 +62,8 @@ String stateNames[] = { "Idle", "Armed", "Press", "QD", "Ignition", "HOTFIRE", "
 //{0x30, 0xC6, 0xF7, 0x2A, 0x28, 0x04}
 
 uint8_t DAQBroadcastAddress[] = {0xE8, 0x6B, 0xEA, 0xD3, 0x93, 0x88};
-uint8_t FlightBroadcastAddress[] = {0x48, 0x27, 0xE2, 0x2F, 0x22, 0x08};
+uint8_t FlightBroadcastAddress[] = {0x48, 0x27, 0xE2, 0x2C, 0x80, 0xD8}; //CORE 1 V2
+// uint8_t FlightBroadcastAddress[] = {0x48, 0x27, 0xE2, 0x2F, 0x22, 0x08}; //CORE 3 V2
 
 //Structure example to send data
 //Must match the receiver structure
@@ -81,11 +82,11 @@ struct struct_readings {
 struct struct_message {
   int messageTime;
   int sender;
-  
   int COMState;
   int DAQState;
   int FlightState;
   bool AUTOABORT;
+
   short int FlightQueueLength;
   bool ethComplete;
   bool oxComplete;
@@ -319,7 +320,7 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
       Serial.print("DAQSTATE: ");
       Serial.println(DAQState);
     }
-    // receiveDataPrint(incomingDAQReadings);
+
   }
   else if (incomingReadings.sender == FLIGHT_ID) {
     incomingFlightReadings = incomingReadings;

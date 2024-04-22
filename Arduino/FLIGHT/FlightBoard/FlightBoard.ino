@@ -303,12 +303,10 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
   memcpy(&Packet, incomingData, sizeof(Packet));
 
   if (Packet.sender == COM_ID) {
-    if (WIFIDEBUG) {Serial.print("lsi;djliga;osidjfa;osidjg;oasijgliudsfa");} //wifidebug
     incomingCOMData = Packet;
     
     COMState = Packet.COMState;
-    Serial.print("COMSTATE: ");
-    Serial.println(Packet.COMState);
+    if (WIFIDEBUG) {Serial.print("COMSTATE: "); Serial.println(Packet.COMState); }
 
   } else if (Packet.sender == DAQ_ID) {
     incomingDAQData = Packet;
@@ -753,7 +751,6 @@ void printSensorReadings() {
   //  serialMessage.concat(readingCap2);
   if (WIFIDEBUG) {serialMessage.concat("\Flight Q Length:"); serialMessage.concat(dataQueue.size());}
   Serial.println(serialMessage);
-
 }
 
 String readingsToString(const struct_readings *packet) {
