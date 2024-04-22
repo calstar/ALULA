@@ -468,6 +468,7 @@ void serialReadFlightState() {
 // Sync state of Flight board with DAQ board
 void syncFlightState() {
   FlightState = COMState;
+  if (WIFIDEBUG) {Serial.print("COMSTATE:"); Serial.print(COMState); Serial.print("  FLIGHTSTATE"); Serial.println(FlightState);}
   if (DAQState == ABORT) {
     FlightState = ABORT;
   }
