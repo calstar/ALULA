@@ -111,7 +111,6 @@ struct struct_readings {
 };
 
 struct struct_message {
-  
   int messageTime;
   int sender;
 
@@ -119,6 +118,7 @@ struct struct_message {
   int DAQState;
   int FlightState;
   bool AUTOABORT;
+  
   short int FlightQueueLength;
   bool ethComplete;
   bool oxComplete;

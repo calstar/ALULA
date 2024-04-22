@@ -301,10 +301,8 @@ uint8_t DAQBroadcastAddress[] = {0xE8, 0x6B, 0xEA, 0xD3, 0x93, 0x88}; //temp onl
 void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
   struct_message Packet;
   memcpy(&Packet, incomingData, sizeof(Packet));
-
   if (Packet.sender == COM_ID) {
     incomingCOMData = Packet;
-    
     COMState = Packet.COMState;
     if (WIFIDEBUG) {Serial.print("COMSTATE: "); Serial.println(Packet.COMState); }
 
@@ -379,7 +377,6 @@ void setup() {
   if (esp_now_add_peer(&peerInfo) != ESP_OK) {
     Serial.println("Failed to add peer");
     return;
-    
   }
 
   memcpy(peerInfo.peer_addr, DAQBroadcastAddress, 6);
@@ -398,11 +395,11 @@ void setup() {
 
 // Main Structure of State Machine.
 void loop() {
+  syncFlightState();
   // mosfetOpenValve(MOSFET_VENT_LOX); //tests
   // mosfetOpenValve(MOSFET_VENT_ETH); //tests
   logData();
   if (DEBUG) {serialReadFlightState();}
-  syncFlightState();
   switch (FlightState) {
     case (IDLE):
       sendDelay = IDLE_DELAY;
@@ -466,7 +463,7 @@ void serialReadFlightState() {
 // Sync state of Flight board with DAQ board
 void syncFlightState() {
   FlightState = COMState;
-  if (WIFIDEBUG) {Serial.print("COMSTATE:"); Serial.print(COMState); Serial.print("  FLIGHTSTATE"); Serial.println(FlightState);}
+  if (WIFIDEBUG) {Serial.print("COMSTATE:"); Serial.print(COMState); Serial.print("  FLIGHTSTATE"); Serial.print(FlightState);}
   if (DAQState == ABORT) {
     FlightState = ABORT;
   }
@@ -542,24 +539,21 @@ int cumulativeAbortTime = 0; // How long we have been in high-pressure state
 int lastAbortCheckTime = -1; // Last time we called checkAbort()
 
 void checkAbort() {
-  if (lastAbortCheckTime == -1) {
-    lastAbortCheckTime = millis();
-    return;
-  }
+  lastAbortCheckTime = millis();
 
   int deltaTime = millis() - lastAbortCheckTime;
+
   if (dataPacket.filteredReadings.PT_O1 >= abortPressure || dataPacket.filteredReadings.PT_E1 >= abortPressure) {
     cumulativeAbortTime += deltaTime;
   }
   else {
     cumulativeAbortTime = max(cumulativeAbortTime - deltaTime, 0);
   }
-  lastAbortCheckTime = millis();
 
-  if (COMState == ABORT || cumulativeAbortTime >= ABORT_ACTIVATION_DELAY) {
+  if (cumulativeAbortTime >= ABORT_ACTIVATION_DELAY) {
     abort_sequence();
     AUTOABORT = true;
-    if (DEBUG) {Serial.println("AUTOABORT: "); Serial.print(AUTOABORT);}
+    if (DEBUG) {Serial.print("AUTOABORT: "); Serial.println(AUTOABORT);}
   }
 }
 
@@ -605,6 +599,7 @@ void sendData() {
   sendQueue(dataQueue, COMBroadcastAddress);
   delay(5);
   sendQueue(dataQueue, DAQBroadcastAddress);
+  delay(5);
 }
 
 void updateDataPacket() {
@@ -672,13 +667,12 @@ void sendQueue(Queue<struct_message> queue, uint8_t broadcastAddress[]) {
   // Set values to send
   struct_message Packet = queue.peekPacket();
 
-
   // Send message via ESP-NOW
   esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&Packet, sizeof(Packet));
-  if (WIFIDEBUG) {Serial.print("FLIGHT STATE:  "); Serial.println(FlightState);}
 
   if (result == ESP_OK) {
     queue.popPacket();
+    Serial.println("SEND SUCCESS GOOD JOB:");
   } else {
     Serial.println("Error sending the data");
   }
