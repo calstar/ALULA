@@ -192,6 +192,8 @@ void loop() {
     Serial.print(DAQState);
     Serial.print(" \tFlight State: ");
     Serial.println(FlightState);
+    Serial.print("Size of send commands: ");
+    Serial.println(sizeof(sendCommands));
     // if(!SWITCH_PRESS.on() && !SWITCH_ARMED.on() && !SWITCH_ABORT.on() && !SWITCH_QD.on() && !SWITCH_IGNITION.on() && !SWITCH_HOTFIRE.on()) {
     //   Serial.println("GOING BACK TO IDLE");
     //    COMState = IDLE; }
@@ -303,8 +305,6 @@ void dataSend() {
       else {
         Serial.println("Error sending the data to DAQ");
       }
-      Serial.print("Size of sendCommands: ");
-      Serial.println(sizeof(sendCommands));
     }
   }
 } 
