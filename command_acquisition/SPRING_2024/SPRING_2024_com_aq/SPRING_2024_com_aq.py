@@ -22,18 +22,19 @@ import time
 #
 
 data_len = 1500
-num_plots = 11 #!!!!!!!!
+num_plots = 6 #!!!!!!!!
+num_vars = 11 #includes time as x
 
 BUFFER_SIZE = 100
 write_buffer = []
 
-deque_list = [deque(maxlen=data_len) for _ in range(num_plots + 3)]
-x, PT_O1, PT_O2, PT_E1, PT_E2, PT_C1, LC_combined, LC1, LC2, LC3, TC1, TC2, TC3, TC4 = deque_list
+deque_list = [deque(maxlen=data_len) for _ in range(num_vars)]
+x, PT_O1, PT_O2, PT_E1, PT_E2, PT_C1, PT_X, TC1, TC2, TC3, TC4 = deque_list
 
-plot_titles = ["PT_O1", "PT_O2", "PT_E1", "PT_E2", "PT_C1", "LC Combined", "LCs", "TC1", "TC2", "TC3", "TC4"]
-button_names = ['Idle', 'Armed', 'Pressed', 'QD', 'Ignition', 'Hot Fire', 'Abort']
+plot_titles = ["PT_O1", "PT_O2", "PT_E1", "PT_E2", "PT_C1", "PT_X", "TC1", "TC2", "TC3", "TC4"]
+button_names = ['Idle', 'Armed', 'Pressed', 'QD', 'Ignition', 'LAUNCH', 'Abort']
 
-file_base = f"HOTFIRE_{time.strftime('%Y-%m-%d', time.gmtime())}"
+file_base = f"LAUNCH_{time.strftime('%Y-%m-%d', time.gmtime())}"
 file_ext = ".csv"
 test_num = 1
 
@@ -83,11 +84,6 @@ def collection():
                     PT_E2.append(float(values[6]))
                     PT_C1.append(float(values[7]))
 
-                    LC1.append(float(values[8]))
-                    LC2.append(float(values[9]))
-                    LC3.append(float(values[10]))
-                    LC_combined.append(float(values[8]) + float(values[9]) + float(values[10]))
-
                     TC1.append(float(values[11]))
                     TC2.append(float(values[12]))
                     TC3.append(float(values[13]))
@@ -106,15 +102,6 @@ def collection():
             except:
                 continue
      
-def updateOffsetsForIdle():
-    # Update the offset to make the current reading zero
-    PT_O1_offset = PT_O1[-1]
-    PT_O2_offset = PT_O2[-1]
-    PT_E1_offset = PT_E1[-1]
-    PT_E2_offset = PT_E2[-1]
-    PT_C1_offset = PT_C1[-1]
-    PT_X_offset = PT_X[-1]
-
 
 
 class LivePlotter(QMainWindow):
@@ -131,11 +118,11 @@ class LivePlotter(QMainWindow):
         for i, graphWidget in enumerate(self.graphWidgets):
             self.layout.addWidget(graphWidget, i // 3, i % 3)
 
-            if i != 6:  # For all other graphs
+            if i != 4:  # For all other graphs
                 plotDataItem = graphWidget.plot([], [])
                 self.plotDataItems.append(plotDataItem)
-            else:  # For graph 6, initialize and store three PlotDataItems
-                self.plotDataItemsForGraph6 = [graphWidget.plot([], [], pen=pg.mkPen(color=(255, 0, 0))),
+            else:  # After pts, initialize and store all tcs in PlotDataItems
+                self.plotDataItemsForTCs = [graphWidget.plot([], [], pen=pg.mkPen(color=(255, 0, 0))),
                                         graphWidget.plot([], [], pen=pg.mkPen(color=(0, 255, 0))),
                                         graphWidget.plot([], [], pen=pg.mkPen(color=(0, 0, 255)))]
 
@@ -185,34 +172,21 @@ class LivePlotter(QMainWindow):
             ox_flag = "ON" if OX_COMPLETE else "OFF"
             self.setWindowTitle(f"Time: {current_time}    COM_state: {COM_S}   DAQ_state: {DAQ_S}   ETH_COMPLETE: [{eth_flag}]   OX_COMPLETE: [{ox_flag}]")
             
-
-            # for i, plotDataItem in enumerate(self.plotDataItems):
-            #     if i < 6:  # Update standard plots directly
-            #         plotDataItem.setData(list(x), list(deque_list[i + 1]))
-            #         self.graphWidgets[i].setTitle(f"{plot_titles[i]}: {deque_list[i + 1][-1]:.2f}")
-            
             self.plotDataItems[0].setData(list(x), list(PT_O1))  
             self.graphWidgets[0].setTitle(f"PT_O1: {PT_O1[-1]:.2f},  OX: {OX_COMPLETE}")
-            
-            self.plotDataItems[1].setData(list(x), list(PT_O2))  
-            self.graphWidgets[1].setTitle(f"PT_O2: {PT_O2[-1]:.2f}")
 
-            self.plotDataItems[2].setData(list(x), list(PT_E1))  
-            self.graphWidgets[2].setTitle(f"PT_E1: {PT_E1[-1]:.2f},   ETH: {ETH_COMPLETE}")
+            self.plotDataItems[1].setData(list(x), list(PT_E1))  
+            self.graphWidgets[1].setTitle(f"PT_E1: {PT_E1[-1]:.2f},   ETH: {ETH_COMPLETE}")
             
+            self.plotDataItems[2].setData(list(x), list(PT_C1))  
+            self.graphWidgets[2].setTitle(f"PT_C1: {PT_C1[-1]:.2f}")
+
             for i, plotDataItem in enumerate(self.plotDataItems):
                 if i >2:  # Update standard plots directly
                     plotDataItem.setData(list(x), list(deque_list[i + 1]))
                     self.graphWidgets[i].setTitle(f"{plot_titles[i]}: {deque_list[i + 1][-1]:.2f}")
-
             
-            lc_data = [LC1, LC2, LC3]
-            for plotDataItem, lc, title in zip(self.plotDataItemsForGraph6, lc_data, ["LC1", "LC2", "LC3"]):
-                plotDataItem.setData(list(x), list(lc))
-                self.graphWidgets[6].setTitle(f"LC1: {LC1[-1]:.2f}  LC2: {LC2[-1]:.2f}  LC3: {LC3[-1]:.2f}  ")
-            
-
-            for i in range(7, 11):
+            for i in range(7, 11): #NEEDS EDITS
                 self.plotDataItems[i-1].setData(list(x), list(deque_list[i + 3]))  # Adjust indices appropriately
                 self.graphWidgets[i].setTitle(f"{plot_titles[i]}: {deque_list[i + 3][-1]:.2f}")
         except Exception as e:
