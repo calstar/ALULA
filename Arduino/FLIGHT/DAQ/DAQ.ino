@@ -46,6 +46,9 @@ float ventTo = 5;          // c2se solenoids at this pressure to preserve lifeti
 
 #define ABORT_ACTIVATION_DELAY 500 // Number of milliseconds to wait at high pressure before activating abort
 
+int time_send = 0;
+int period = 50;
+
 // GPIO expander
 #define I2C_SDA 21 //21
 #define I2C_SCL 22 //22
@@ -216,52 +219,21 @@ void setup() {
   DAQState = IDLE;
 
   Serial.println("Finished setup");
-}
-
-
-int cumulativeAbortTime = 0; // How long we have been in high-pressure state
-int lastAbortCheckTime = -1; // Last time we called checkAbort()
-void checkAbort() {
-  if (lastAbortCheckTime == -1) {
-    lastAbortCheckTime = millis();
-    return;
-  }
-
-  int deltaTime = millis() - lastAbortCheckTime;
-  if (FLIGHT.filteredReadings.PT_O1 >= abortPressure || FLIGHT.filteredReadings.PT_E1 >= abortPressure) {
-    cumulativeAbortTime += deltaTime;
-  }
-  else {
-    cumulativeAbortTime = max(cumulativeAbortTime - deltaTime, 0);
-  }
-  lastAbortCheckTime = millis();
-
-  if (COMState == ABORT || cumulativeAbortTime >= ABORT_ACTIVATION_DELAY) {
-    abort_sequence();
-    DAQState = ABORT;
-  }
-
+  time_send = millis();
 }
 
 
 void loop() {
   Serial.println(DAQState);
-  if (DEBUG || COMState == ABORT) { //check abort
-    syncDAQState();
-  }
-  // if flight data received, relay to COM
-  // if Flight and DAQ are not synced, relay to Flight
-  // We also relay data if we are in Abort; this is in case of an emergency where
-  // Flight breaks; we still want COM to receive updates from DAQ
+  syncDAQState();
   if (flight_toggle == true || DAQState != FLIGHT.DAQState) {
     sendData(FlightBroadcastAddress); // This sends to both COM and Flight
     flight_toggle = false; //reset toggle
   }
-  if (DAQState != incomingCOMReadings.DAQState) {
+  if (millis()-time_send > period) {
     sendData(COMBroadcastAddress); 
+    time_send = millis();
   }
-
-
   
   ////////////////////////// STATE MACHINE /////////////////////////////////////////////////////
   switch (DAQState) { //CHANGE STATES BASED ON DATA RECEIVED(ondatarecv) FROM COM
@@ -387,6 +359,32 @@ void hotfire() {
     // Serial.print(hotfireStart);
   }
 }
+
+
+int cumulativeAbortTime = 0; // How long we have been in high-pressure state
+int lastAbortCheckTime = -1; // Last time we called checkAbort()
+void checkAbort() {
+  if (lastAbortCheckTime == -1) {
+    lastAbortCheckTime = millis();
+    return;
+  }
+
+  int deltaTime = millis() - lastAbortCheckTime;
+  if (FLIGHT.filteredReadings.PT_O1 >= abortPressure || FLIGHT.filteredReadings.PT_E1 >= abortPressure) {
+    cumulativeAbortTime += deltaTime;
+  }
+  else {
+    cumulativeAbortTime = max(cumulativeAbortTime - deltaTime, 0);
+  }
+  lastAbortCheckTime = millis();
+
+  if (COMState == ABORT || cumulativeAbortTime >= ABORT_ACTIVATION_DELAY) {
+    abort_sequence();
+    DAQState = ABORT;
+  }
+
+}
+
 
 void abort_sequence() {
   mosfetOpenValve(MOSFET_VENT_LOX);
