@@ -19,7 +19,7 @@ This code runs on the COM ESP32 and has a couple of main tasks.
 #define FLIGHT_ID 2
 
 //IF YOU WANT TO DEBUG, SET THIS TO True, if not, set False
-bool DEBUG = false;
+bool DEBUG = true;
 bool WIFIDEBUG = false;
 bool SWITCHES = false; // If we are using switches
 
@@ -72,9 +72,6 @@ struct struct_readings {
   float PT_E1;
   float PT_E2;
   float PT_C1;
-  float LC_1;
-  float LC_2;
-  float LC_3;
   float TC_1;
   float TC_2;
   float TC_3;
@@ -88,6 +85,7 @@ struct struct_message {
   int COMState;
   int DAQState;
   int FlightState;
+  bool AUTOABORT;
   short int FlightQueueLength;
   bool ethComplete;
   bool oxComplete;
@@ -95,9 +93,6 @@ struct struct_message {
   bool ethVentComplete;
   bool sdCardInitialized;
 
-  
-
-  struct_readings rawReadings;
   struct_readings filteredReadings;
   
 };
@@ -291,22 +286,21 @@ void checkAbort() {
 void dataSend() {
   // Set values to send
   sendCommands.sender = COM_ID;
-
   sendCommands.COMState = COMState;
+  if (DEBUG){
+    Serial.print("COMSTATE: ");
+    Serial.println(COMState);
+  }
 
   // Send ABORT to flight
   if (COMState != FlightState) { 
 
     esp_err_t result = esp_now_send(FlightBroadcastAddress, (uint8_t *) &sendCommands, sizeof(sendCommands));
     if(result == ESP_OK) {
-      Serial.println("Successful Send!");
+      Serial.println("Successful Send to FLIGHT!");
     } else {
-      Serial.println("Failed Send");
+      Serial.println("Failed Send to FLIGHT");
     }
-
-    Serial.println("aborting");
-    if (result != ESP_OK) { Serial.println("ABORT NOT SENT"); }
-    delay(1000);
   }
 
   // Don't send data if states are already synced
@@ -314,10 +308,10 @@ void dataSend() {
     
     esp_err_t result = esp_now_send(DAQBroadcastAddress, (uint8_t *) &sendCommands, sizeof(sendCommands));
     if (result == ESP_OK) {
-    Serial.println("Sent with success");
+    Serial.println("Sent with success to DAQ");
     }
     else {
-      Serial.println("Error sending the data");
+      Serial.println("Error sending the data to DAQ");
     }
 
   }
@@ -330,12 +324,19 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   if (incomingReadings.sender == DAQ_ID) {
     incomingDAQReadings = incomingReadings;
     DAQState = incomingReadings.DAQState;
+    if (DEBUG){
+      Serial.print("DAQSTATE: ");
+      Serial.println(DAQState);
+    }
     // receiveDataPrint(incomingDAQReadings);
   }
   else if (incomingReadings.sender == FLIGHT_ID) {
     incomingFlightReadings = incomingReadings;
     FlightState = incomingReadings.FlightState;
     receiveDataPrint(incomingFlightReadings);
+    if (incomingReadings.AUTOABORT){
+      COMState = ABORT;
+    }
   }
 }
 
@@ -352,12 +353,6 @@ void receiveDataPrint(struct_message &incomingReadings) {
   serialMessage.concat(incomingReadings.filteredReadings.PT_E2);
   serialMessage.concat(" ");
   serialMessage.concat(incomingReadings.filteredReadings.PT_C1);
-  serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.filteredReadings.LC_1);
-  serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.filteredReadings.LC_2);
-  serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.filteredReadings.LC_3);
   serialMessage.concat(" ");
   serialMessage.concat(incomingReadings.filteredReadings.TC_1);
   serialMessage.concat(" ");

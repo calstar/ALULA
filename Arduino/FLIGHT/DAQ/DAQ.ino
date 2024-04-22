@@ -101,9 +101,6 @@ struct struct_readings {
   float PT_E1;
   float PT_E2;
   float PT_C1;
-  float LC_1;
-  float LC_2;
-  float LC_3;
   float TC_1;
   float TC_2;
   float TC_3;
@@ -118,6 +115,7 @@ struct struct_message {
   int COMState;
   int DAQState;
   int FlightState;
+  bool AUTOABORT;
   short int FlightQueueLength;
   bool ethComplete;
   bool oxComplete;
@@ -125,7 +123,6 @@ struct struct_message {
   bool ethVentComplete;
   bool sdCardInitialized;
   
-  struct_readings rawReadings;
   struct_readings filteredReadings;
 };
 
