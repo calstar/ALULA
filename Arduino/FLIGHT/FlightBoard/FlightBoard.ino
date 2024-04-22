@@ -44,8 +44,8 @@ FOR DEBUGGING:
 
 // DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE.
 // MOSFET must not trigger while in debug.
-bool DEBUG = false;   // RUN THROUGH STATES MANUALLY.
-bool WIFIDEBUG = false; // PRINT OUT A BUNCH OF DEBUG STATEMENTS.
+bool DEBUG = true;   // RUN THROUGH STATES MANUALLY.
+bool WIFIDEBUG = true; // PRINT OUT A BUNCH OF DEBUG STATEMENTS.
 // refer to https://docs.google.com/spreadsheets/d/17NrJWC0AR4Gjejme-EYuIJ5uvEJ98FuyQfYVWI3Qlio/edit#gid=1185803967 for all pinouts
 
 // ABORT VARIABLES //
@@ -53,6 +53,8 @@ bool WIFIDEBUG = false; // PRINT OUT A BUNCH OF DEBUG STATEMENTS.
 #define ventTo -50   
 bool oxVentComplete = false;
 bool ethVentComplete = false;   
+bool AUTOABORT = false;
+
 #define MOSFET_VENT_LOX 48
 #define MOSFET_VENT_ETH 47
 
@@ -252,21 +254,19 @@ struct struct_readings {
   float PT_E2;
   float PT_C1;
   float PT_X;
-  float LC_1;
-  float LC_2;
-  float LC_3;
   float TC_1;
   float TC_2;
   float TC_3;
   float TC_4;
 };
 
-struct struct_message { //MUST LINE UP SEQUENTIALLY
+struct struct_message { //MUST LINE UP SEQUENTIALLY. 128bytes max
   int messageTime;
   int sender;
   int COMState;
   int DAQState;
   int FlightState;
+  bool AUTOABORT;
 
   short int FlightQueueLength;
   bool ethComplete;
@@ -275,7 +275,6 @@ struct struct_message { //MUST LINE UP SEQUENTIALLY
   bool ethVentComplete;
   bool sdCardInitialized;
 
-  struct_readings rawReadings;
   struct_readings filteredReadings;
 
 };
@@ -564,7 +563,8 @@ void checkAbort() {
 
   if (COMState == ABORT || cumulativeAbortTime >= ABORT_ACTIVATION_DELAY) {
     abort_sequence();
-    FlightState = ABORT;
+    AUTOABORT = true;
+    if (DEBUG) {Serial.println("AUTOABORT: "); Serial.print(AUTOABORT);}
   }
 }
 
@@ -579,6 +579,7 @@ void logData() {
 
 void getReadings() {
   if (millis() - readTime > readDelay) {
+    if (DEBUG == false) {
     readTime = millis();
     PT_O1.readDataFromBoard();
     PT_O2.readDataFromBoard();
@@ -593,6 +594,7 @@ void getReadings() {
     updateDataPacket();
     if (FlightState != IDLE) {
       writeSDCard(packetToString(&dataPacket));
+    }
     }
     printSensorReadings();
   }
@@ -614,16 +616,16 @@ void updateDataPacket() {
   dataPacket.messageTime = millis();
   dataPacket.sender = FLIGHT_ID;
   
-  dataPacket.rawReadings.PT_O1 = PT_O1.rawReading;
-  dataPacket.rawReadings.PT_O2 = PT_O2.rawReading;
-  dataPacket.rawReadings.PT_E1 = PT_E1.rawReading;
-  dataPacket.rawReadings.PT_E2 = PT_E2.rawReading;
-  dataPacket.rawReadings.PT_C1 = PT_C1.rawReading;
-  dataPacket.rawReadings.PT_X = PT_X.rawReading;
-  dataPacket.rawReadings.TC_1 = TC_1.rawReading;
-  dataPacket.rawReadings.TC_2 = TC_2.rawReading;
-  dataPacket.rawReadings.TC_3 = TC_3.rawReading;
-  dataPacket.rawReadings.TC_4 = TC_4.rawReading;
+  // dataPacket.rawReadings.PT_O1 = PT_O1.rawReading;
+  // dataPacket.rawReadings.PT_O2 = PT_O2.rawReading;
+  // dataPacket.rawReadings.PT_E1 = PT_E1.rawReading;
+  // dataPacket.rawReadings.PT_E2 = PT_E2.rawReading;
+  // dataPacket.rawReadings.PT_C1 = PT_C1.rawReading;
+  // dataPacket.rawReadings.PT_X = PT_X.rawReading;
+  // dataPacket.rawReadings.TC_1 = TC_1.rawReading;
+  // dataPacket.rawReadings.TC_2 = TC_2.rawReading;
+  // dataPacket.rawReadings.TC_3 = TC_3.rawReading;
+  // dataPacket.rawReadings.TC_4 = TC_4.rawReading;
 
   dataPacket.filteredReadings.PT_O1 = PT_O1.filteredReading;
   dataPacket.filteredReadings.PT_O2 = PT_O2.filteredReading;
@@ -766,10 +768,6 @@ String readingsToString(const struct_readings *packet) {
   data = data + packet->PT_C1 + " ";
   data = data + packet->PT_X + " ";
 
-  data = data + packet->LC_1 + " ";
-  data = data + packet->LC_2 + " ";
-  data = data + packet->LC_3 + " ";
-
   data = data + packet->TC_1 + " ";
   data = data + packet->TC_2 + " ";
   data = data + packet->TC_3 + " ";
@@ -781,7 +779,6 @@ String readingsToString(const struct_readings *packet) {
 String packetToString(const struct_message *packet) {
   String data = "START\n";
   data = data + millis() + "\n";
-  data += readingsToString(&(packet->rawReadings)) + "\n";
   data += readingsToString(&(packet->filteredReadings)) + "\n";
   data = data + packet->COMState + " " + packet->DAQState + " " + packet->FlightState + "\n";
   data = data + packet->FlightQueueLength + "\n";
