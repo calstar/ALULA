@@ -694,7 +694,8 @@ void setupSDCard() {
   }
 
   Serial.println("SD card initialization done.");
-  dataPacket.sdCardInitialized = SD.open(sdCardFilename, FILE_WRITE);
+  sdCardFile = SD.open(sdCardFilename, FILE_WRITE);
+  dataPacket.sdCardInitialized = sdCardFile;
 
   if (!dataPacket.sdCardInitialized) {
     Serial.println("Error opening SD card file"); // Error handling if file opening fails
