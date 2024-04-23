@@ -1,5 +1,5 @@
 from serial import Serial
-import pandas as pd
+# import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from collections import deque
@@ -9,7 +9,7 @@ import csv
 import math
 
 def read_serial():
-    port_num = "COM4"
+    port_num = "/dev/cu.usbmodem101"
     esp32 = Serial(port=port_num, baudrate=115200)
 
     try:
@@ -26,7 +26,6 @@ def read_serial():
                 
             except:
                 continue
-
     except KeyboardInterrupt:
         interrupt(instrument_deques) # control C
 
