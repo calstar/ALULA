@@ -300,7 +300,6 @@ void dataSend() {
 
   // Don't send data if states are already synced
   if (COMState != DAQState) {
-    delay(500);
     esp_err_t result = esp_now_send(DAQBroadcastAddress, (uint8_t *) &sendCommands, sizeof(sendCommands));
     if (WIFIDEBUG) { //printouts to debug wifi/comms
       if (result == ESP_OK) {
