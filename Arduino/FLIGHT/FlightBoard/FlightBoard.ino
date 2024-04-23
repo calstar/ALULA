@@ -679,7 +679,8 @@ void sendQueue(Queue<struct_message> queue, uint8_t broadcastAddress[]) {
 
 void setupSDCard() {
   Serial.print("Initializing SD card...");
-  if (!(dataPacket.sdCardInitialized = SD.begin(SD_CARD_CS))) {
+  dataPacket.sdCardInitialized = SD.begin(SD_CARD_CS);
+  if (!dataPacket.sdCardInitialized) {
     Serial.println("initialization failed!");
     return;
   }
@@ -688,7 +689,7 @@ void setupSDCard() {
   sdCardFile = SD.open(sdCardFilename, FILE_WRITE);
   dataPacket.sdCardInitialized = sdCardFile;
 
-  if (!dataPacket.sdCardInitialized) {
+  if (!dataPacket.sdCardInitialized && WIFIDEBUG) {
     Serial.println("Error opening SD card file"); // Error handling if file opening fails
   }
 }
