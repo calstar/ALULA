@@ -44,8 +44,8 @@ FOR DEBUGGING:
 
 // DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE.
 // MOSFET must not trigger while in debug.
-bool DEBUG = true;   // RUN THROUGH STATES MANUALLY.
-bool WIFIDEBUG = true; // PRINT OUT A BUNCH OF DEBUG STATEMENTS.
+bool DEBUG = false;   // RUN THROUGH STATES MANUALLY.
+bool WIFIDEBUG = false; // PRINT OUT A BUNCH OF DEBUG STATEMENTS.
 // refer to https://docs.google.com/spreadsheets/d/17NrJWC0AR4Gjejme-EYuIJ5uvEJ98FuyQfYVWI3Qlio/edit#gid=1185803967 for all pinouts
 
 // ABORT VARIABLES //
@@ -59,11 +59,12 @@ bool AUTOABORT = false;
 #define MOSFET_VENT_ETH 47
 
 #define DATA_TIMEOUT 100
-#define IDLE_DELAY 250
-#define GEN_DELAY 25
+#define IDLE_DELAY 150
+#define GEN_DELAY 16
+float sendDelay = IDLE_DELAY; // Frequency of sending data [ms]  updated based on state
 
 float readDelay = 25;     // Frequency of data collection [ms]
-float sendDelay = IDLE_DELAY; // Frequency of sending data [ms]
+int looptime = millis();
 
 #define ABORT_ACTIVATION_DELAY 500 // Number of milliseconds to wait at high pressure before activating abort
 #define SD_CARD_FLUSH_PERIOD 15000 // Interval duration for periodically flushing SD card
@@ -276,6 +277,7 @@ struct struct_message { //MUST LINE UP SEQUENTIALLY. 128bytes max
   bool sdCardInitialized;
 
   struct_readings filteredReadings;
+  struct_readings rawReadings;
 
 };
 
@@ -284,7 +286,6 @@ struct_message dataPacket;
 // Received State from DAQ, abort from COM
 struct_message incomingDAQData;
 struct_message incomingCOMData;
-
 
 // Create a queue for Packet in case Packets are dropped.
 Queue<struct_message> dataQueue = Queue<struct_message>();
@@ -299,20 +300,20 @@ uint8_t COMBroadcastAddress[] = {0x24, 0xDC, 0xC3, 0x4B, 0x61, 0xE0}; //temp onl
 uint8_t DAQBroadcastAddress[] = {0xE8, 0x6B, 0xEA, 0xD3, 0x93, 0x88}; //temp only: 44:17:93:5c:13:60
 
 void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
-  struct_message Packet;
-  memcpy(&Packet, incomingData, sizeof(Packet));
-  if (Packet.sender == COM_ID) {
-    incomingCOMData = Packet;
-    COMState = Packet.COMState;
-    if (WIFIDEBUG) {Serial.print("COMSTATE: "); Serial.println(Packet.COMState); }
+  struct_message rPacket;
+  memcpy(&rPacket, incomingData, sizeof(rPacket));
+  if (rPacket.sender == COM_ID) {
+    incomingCOMData = rPacket;
+    COMState = rPacket.COMState;
+    if (WIFIDEBUG) {Serial.print("COMSTATE: "); Serial.println(rPacket.COMState); }
 
-  } else if (Packet.sender == DAQ_ID) {
-    incomingDAQData = Packet;
-    DAQState = Packet.DAQState;
+  } else if (rPacket.sender == DAQ_ID) {
+    incomingDAQData = rPacket;
+    DAQState = rPacket.DAQState;
     if (WIFIDEBUG) {Serial.print("DAQSTATE: "); Serial.println(DAQState);}
   }
   if (WIFIDEBUG) {Serial.print("SenderID: ");
-  Serial.print(Packet.sender);}
+  Serial.print(rPacket.sender);}
 }
 
 // Initialize all sensors and parameters.
@@ -389,12 +390,17 @@ void setup() {
 
   sendTime = millis();
   readTime = millis();
+
+  dataPacket.sender = 100;
+  looptime = millis();
 }
 
 //::::::STATE MACHINE::::::://
 
 // Main Structure of State Machine.
 void loop() {
+  Serial.print(millis() - looptime);
+  looptime = millis();
   syncFlightState();
   // mosfetOpenValve(MOSFET_VENT_LOX); //tests
   // mosfetOpenValve(MOSFET_VENT_ETH); //tests
@@ -560,6 +566,7 @@ void checkAbort() {
 //::::::DATA LOGGING AND COMMUNICATION::::::://
 void logData() {
   getReadings();
+  if (WIFIDEBUG) {Serial.println("packet filght id"); Serial.println(dataPacket.sender);}
   if (millis() - sendTime > sendDelay) {
     sendTime = millis();
     sendData();
@@ -568,7 +575,6 @@ void logData() {
 
 void getReadings() {
   if (millis() - readTime > readDelay) {
-    if (DEBUG == false) {
     readTime = millis();
     PT_O1.readDataFromBoard();
     PT_O2.readDataFromBoard();
@@ -582,8 +588,7 @@ void getReadings() {
     TC_4.readDataFromBoard();
     updateDataPacket();
     if (FlightState != IDLE) {
-      writeSDCard(packetToString(&dataPacket));
-    }
+      writeSDCard(packetToString(dataPacket));
     }
     printSensorReadings();
   }
@@ -597,25 +602,25 @@ void sendData() {
   printSensorReadings();
   dataQueue.addPacket(dataPacket);
   sendQueue(dataQueue, COMBroadcastAddress);
-  delay(5);
+  // delay(2);
   sendQueue(dataQueue, DAQBroadcastAddress);
-  delay(5);
+  // delay(2);
 }
 
 void updateDataPacket() {
   dataPacket.messageTime = millis();
   dataPacket.sender = FLIGHT_ID;
   
-  // dataPacket.rawReadings.PT_O1 = PT_O1.rawReading;
-  // dataPacket.rawReadings.PT_O2 = PT_O2.rawReading;
-  // dataPacket.rawReadings.PT_E1 = PT_E1.rawReading;
-  // dataPacket.rawReadings.PT_E2 = PT_E2.rawReading;
-  // dataPacket.rawReadings.PT_C1 = PT_C1.rawReading;
-  // dataPacket.rawReadings.PT_X = PT_X.rawReading;
-  // dataPacket.rawReadings.TC_1 = TC_1.rawReading;
-  // dataPacket.rawReadings.TC_2 = TC_2.rawReading;
-  // dataPacket.rawReadings.TC_3 = TC_3.rawReading;
-  // dataPacket.rawReadings.TC_4 = TC_4.rawReading;
+  dataPacket.rawReadings.PT_O1 = PT_O1.rawReading;
+  dataPacket.rawReadings.PT_O2 = PT_O2.rawReading;
+  dataPacket.rawReadings.PT_E1 = PT_E1.rawReading;
+  dataPacket.rawReadings.PT_E2 = PT_E2.rawReading;
+  dataPacket.rawReadings.PT_C1 = PT_C1.rawReading;
+  dataPacket.rawReadings.PT_X = PT_X.rawReading;
+  dataPacket.rawReadings.TC_1 = TC_1.rawReading;
+  dataPacket.rawReadings.TC_2 = TC_2.rawReading;
+  dataPacket.rawReadings.TC_3 = TC_3.rawReading;
+  dataPacket.rawReadings.TC_4 = TC_4.rawReading;
 
   dataPacket.filteredReadings.PT_O1 = PT_O1.filteredReading;
   dataPacket.filteredReadings.PT_O2 = PT_O2.filteredReading;
@@ -648,7 +653,6 @@ void updateDataPacket() {
 //   // Set values to send
 //   struct_message Packet = queue.peekPacket();
 
-
 //   // Send message via ESP-NOW
 //   esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&Packet, sizeof(Packet));
 
@@ -672,9 +676,10 @@ void sendQueue(Queue<struct_message> queue, uint8_t broadcastAddress[]) {
 
   if (result == ESP_OK) {
     queue.popPacket();
-    Serial.println("SEND SUCCESS GOOD JOB:");
+    if (WIFIDEBUG) {Serial.println("SEND SUCCESS GOOD JOB:");}
   } else {
-    Serial.println("Error sending the data");
+    if (WIFIDEBUG) {Serial.println("Error sending the data");}
+    esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&Packet, sizeof(Packet));
   }
 }
 
@@ -745,32 +750,33 @@ void printSensorReadings() {
   //  serialMessage.concat(readingCap2);
   if (WIFIDEBUG) {serialMessage.concat("\Flight Q Length:"); serialMessage.concat(dataQueue.size());}
   Serial.println(serialMessage);
+
 }
 
-String readingsToString(const struct_readings *packet) {
+String readingsToString(const struct_readings packet) {
   String data = "";
-  data = data + packet->PT_O1 + " ";
-  data = data + packet->PT_O2 + " ";
-  data = data + packet->PT_E1 + " ";
-  data = data + packet->PT_E2 + " ";
-  data = data + packet->PT_C1 + " ";
-  data = data + packet->PT_X + " ";
+  data = data + packet.PT_O1 + " ";
+  data = data + packet.PT_O2 + " ";
+  data = data + packet.PT_E1 + " ";
+  data = data + packet.PT_E2 + " ";
+  data = data + packet.PT_C1 + " ";
+  data = data + packet.PT_X + " ";
 
-  data = data + packet->TC_1 + " ";
-  data = data + packet->TC_2 + " ";
-  data = data + packet->TC_3 + " ";
-  data = data + packet->TC_4;
+  data = data + packet.TC_1 + " ";
+  data = data + packet.TC_2 + " ";
+  data = data + packet.TC_3 + " ";
+  data = data + packet.TC_4;
 
   return data;
 }
 
-String packetToString(const struct_message *packet) {
+String packetToString(const struct_message packet) {
   String data = "START\n";
   data = data + millis() + "\n";
-  data += readingsToString(&(packet->filteredReadings)) + "\n";
-  data = data + packet->COMState + " " + packet->DAQState + " " + packet->FlightState + "\n";
-  data = data + packet->FlightQueueLength + "\n";
-  data = data + packet->oxComplete + " " + packet->ethComplete + " " + packet->oxVentComplete + " " + packet->ethVentComplete + "\n";
+  data += readingsToString(packet.filteredReadings) + "\n";
+  data = data + packet.COMState + " " + packet.DAQState + " " + packet.FlightState + "\n";
+  data = data + packet.FlightQueueLength + "\n";
+  data = data + packet.oxComplete + " " + packet.ethComplete + " " + packet.oxVentComplete + " " + packet.ethVentComplete + "\n";
 
   return data;
 }
