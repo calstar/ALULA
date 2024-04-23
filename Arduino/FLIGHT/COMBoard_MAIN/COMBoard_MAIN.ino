@@ -20,7 +20,7 @@ This code runs on the COM ESP32 and has a couple of main tasks.
 
 //IF YOU WANT TO DEBUG, SET THIS TO True, if not, set False
 bool DEBUG = true;
-bool WIFIDEBUG = true;
+bool WIFIDEBUG = false;
 bool SWITCHES = false; // If we are using switches
 
 Switch SWITCH_ARMED = Switch(14);  //correct
@@ -73,6 +73,7 @@ struct struct_readings {
   float PT_E1;
   float PT_E2;
   float PT_C1;
+  float PT_X;
   float TC_1;
   float TC_2;
   float TC_3;
@@ -282,6 +283,8 @@ void dataSend() {
   // Set values to send
   sendCommands.sender = COM_ID;
   sendCommands.COMState = COMState;
+  Serial.println("com: ");
+  Serial.println(COMState);
 
   // Send ABORT to flight
   if (COMState != FlightState) { 
@@ -297,6 +300,7 @@ void dataSend() {
 
   // Don't send data if states are already synced
   if (COMState != DAQState) {
+    delay(500);
     esp_err_t result = esp_now_send(DAQBroadcastAddress, (uint8_t *) &sendCommands, sizeof(sendCommands));
     if (WIFIDEBUG) { //printouts to debug wifi/comms
       if (result == ESP_OK) {
