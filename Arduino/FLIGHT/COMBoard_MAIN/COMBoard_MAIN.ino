@@ -96,7 +96,7 @@ struct struct_message {
   bool sdCardInitialized;
 
   struct_readings filteredReadings;
-  
+  struct_readings rawReadings;
 };
 
 // Create a struct_message called Readings to recieve sensor readings remotely
@@ -348,6 +348,8 @@ void receiveDataPrint(struct_message &incomingReadings) {
   serialMessage.concat(incomingReadings.filteredReadings.PT_E2);
   serialMessage.concat(" ");
   serialMessage.concat(incomingReadings.filteredReadings.PT_C1);
+  serialMessage.concat(" ");
+  serialMessage.concat(incomingReadings.filteredReadings.PT_X);
   serialMessage.concat(" ");
   serialMessage.concat(incomingReadings.filteredReadings.TC_1);
   serialMessage.concat(" ");
