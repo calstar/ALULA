@@ -129,6 +129,16 @@ struct struct_message {
   struct_readings filteredReadings;
 };
 
+void print_struct_message{
+  Serial.print("SenderID: ");
+  Serial.print(sender);
+  Serial.print("  COMState: ");
+  Serial.print(COMState);
+  Serial.print("  DAQState: ");
+  Serial.print(DAQState);
+  
+}
+
 esp_now_peer_info_t peerInfo;
 
 unsigned long QD_start_time;
@@ -240,18 +250,15 @@ void loop() {
   ////////////////////////// STATE MACHINE /////////////////////////////////////////////////////
   switch (DAQState) { //CHANGE STATES BASED ON DATA RECEIVED(ondatarecv) FROM COM
     case (IDLE):
-      if (COMState == ARMED) { syncDAQState(); }
       idle();
       break;
 
     case (ARMED):  // NEED TO ADD TO CASE OPTIONS //ALLOWS OTHER CASES TO TRIGGER //INITIATE TANK PRESS LIVE READINGS
-      if (COMState == IDLE || COMState == PRESS) { syncDAQState(); }
       armed();
       break;
 
     case (PRESS):
       if (COMState == IDLE || (COMState == QD)) {
-        syncDAQState();
         QD_start_time = millis();
         mosfetCloseAllValves();
       }
@@ -260,7 +267,6 @@ void loop() {
 
     case (QD):
       if (COMState == IDLE || COMState == IGNITION) {
-        syncDAQState();
         mosfetCloseAllValves();
       }
       quick_disconnect();
@@ -268,7 +274,6 @@ void loop() {
 
     case (IGNITION):
       if (COMState == IDLE || COMState == HOTFIRE) {
-        syncDAQState();
         hotfireStart = millis();
       }
       ignition();
@@ -280,7 +285,6 @@ void loop() {
 
     case (ABORT):
       abort_sequence();
-      if (COMState == IDLE && oxVentComplete && ethVentComplete) { syncDAQState(); }
       break;
   }
 }
