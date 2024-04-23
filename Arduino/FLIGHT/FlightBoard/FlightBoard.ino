@@ -490,7 +490,6 @@ void ignition() {
 
 void launch() {
   sendDelay = GEN_DELAY;
-  lastSDCardWriteTime = millis();  // Ensures SD card will not flush during burn
   mosfetCloseAllValves(); //might need changes for le3
 }
 
