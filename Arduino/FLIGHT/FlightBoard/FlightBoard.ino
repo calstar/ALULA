@@ -584,7 +584,7 @@ void getReadings() {
     if (FlightState != IDLE) {
       writeSDCard(packetToString(dataPacket));
     }
-    printSensorReadings();
+    printSensorReadings(); 
   }
 }
 
