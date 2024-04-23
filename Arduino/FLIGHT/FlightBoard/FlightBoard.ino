@@ -64,21 +64,16 @@ bool AUTOABORT = false;
 float sendDelay = IDLE_DELAY; // Frequency of sending data [ms]  updated based on state
 
 float readDelay = 25;     // Frequency of data collection [ms]
-int looptime = millis();
 
 #define ABORT_ACTIVATION_DELAY 500 // Number of milliseconds to wait at high pressure before activating abort
-#define SD_CARD_FLUSH_PERIOD 15000 // Interval duration for periodically flushing SD card
 
 enum STATES { IDLE, ARMED, PRESS, QD, IGNITION, LAUNCH, ABORT };
 String stateNames[] = { "Idle", "Armed", "Press", "QD", "Ignition", "LAUNCH", "Abort" };
 
 // SD Card Parameters
 #define SD_CARD_CS 5 // Chip select pin
-const char* sdCardFilename = "./data.txt";
+const char* sdCardFilename = "/data.txt";
 File sdCardFile;
-
-// Last SD card write time
-int lastSDCardWriteTime = 0;
 
 #define MAX_QUEUE_LENGTH 40
 
@@ -392,15 +387,12 @@ void setup() {
   readTime = millis();
 
   dataPacket.sender = 100;
-  looptime = millis();
 }
 
 //::::::STATE MACHINE::::::://
 
 // Main Structure of State Machine.
 void loop() {
-  Serial.print(millis() - looptime);
-  looptime = millis();
   syncFlightState();
   // mosfetOpenValve(MOSFET_VENT_LOX); //tests
   // mosfetOpenValve(MOSFET_VENT_ETH); //tests
@@ -710,10 +702,7 @@ void writeSDCard(String data) {
     
   int currTime = millis();
   sdCardFile.println(data);
-  if (currTime - lastSDCardWriteTime >= SD_CARD_FLUSH_PERIOD) {
-    sdCardFile.flush();
-    lastSDCardWriteTime = currTime;
-  }
+  sdCardFile.flush();
 }
 
 void printSensorReadings() {
