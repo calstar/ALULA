@@ -31,7 +31,7 @@ PCF8575 pcf8575(0x20);
 
 // DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE.
 // MOSFET must not trigger while in debug.
-bool DEBUG = true;       // Simulate LOX and Eth fill.
+bool DEBUG = false;       // Simulate LOX and Eth fill.
 bool WIFIDEBUG = false;  // Don't send/receive data.
 
 #define SIMULATION_DELAY 25
@@ -104,6 +104,7 @@ struct struct_readings {
   float PT_E1;
   float PT_E2;
   float PT_C1;
+  float PT_X;
   float TC_1;
   float TC_2;
   float TC_3;
@@ -129,14 +130,21 @@ struct struct_message {
   struct_readings filteredReadings;
 };
 
-void print_struct_message{
+void print_struct_message(struct_message sm){
   Serial.print("SenderID: ");
-  Serial.print(sender);
+  Serial.print(sm.sender);
   Serial.print("  COMState: ");
-  Serial.print(COMState);
+  Serial.print(sm.COMState);
   Serial.print("  DAQState: ");
-  Serial.print(DAQState);
-  
+  Serial.print(sm.DAQState);
+  Serial.print("  FLIGHTState: ");
+  Serial.print(sm.FlightState);
+  Serial.print("  ETHCOMPLETE: ");
+  Serial.print(sm.ethComplete);
+  Serial.print("  OXCOMPLETE: ");
+  Serial.print(sm.oxComplete);
+  Serial.print("  PacketSize: ");
+  Serial.println(sizeof(sm));
 }
 
 esp_now_peer_info_t peerInfo;
@@ -159,8 +167,10 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
   struct_message Packet;
   memcpy(&Packet, incomingData, sizeof(Packet));
 
-  Serial.print("INCOMING ID: ");
-  Serial.println(Packet.sender);
+  if (WIFIDEBUG){
+    //Serial.println(packetToString(&Packet));
+    print_struct_message(Packet);
+  }
 
   if (Packet.sender == COM_ID) {
     incomingCOMReadings = Packet;
@@ -168,9 +178,7 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
   } else if (Packet.sender == FLIGHT_ID) {
     FLIGHT = Packet;
     FlightState = FLIGHT.FlightState;
-    Serial.println(FlightState);
     flight_toggle = true; //set flag up to send data to COM
-    Serial.println("Data: ");
   }
 }
 
@@ -233,10 +241,12 @@ void setup() {
 
 
 void loop() {
-  Serial.print("COMState: ");
-  Serial.print(COMState);
-  Serial.print("        DAQState: ");
-  Serial.println(DAQState);
+  if (WIFIDEBUG){
+    // Serial.print("COMState: ");
+    // Serial.print(COMState);
+    // Serial.print("        DAQState: ");
+    // Serial.println(DAQState);
+    }
   syncDAQState();
   if (flight_toggle == true || DAQState != FLIGHT.DAQState) {
     sendData(FlightBroadcastAddress); // This sends to both COM and Flight
@@ -464,7 +474,6 @@ void mosfetOpenValve(int num) {
 
 void sendData(uint8_t broadcastAddress[]) {
   if (WIFIDEBUG) {
-    return;
   }
   updateDataPacket();
   // Send message via ESP-NOW
@@ -484,4 +493,32 @@ void updateDataPacket() {
   outgoingData.oxComplete = oxComplete;
   outgoingData.oxVentComplete = oxVentComplete;
   outgoingData.ethVentComplete = ethVentComplete;
+}
+
+String packetToString(struct_message *packet) {
+  String data = "START\n";
+  data = data + millis() + "\n";
+  data += readingsToString(&(packet->filteredReadings)) + "\n";
+  data = data + packet->COMState + " " + packet->DAQState + " " + packet->FlightState + "\n";
+  data = data + packet->FlightQueueLength + "\n";
+  data = data + packet->oxComplete + " " + packet->ethComplete + " " + packet->oxVentComplete + " " + packet->ethVentComplete + "\n";
+
+  return data;
+}
+
+String readingsToString(struct_readings *packet) {
+  String data = "";
+  data = data + packet->PT_O1 + " ";
+  data = data + packet->PT_O2 + " ";
+  data = data + packet->PT_E1 + " ";
+  data = data + packet->PT_E2 + " ";
+  data = data + packet->PT_C1 + " ";
+  data = data + packet->PT_X + " ";
+
+  data = data + packet->TC_1 + " ";
+  data = data + packet->TC_2 + " ";
+  data = data + packet->TC_3 + " ";
+  data = data + packet->TC_4;
+
+  return data;
 }
