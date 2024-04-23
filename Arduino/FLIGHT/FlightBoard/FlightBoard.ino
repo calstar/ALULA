@@ -9,7 +9,7 @@ This code runs on the DAQ ESP32 and has a couple of main tasks.
 
 TO RUN:
 1. Set Board to ESP32S3 Dev Module
-2. Set USB-CDC ON, Flash Size 4MB
+2. Set USB-CDC ENABLED, Flash Size 4MB
 2. hold down BOOT while uploading, til done.
 3. check pinouts 
 4. if nothing else works, plug and unplug (LITERALLY) 
