@@ -314,7 +314,7 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
 // Initialize all sensors and parameters.
 void setup() {
   Serial.begin(115200);
-  // while (!Serial) delay(1);  // wait for Serial on Leonardo/Zero, etc.
+  delay(2000);  // wait for Serial on Leonardo/Zero, etc.
   Serial.println("Finished Serial Setup");
 
   // MOSFET PIN SETUP
