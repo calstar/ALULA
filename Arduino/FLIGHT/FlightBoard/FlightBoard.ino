@@ -545,7 +545,10 @@ int cumulativeAbortTime = 0; // How long we have been in high-pressure state
 int lastAbortCheckTime = -1; // Last time we called checkAbort()
 
 void checkAbort() {
-  lastAbortCheckTime = millis();
+  if (lastAbortCheckTime == -1) {
+    lastAbortCheckTime = millis();
+    return;
+  }
 
   int deltaTime = millis() - lastAbortCheckTime;
 
