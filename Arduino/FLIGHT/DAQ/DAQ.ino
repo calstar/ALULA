@@ -159,6 +159,10 @@ struct_message incomingCOMReadings;
 struct_message FLIGHT;
 
 uint8_t COMBroadcastAddress[] = {0x24, 0xDC, 0xC3, 0x4B, 0x61, 0xE0}; //temp only: c8:f0:9e:4f:3c:a4
+<<<<<<< Updated upstream
+=======
+//uint8_t FlightBroadcastAddress[] = {0x48, 0x27, 0xE2, 0x2C, 0x80, 0xD8}; //CORE 1 V2
+>>>>>>> Stashed changes
 uint8_t FlightBroadcastAddress[] = {0x34, 0x85, 0x18, 0x71, 0x06, 0x60}; //CORE 1 V2
 // uint8_t FlightBroadcastAddress[] = {0x48, 0x27, 0xE2, 0x2F, 0x22, 0x08}; //CORE 3 V2
 
@@ -347,12 +351,19 @@ void press() {
 
 // Disconnect harnessings and check state of rocket.
 void quick_disconnect() {
+<<<<<<< Updated upstream
   
   mosfetCloseValve(MOSFET_ETH_PRESS);  //close press valves
   mosfetCloseValve(MOSFET_LOX_PRESS);
 
   //FIX THE QD LOGIC - PRESS VALVESS TURN OFF, BUT THE QD LINES DO NOT ACTUATE
 
+=======
+  if (millis() - QD_start_time <= 500){
+    mosfetCloseValve(MOSFET_ETH_PRESS);  //close press valves
+    mosfetCloseValve(MOSFET_LOX_PRESS);
+  }
+>>>>>>> Stashed changes
   if (millis() - QD_start_time > 1000 && millis() - QD_start_time <= 3000){
     mosfetOpenValve(MOSFET_ETH_LINE_VENT);
     mosfetOpenValve(MOSFET_LOX_LINE_VENT);
