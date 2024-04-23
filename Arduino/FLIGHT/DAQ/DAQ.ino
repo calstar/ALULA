@@ -31,7 +31,7 @@ PCF8575 pcf8575(0x20);
 
 // DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE.
 // MOSFET must not trigger while in debug.
-bool DEBUG = false;       // Simulate LOX and Eth fill.
+bool PRESS_DEBUG = true;    // Simulate LOX and Eth fill.
 bool WIFIDEBUG = false;  // Don't send/receive data.
 
 #define SIMULATION_DELAY 25
@@ -325,7 +325,7 @@ void press() {
   if (FLIGHT.filteredReadings.PT_O1 < pressureOx * threshold) {
     oxComplete = false;
     mosfetOpenValve(MOSFET_LOX_PRESS);
-    if (DEBUG) {
+    if (PRESS_DEBUG) {
       FLIGHT.filteredReadings.PT_O1 += (0.00075 * SIMULATION_DELAY);
     }
   } else if (FLIGHT.filteredReadings.PT_O1 >= pressureOx) {
@@ -335,7 +335,7 @@ void press() {
   if (FLIGHT.filteredReadings.PT_E1 < pressureFuel * threshold) {
     ethComplete = false;
     mosfetOpenValve(MOSFET_ETH_PRESS);
-    if (DEBUG) {
+    if (PRESS_DEBUG) {
       FLIGHT.filteredReadings.PT_E1 += (0.001 * SIMULATION_DELAY);
     }
   } else if (FLIGHT.filteredReadings.PT_E1 >= pressureFuel) {
@@ -416,7 +416,7 @@ void abort_sequence() {
 
   if (FLIGHT.filteredReadings.PT_O1 > ventTo) {  // vent only lox down to vent to pressure
     mosfetOpenValve(MOSFET_VENT_LOX);
-    if (DEBUG) {
+    if (PRESS_DEBUG) {
       FLIGHT.filteredReadings.PT_O1 = FLIGHT.filteredReadings.PT_O1 - (0.0005 * SIMULATION_DELAY);
     }
   } else {                              // lox vented to acceptable hold pressure
@@ -425,7 +425,7 @@ void abort_sequence() {
   }
   if (FLIGHT.filteredReadings.PT_E1 > ventTo) {
     mosfetOpenValve(MOSFET_VENT_ETH);  // vent ethanol
-    if (DEBUG) {
+    if (PRESS_DEBUG) {
       FLIGHT.filteredReadings.PT_E1 = FLIGHT.filteredReadings.PT_E1 - (0.0005 * SIMULATION_DELAY);
     }
   } else {
@@ -451,7 +451,7 @@ void syncDAQState() {
 }
 
 void mosfetCloseAllValves() {
-  if (mosfet_pcf_found /*&& !DEBUG*/) {
+  if (mosfet_pcf_found) {
     for (int i = 0; i < 16; i++) {
       pcf8575.digitalWrite(i, LOW);
     }
@@ -459,7 +459,7 @@ void mosfetCloseAllValves() {
 }
 
 void mosfetCloseValve(int num) {
-  if (mosfet_pcf_found /* && !DEBUG*/) {
+  if (mosfet_pcf_found) {
     pcf8575.digitalWrite(num, LOW);
   }
 }
