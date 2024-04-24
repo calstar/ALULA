@@ -159,10 +159,10 @@ struct_message incomingCOMReadings;
 struct_message FLIGHT;
 
 uint8_t COMBroadcastAddress[] = {0x24, 0xDC, 0xC3, 0x4B, 0x61, 0xE0}; //temp only: c8:f0:9e:4f:3c:a4
-<<<<<<< Updated upstream
-=======
+//<<<<<<< Updated upstream
+//=======
 //uint8_t FlightBroadcastAddress[] = {0x48, 0x27, 0xE2, 0x2C, 0x80, 0xD8}; //CORE 1 V2
->>>>>>> Stashed changes
+//>>>>>>> Stashed changes
 uint8_t FlightBroadcastAddress[] = {0x34, 0x85, 0x18, 0x71, 0x06, 0x60}; //CORE 1 V2
 // uint8_t FlightBroadcastAddress[] = {0x48, 0x27, 0xE2, 0x2F, 0x22, 0x08}; //CORE 3 V2
 
@@ -272,14 +272,16 @@ void loop() {
       break;
 
     case (PRESS):
-      if (COMState == IDLE || (COMState == QD)) {
-        QD_start_time = millis();
+      if (COMState == IDLE) {
+        
         mosfetCloseAllValves();
       }
+      
       press();
       break;
 
     case (QD):
+
       if (COMState == IDLE || COMState == IGNITION) {
         mosfetCloseAllValves();
       }
@@ -289,6 +291,7 @@ void loop() {
     case (IGNITION):
       if (COMState == IDLE || COMState == HOTFIRE) {
         hotfireStart = millis();
+        Serial.println("STARTED QD Timer");
       }
       ignition();
       break;
@@ -351,24 +354,28 @@ void press() {
 
 // Disconnect harnessings and check state of rocket.
 void quick_disconnect() {
-<<<<<<< Updated upstream
+//<<<<<<< Updated upstream
   
   mosfetCloseValve(MOSFET_ETH_PRESS);  //close press valves
   mosfetCloseValve(MOSFET_LOX_PRESS);
+  Serial.println(millis() - QD_start_time);
 
   //FIX THE QD LOGIC - PRESS VALVESS TURN OFF, BUT THE QD LINES DO NOT ACTUATE
 
-=======
-  if (millis() - QD_start_time <= 500){
+//=======
+  if (millis() - QD_start_time <= 1000){
+    Serial.println("CLOSE PRESS VALVES ");
     mosfetCloseValve(MOSFET_ETH_PRESS);  //close press valves
     mosfetCloseValve(MOSFET_LOX_PRESS);
   }
->>>>>>> Stashed changes
-  if (millis() - QD_start_time > 1000 && millis() - QD_start_time <= 3000){
+//>>>>>>> Stashed changes
+  if (millis() - QD_start_time > 2000 && millis() - QD_start_time <= 4000){
+    Serial.println("OPENED LINE VENT VALVES");
     mosfetOpenValve(MOSFET_ETH_LINE_VENT);
     mosfetOpenValve(MOSFET_LOX_LINE_VENT);
   }
-  if (millis() - QD_start_time > 3000){
+  if (millis() - QD_start_time > 5000){
+    Serial.println("MUSCLE VALVE");
     mosfetCloseValve(MOSFET_ETH_LINE_VENT);
     mosfetCloseValve(MOSFET_LOX_LINE_VENT);
     mosfetOpenValve(MOSFET_QD_MUSCLE);
@@ -450,6 +457,14 @@ void abort_sequence() {
 // Sync state of DAQ board with COM board.
 void syncDAQState() {
   // Sync with COM only if DAQ doesn't detect an Abort, and COM doesn't want us to go back to Idle after Abort
+  
+  if (COMState == QD && DAQState == PRESS) {
+          QD_start_time = millis();
+          Serial.print("QDDDDDDD:   ");
+          Serial.println(QD_start_time);
+          mosfetCloseAllValves();
+        }
+
   if (DAQState != ABORT || COMState == IDLE) {
     DAQState = COMState;
   }
