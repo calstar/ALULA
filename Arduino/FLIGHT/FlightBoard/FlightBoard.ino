@@ -32,6 +32,7 @@ FOR DEBUGGING:
 #include "Adafruit_MAX31855.h"
 #include "RunningMedian.h"
 #include <SD.h>
+#include <Ra01S.h>
 // #include <EasyPCF8575.h>
 // #include "PCF8575.h"  //use this one. Add zip from https://github.com/xreef/PCF8575_library
 
@@ -74,6 +75,42 @@ String stateNames[] = { "Idle", "Armed", "Press", "QD", "Ignition", "LAUNCH", "A
 #define SD_CARD_CS 5 // Chip select pin
 const char* sdCardFilename = "/data.txt";
 File sdCardFile;
+
+// LORA Parameters
+#define LORA_MOSI 11
+#define LORA_CLK 12
+#define LORA_MISO 13
+//#define RF_FREQUENCY                                433000000 // Hz  center frequency
+//#define RF_FREQUENCY                                866000000 // Hz  center frequency
+#define RF_FREQUENCY                                915000000 // Hz  center frequency
+#define TX_OUTPUT_POWER                             22        // dBm tx output power
+#define LORA_SPREADING_FACTOR                       7         // spreading factor [SF5..SF12]
+#define LORA_BANDWIDTH                              4         // bandwidth
+                                                              // 2: 31.25Khz
+                                                              // 3: 62.5Khz
+                                                              // 4: 125Khz
+                                                              // 5: 250KHZ
+                                                              // 6: 500Khz 
+#define LORA_CODINGRATE                             1         // [1: 4/5,
+                                                              //  2: 4/6,
+                                                              //  3: 4/7,
+                                                              //  4: 4/8]
+
+#define LORA_PREAMBLE_LENGTH                        8         // Same for Tx and Rx
+#define LORA_PAYLOAD_LENGTH                          0         // 0: Variable length packet (explicit header)
+                                                              // 1..255  Fixed length packet (implicit header)
+int spreadingFactorIDs[] = {7, 8, 9, 10, 11, 12};
+int bandwidthIDs[] = {2, 3, 4, 5, 6};
+int codingRate[] = {1, 2, 3, 4};
+
+int transmissionsPerSetting = 2;
+
+SX126x  loraModule(15,               //Port-Pin Output: SPI select
+             21,               //Port-Pin Output: Reset 
+             39               //Port-Pin Input:  Busy
+             );
+
+// QUEUE PARAMETERS
 
 #define MAX_QUEUE_LENGTH 40
 
@@ -382,6 +419,7 @@ void setup() {
   }
 
   setupSDCard();
+  setupLora();
 
   sendTime = millis();
   readTime = millis();
@@ -595,9 +633,15 @@ void sendData() {
   // }
   printSensorReadings();
   dataQueue.addPacket(dataPacket);
-  sendQueue(dataQueue, COMBroadcastAddress);
-  // delay(2);
-  sendQueue(dataQueue, DAQBroadcastAddress);
+
+  if (FlightState != LAUNCH) {
+    sendQueue(dataQueue, COMBroadcastAddress);
+    // delay(2);
+    sendQueue(dataQueue, DAQBroadcastAddress);
+  }
+  else {
+    sendLora();
+  }
   // delay(2);
 }
 
@@ -772,5 +816,32 @@ String packetToString(const struct_message packet) {
   data = data + packet.oxComplete + " " + packet.ethComplete + " " + packet.oxVentComplete + " " + packet.ethVentComplete + "\n";
 
   return data;
+}
+
+void setupLora() {
+  loraModule.DebugPrint(WIFIDEBUG);
+  int16_t ret = loraModule.begin(RF_FREQUENCY,              //frequency in Hz
+                           TX_OUTPUT_POWER);          //tx power in dBm
+  if (ret == ERR_NONE) {
+    return;
+  }
+
+  loraModule.LoRaConfig(LORA_SPREADING_FACTOR, 
+                  LORA_BANDWIDTH, 
+                  LORA_CODINGRATE, 
+                  LORA_PREAMBLE_LENGTH, 
+                  LORA_PAYLOAD_LENGTH, 
+                  true,               //crcOn  
+                  false);             //invertIrq
+}
+
+void sendLora() {
+  uint8_t txData[255];
+  memcpy(txData, &dataPacket, sizeof(dataPacket));
+  for (int i = 0; i < transmissionsPerSetting; i++) {
+    if (!loraModule.Send(txData, sizeof(dataPacket), SX126x_TXMODE_SYNC)) {
+      break;
+    }
+  }
 }
 

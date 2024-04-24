@@ -9,6 +9,7 @@ This code runs on the COM ESP32 and has a couple of main tasks.
 #include <Wire.h>
 #include <Arduino.h>
 #include "HX711.h"
+#include <Ra01S.h>
 //#include <ezButton.h>
 #include "avdweb_Switch.h"
 #include "freertos/FreeRTOS.h"
@@ -37,6 +38,29 @@ Switch SWITCH_ABORT = Switch(18);
 #define LED_IGNITION 19 //
 #define LED_HOTFIRE 22  //correct
 #define LED_ABORT 5
+
+// LORA PARAMETERS
+#define RF_FREQUENCY                                915000000 // Hz  center frequency
+#define TX_OUTPUT_POWER                             22        // dBm tx output power
+#define LORA_SPREADING_FACTOR                       7         // spreading factor [SF5..SF12]
+#define LORA_BANDWIDTH                              4         // bandwidth
+                                                              // 2: 31.25Khz
+                                                              // 3: 62.5Khz
+                                                              // 4: 125Khz
+                                                              // 5: 250KHZ
+                                                              // 6: 500Khz 
+#define LORA_CODINGRATE                             1         // [1: 4/5,
+                                                              //  2: 4/6,
+                                                              //  3: 4/7,
+                                                              //  4: 4/8]
+
+#define LORA_PREAMBLE_LENGTH                        8         // Same for Tx and Rx
+#define LORA_PAYLOAD_LENGTH                          0         // 0: Variable length packet (explicit header)
+                                                              // 1..255  Fixed length packet (implicit header)
+SX126x  loraModule(15,               //Port-Pin Output: SPI select
+             21,               //Port-Pin Output: Reset 
+             39               //Port-Pin Input:  Busy
+             );
 
 
 esp_now_peer_info_t peerInfo;
@@ -168,6 +192,9 @@ void setup() {
   // Register for a callback function that will be called when data is received
   esp_now_register_recv_cb(OnDataRecv);
 
+  // Setup lora
+  setupLora();
+
   COMState = IDLE;
 }
 
@@ -240,6 +267,8 @@ void loop() {
     case (HOTFIRE):
       if (DAQState == HOTFIRE) {digitalWrite(LED_HOTFIRE, HIGH);}
       if (!SWITCH_ARMED.on() && !SWITCH_HOTFIRE.on() && SWITCHES) { COMState = IDLE; }
+
+      receiveLora();
       break;
 
     case (ABORT):
@@ -388,4 +417,38 @@ void receiveDataPrint(struct_message &incomingReadings) {
   // serialMessage.concat("\n SD Card Initialized");
   serialMessage.concat(incomingReadings.sdCardInitialized ? "True" : "False");
   Serial.println(serialMessage);
+}
+
+void setupLora() {
+  int16_t ret = loraModule.begin(RF_FREQUENCY,              //frequency in Hz
+                           TX_OUTPUT_POWER);          //tx power in dBm
+  if (ret == ERR_NONE) {
+    return;
+  }
+
+  loraModule.LoRaConfig(LORA_SPREADING_FACTOR, 
+                  LORA_BANDWIDTH, 
+                  LORA_CODINGRATE, 
+                  LORA_PREAMBLE_LENGTH, 
+                  LORA_PAYLOAD_LENGTH, 
+                  true,               //crcOn  
+                  false);             //invertIrq  
+}
+
+void receiveLora() {
+  uint8_t rxData[255];
+  uint8_t rxLen = loraModule.Receive(rxData, 255);
+
+  if (rxLen > 0) {
+    memcpy(&incomingFlightReadings, rxData, sizeof(incomingFlightReadings));
+  }
+
+  int8_t rssi, snr;
+  loraModule.GetPacketStatus(&rssi, &snr);
+  Serial.print("rssi: ");
+  Serial.print(rssi, DEC);
+  Serial.println(" dBm");
+  Serial.print("snr: ");
+  Serial.print(snr, DEC);
+  Serial.println(" dB");
 }
