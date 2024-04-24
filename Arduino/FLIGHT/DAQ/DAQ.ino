@@ -265,6 +265,7 @@ void loop() {
   switch (DAQState) { //CHANGE STATES BASED ON DATA RECEIVED(ondatarecv) FROM COM
     case (IDLE):
       idle();
+      
       break;
 
     case (ARMED):  // NEED TO ADD TO CASE OPTIONS //ALLOWS OTHER CASES TO TRIGGER //INITIATE TANK PRESS LIVE READINGS
@@ -480,7 +481,7 @@ void syncDAQState() {
 
 void mosfetCloseAllValves() {
   if (mosfet_pcf_found) {
-    for (int i = 0; i < 16; i++) {
+    for (int i = 0; i < 18; i++) {
       pcf8575.digitalWrite(i, LOW);
     }
   }
