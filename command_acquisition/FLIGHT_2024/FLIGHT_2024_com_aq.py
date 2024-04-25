@@ -63,6 +63,7 @@ def collection():
     global FLIGHT_Q_LENGTH
     global AUTO_ABORT
     global SD_CARD_STATUS
+    global pt_offsets
 
 
     with open(filename, "a", newline='') as f:
@@ -109,7 +110,6 @@ def collection():
                     SD_CARD_STATUS = values[30]
 
                     pt_offsets = values[31:37].copy()
-
 
                 if len(write_buffer) >= BUFFER_SIZE:
                         writer.writerows(write_buffer)
@@ -219,6 +219,9 @@ class LivePlotter(QMainWindow):
                     plotDataItem.setData(list(x), list(deque_list[i + 1]))
                     self.graphWidgets[i].setTitle(f"{plot_titles[i]}: {deque_list[i + 1][-1]:.2f}")
 
+            for i, offset in enumerate(pt_offsets):
+                self.offsetButtons[i].setText("Update offset: " + pt_names[i] + f" ({pt_offsets[i]})")
+
 
         except Exception as e:
         # Log the exception or handle it as needed
@@ -231,7 +234,7 @@ class LivePlotter(QMainWindow):
 
     def ptOffsetButtonClick(self, name, id):
         print(f"Button clicked: {name}")
-        print(f"New offset: {self.offsetTextboxes[id].text()}")
+        print("Serial write: ", "o" + str(id) + str(self.offsetTextboxes[id].text()))
         esp32.write(("o" + str(id) + str(self.offsetTextboxes[id].text())).encode())
 
 def safe_float(value):

@@ -45,6 +45,9 @@ esp_now_peer_info_t peerInfo;
 enum STATES {IDLE, ARMED, PRESS, QD, IGNITION, HOTFIRE, ABORT};
 String stateNames[] = { "Idle", "Armed", "Press", "QD", "Ignition", "HOTFIRE", "Abort" };
 
+// Number of PTs in system
+#define NUM_PTS 6
+
 //#define DEBUG_IDLE 90
 //#define DEBUG_ARMED 91
 //#define DEBUG_PRESS 92
@@ -63,9 +66,8 @@ String stateNames[] = { "Idle", "Armed", "Press", "QD", "Ignition", "HOTFIRE", "
 //{0x30, 0xC6, 0xF7, 0x2A, 0x28, 0x04}
 
 uint8_t DAQBroadcastAddress[] = {0xE8, 0x6B, 0xEA, 0xD3, 0x93, 0x88};
-// uint8_t FlightBroadcastAddress[] = {0x48, 0x27, 0xE2, 0x2C, 0x80, 0xD8}; //CORE 1 V2
-uint8_t FlightBroadcastAddress[] = {0x34, 0x85, 0x18, 0x71, 0x06, 0x60}; // CORE 2 V2
-// uint8_t FlightBroadcastAddress[] = {0x48, 0x27, 0xE2, 0x2F, 0x22, 0x08}; //CORE 3 V2
+//uint8_t FlightBroadcastAddress[] = {0x48, 0x27, 0xE2, 0x2C, 0x80, 0xD8}; //CORE 1 V2
+uint8_t FlightBroadcastAddress[] = {0x24, 0xDC, 0xC3, 0x4B, 0x61, 0xE0}; //CORE 3 V2
 
 //Structure example to send data
 //Must match the receiver structure
@@ -460,6 +462,10 @@ void receiveDataPrint(struct_message &incomingReadings) {
 }
 
 void updateSendDataWithOffsets(int ptNumber, float newOffset) {
+    if (ptNumber < 0 || ptNumber >= NUM_PTS) {
+      return;
+    }
+    updatePTOffsets = true;
     switch (ptNumber) {
         case 0:
             sendCommands.pt_offsets.PT_O1_set = true;
