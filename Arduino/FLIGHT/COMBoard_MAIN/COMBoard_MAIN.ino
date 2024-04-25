@@ -69,6 +69,15 @@ uint8_t FlightBroadcastAddress[] = {0x34, 0x85, 0x18, 0x71, 0x06, 0x60}; // CORE
 
 //Structure example to send data
 //Must match the receiver structure
+struct struct_pt_offsets {
+  float PT_O1_offset;
+  float PT_O2_offset;
+  float PT_E1_offset;
+  float PT_E2_offset;
+  float PT_C1_offset;
+  float PT_X_offset;
+};
+
 struct struct_readings {
   float PT_O1;
   float PT_O2;
@@ -99,6 +108,7 @@ struct struct_message {
 
   struct_readings filteredReadings;
   struct_readings rawReadings;
+  struct_readings struct_pt_offsets;
 };
 
 // Create a struct_message called Readings to recieve sensor readings remotely
@@ -149,7 +159,7 @@ void setup() {
   // Register peer
   peerInfo.channel = 0;
   peerInfo.encrypt = false;
-  
+
   // Add peer
   memcpy(peerInfo.peer_addr, DAQBroadcastAddress, 6);
 
@@ -158,7 +168,7 @@ void setup() {
   }
 
   memcpy(peerInfo.peer_addr, FlightBroadcastAddress, 6);
-  
+
   if (esp_now_add_peer(&peerInfo) != ESP_OK){
     Serial.println("Failed to add peer");
     return;
@@ -191,7 +201,7 @@ void loop() {
   SWITCH_IGNITION.poll();
   SWITCH_HOTFIRE.poll();
   SWITCH_ABORT.poll();
-    
+
   if (DEBUG) {
     Serial.print("COM State: ");
     Serial.print(COMState);
@@ -293,7 +303,7 @@ void dataSend() {
   // Serial.println(COMState);
 
   // Send ABORT to flight
-  if (COMState != FlightState) { 
+  if (COMState != FlightState) {
     esp_err_t result = esp_now_send(FlightBroadcastAddress, (uint8_t *) &sendCommands, sizeof(sendCommands));
     if (WIFIDEBUG) {
       if(result == ESP_OK) {
@@ -316,7 +326,7 @@ void dataSend() {
       }
     }
   }
-} 
+}
 
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   struct_message incomingReadings;
@@ -413,6 +423,6 @@ void receiveDataPrint(struct_message &incomingReadings) {
   // SD CARD STATUS
   serialMessage.concat(" ");
   serialMessage.concat(incomingReadings.sdCardInitialized ? "True" : "False");
-  
+
   Serial.println(serialMessage);
 }
