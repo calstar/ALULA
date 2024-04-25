@@ -595,10 +595,7 @@ void sendData() {
   // }
   printSensorReadings();
   dataQueue.addPacket(dataPacket);
-  sendQueue(dataQueue, COMBroadcastAddress);
-  // delay(2);
-  sendQueue(dataQueue, DAQBroadcastAddress);
-  // delay(2);
+  sendQueue(dataQueue, 0);
 }
 
 void updateDataPacket() {
