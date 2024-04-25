@@ -127,6 +127,9 @@ int COMState = IDLE;
 int DAQState = IDLE;
 int FlightState = IDLE;
 
+// Turn this on to send PT offset updates to flight
+bool updatePTOffsets = false;
+
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(115200);
@@ -198,8 +201,16 @@ void loop() {
   dataSend(); //initiate send process
   // Get the state from Serial input
   if (Serial.available() > 0) {
-    COMState = Serial.read() - '0';
-    Serial.println(COMState);
+    char header = Serial.read();
+    if (header == 's') {
+      COMState = Serial.read() - '0';
+      Serial.println(COMState);
+    } else if (header == 'o') {
+      char ptNumber = Serial.read() - '0';
+      float newOffset = Serial.readString().toFloat();
+
+      updateSendDataWithOffsets(ptNumber, newOffset);
+    }
   }
   SWITCH_ARMED.poll();
   SWITCH_PRESS.poll();
@@ -309,8 +320,9 @@ void dataSend() {
   // Serial.println(COMState);
 
   // Send ABORT to flight
-  if (COMState != FlightState) {
+  if (COMState != FlightState || updatePTOffsets) {
     esp_err_t result = esp_now_send(FlightBroadcastAddress, (uint8_t *) &sendCommands, sizeof(sendCommands));
+    updatePTOffsets = false;
     if (WIFIDEBUG) {
       if(result == ESP_OK) {
         Serial.println("Successful Send to FLIGHT!");
@@ -429,6 +441,48 @@ void receiveDataPrint(struct_message &incomingReadings) {
   // SD CARD STATUS
   serialMessage.concat(" ");
   serialMessage.concat(incomingReadings.sdCardInitialized ? "True" : "False");
+  // PT Offsets
+  serialMessage.concat(" ");
+  serialMessage.concat(incomingReadings.pt_offsets.PT_O1_offset);
+  serialMessage.concat(" ");
+  serialMessage.concat(incomingReadings.pt_offsets.PT_O2_offset);
+  serialMessage.concat(" ");
+  serialMessage.concat(incomingReadings.pt_offsets.PT_E1_offset);
+  serialMessage.concat(" ");
+  serialMessage.concat(incomingReadings.pt_offsets.PT_E2_offset);
+  serialMessage.concat(" ");
+  serialMessage.concat(incomingReadings.pt_offsets.PT_C1_offset);
+  serialMessage.concat(" ");
+  serialMessage.concat(incomingReadings.pt_offsets.PT_X_offset);
 
   Serial.println(serialMessage);
+}
+
+void updateSendDataWithOffsets(int ptNumber, float newOffset) {
+    switch (ptNumber) {
+        case 0:
+            sendCommands.pt_offsets.PT_O1_set = true;
+            sendCommands.pt_offsets.PT_O1_offset = newOffset;
+            break;
+        case 1:
+            sendCommands.pt_offsets.PT_O2_set = true;
+            sendCommands.pt_offsets.PT_O2_offset = newOffset;
+            break;
+        case 2:
+            sendCommands.pt_offsets.PT_E1_set = true;
+            sendCommands.pt_offsets.PT_E1_offset = newOffset;
+            break;
+        case 3:
+            sendCommands.pt_offsets.PT_E2_set = true;
+            sendCommands.pt_offsets.PT_E2_offset = newOffset;
+            break;
+        case 4:
+            sendCommands.pt_offsets.PT_C1_set = true;
+            sendCommands.pt_offsets.PT_C1_offset = newOffset;
+            break;
+        case 5:
+            sendCommands.pt_offsets.PT_X_set = true;
+            sendCommands.pt_offsets.PT_X_offset = newOffset;
+            break;
+    }
 }
