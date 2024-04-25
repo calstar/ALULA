@@ -22,13 +22,13 @@ import time
 #
 
 data_len = 1500
-num_plots = 10 #!!!!!!!!
+num_plots = 6 #!!!!!!!!
 
 BUFFER_SIZE = 100
 write_buffer = []
 
 deque_list = [deque(maxlen=data_len) for _ in range(num_plots + 1)]
-x, PT_O1, PT_O2, PT_E1, PT_E2, PT_C1, PT_X, TC1, TC2, TC3, TC4 = deque_list
+x, PT_O1, PT_O2, PT_E1, PT_E2, PT_C1, PT_X = deque_list
 
 plot_titles = ["PT_O1", "PT_O2", "PT_E1", "PT_E2", "PT_C1", "PT_X", "TC1", "TC2", "TC3", "TC4"]
 button_names = ['Idle', 'Armed', 'Pressed', 'QD', 'Ignition', 'Hot Fire', 'Abort']
@@ -82,10 +82,10 @@ def collection():
                     PT_C1.append(float(values[5]))
                     PT_X.append(float(values[6]))
 
-                    TC1.append(float(values[7]))
-                    TC2.append(float(values[8]))
-                    TC3.append(float(values[9]))
-                    TC4.append(float(values[10]))
+                    # TC1.append(float(values[7]))
+                    # TC2.append(float(values[8]))
+                    # TC3.append(float(values[9]))
+                    # TC4.append(float(values[10]))
 
                     ETH_COMPLETE = values[11]
                     OX_COMPLETE = values[12]
