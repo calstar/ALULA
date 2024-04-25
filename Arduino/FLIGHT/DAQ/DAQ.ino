@@ -163,8 +163,9 @@ uint8_t COMBroadcastAddress[] = {0x24, 0xDC, 0xC3, 0x4B, 0x61, 0xE0}; //temp onl
 //=======
 //uint8_t FlightBroadcastAddress[] = {0x48, 0x27, 0xE2, 0x2C, 0x80, 0xD8}; //CORE 1 V2
 //>>>>>>> Stashed changes
-uint8_t FlightBroadcastAddress[] = {0x34, 0x85, 0x18, 0x71, 0x06, 0x60}; //CORE 1 V2
-// uint8_t FlightBroadcastAddress[] = {0x48, 0x27, 0xE2, 0x2F, 0x22, 0x08}; //CORE 3 V2
+uint8_t FlightBroadcastAddress[] = {0x34, 0x85, 0x18, 0x71, 0x06, 0x60}; //CORE 2 V2
+//uint8_t FlightBroadcastAddress[] = {0x48, 0x27, 0xE2, 0x2F, 0x22, 0x08}; //CORE 3 V2
+
 
 // Callback when data is received
 void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
@@ -282,18 +283,10 @@ void loop() {
       break;
 
     case (QD):
-
-      if (COMState == IDLE || COMState == IGNITION) {
-        mosfetCloseAllValves();
-      }
       quick_disconnect();
       break;
 
     case (IGNITION):
-      if (COMState == IDLE || COMState == HOTFIRE) {
-        hotfireStart = millis();
-        Serial.println("STARTED QD Timer");
-      }
       ignition();
       break;
 
@@ -320,6 +313,8 @@ void reset() {
 
 void idle() {
   mosfetCloseAllValves();
+  // mosfetCloseValve(5);
+  // mosfetCloseValve(3);
   reset();  // must set oxComplete and ethComplete to false!
 }
 
@@ -375,7 +370,7 @@ void quick_disconnect() {
     mosfetOpenValve(MOSFET_ETH_LINE_VENT);
     mosfetOpenValve(MOSFET_LOX_LINE_VENT);
   }
-  if (millis() - QD_start_time > 5000){
+  if (millis() - QD_start_time > 4000){
     Serial.println("MUSCLE VALVE");
     mosfetCloseValve(MOSFET_ETH_LINE_VENT);
     mosfetCloseValve(MOSFET_LOX_LINE_VENT);
@@ -465,7 +460,9 @@ void syncDAQState() {
           Serial.println(QD_start_time);
           mosfetCloseAllValves();
         }
-
+  if (COMState == HOTFIRE && DAQState == IGNITION){
+            hotfireStart = millis();
+  }
   if (DAQState != ABORT || COMState == IDLE) {
     DAQState = COMState;
   }
