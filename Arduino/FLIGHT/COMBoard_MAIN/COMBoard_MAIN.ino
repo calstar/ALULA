@@ -22,7 +22,7 @@ This code runs on the COM ESP32 and has a couple of main tasks.
 bool DEBUG = false;
 bool WIFIDEBUG = false;
 bool SWITCHES = false; // If we are using switches
-bool GUI_DEBUG = true;
+bool GUI_DEBUG = false;
 
 Switch SWITCH_ARMED = Switch(14);  //correct
 Switch SWITCH_PRESS = Switch(12);  //correct
