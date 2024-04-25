@@ -11,8 +11,8 @@ TO RUN:
 1. Set Board to ESP32S3 Dev Module
 2. Set USB-CDC ENABLED, Flash Size 4MB
 2. hold down BOOT while uploading, til done.
-3. check pinouts 
-4. if nothing else works, plug and unplug (LITERALLY) 
+3. check pinouts
+4. if nothing else works, plug and unplug (LITERALLY)
 5. check if the USB is working
 
 FOR DEBUGGING:
@@ -50,9 +50,9 @@ bool WIFIDEBUG = false; // PRINT OUT A BUNCH OF DEBUG STATEMENTS.
 
 // ABORT VARIABLES //
 #define abortPressure 625  // Cutoff pressure to automatically trigger abort
-#define ventTo -50   
+#define ventTo -50
 bool oxVentComplete = false;
-bool ethVentComplete = false;   
+bool ethVentComplete = false;
 bool AUTOABORT = false;
 
 #define MOSFET_VENT_LOX 48
@@ -213,7 +213,7 @@ public:
 struct_hx711 PT_O1{ {}, HX_CLK, 15, .offset = -104.6, .slope = 0.0304 }; //swapped w/C1 04/19
 struct_hx711 PT_O2{ {}, HX_CLK, 16, .offset = -90.9, .slope = 0.0288 };
 struct_hx711 PT_E1{ {}, HX_CLK, 6, .offset = -195.1, .slope = 0.0414 };
-struct_hx711 PT_E2{ {}, HX_CLK, 7, .offset = -200.4, .slope = 0.0486 }; 
+struct_hx711 PT_E2{ {}, HX_CLK, 7, .offset = -200.4, .slope = 0.0486 };
 struct_hx711 PT_C1{ {}, HX_CLK, 4, .offset = 0, .slope = 0.01 }; //currently broken
 struct_hx711 PT_X{ {}, HX_CLK, 5, .offset = 0, .slope = 1 }; //pt6 - extra
 
@@ -243,6 +243,15 @@ int FlightState = IDLE;
 
 // Structure example to send data.
 // Must match the receiver structure.
+struct struct_pt_offsets {
+  float PT_O1_offset;
+  float PT_O2_offset;
+  float PT_E1_offset;
+  float PT_E2_offset;
+  float PT_C1_offset;
+  float PT_X_offset;
+};
+
 struct struct_readings {
   float PT_O1;
   float PT_O2;
@@ -256,7 +265,7 @@ struct struct_readings {
   float TC_4;
 };
 
-struct struct_message { //MUST LINE UP SEQUENTIALLY. 128bytes max
+struct struct_message {
   int messageTime;
   int sender;
   int COMState;
@@ -273,7 +282,7 @@ struct struct_message { //MUST LINE UP SEQUENTIALLY. 128bytes max
 
   struct_readings filteredReadings;
   struct_readings rawReadings;
-
+  struct_readings struct_pt_offsets;
 };
 
 struct_message dataPacket;
@@ -295,20 +304,30 @@ uint8_t COMBroadcastAddress[] = {0x24, 0xDC, 0xC3, 0x4B, 0x61, 0xE0}; //temp onl
 uint8_t DAQBroadcastAddress[] = {0xE8, 0x6B, 0xEA, 0xD3, 0x93, 0x88}; //temp only: 44:17:93:5c:13:60
 
 void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
-  struct_message rPacket;
-  memcpy(&rPacket, incomingData, sizeof(rPacket));
-  if (rPacket.sender == COM_ID) {
-    incomingCOMData = rPacket;
-    COMState = rPacket.COMState;
-    if (WIFIDEBUG) {Serial.print("COMSTATE: "); Serial.println(rPacket.COMState); }
+  struct_message packet;
+  memcpy(&packet, incomingData, sizeof(rPacket));
+  if (packet.sender == COM_ID) {
+    incomingCOMData = packet;
+    COMState = packet.COMState;
+    updatePTOffsets();
+    if (WIFIDEBUG) {Serial.print("COMSTATE: "); Serial.println(packet.COMState); }
 
-  } else if (rPacket.sender == DAQ_ID) {
-    incomingDAQData = rPacket;
-    DAQState = rPacket.DAQState;
+  } else if (packet.sender == DAQ_ID) {
+    incomingDAQData = packet;
+    DAQState = packet.DAQState;
     if (WIFIDEBUG) {Serial.print("DAQSTATE: "); Serial.println(DAQState);}
   }
   if (WIFIDEBUG) {Serial.print("SenderID: ");
-  Serial.print(rPacket.sender);}
+  Serial.print(packet.sender);}
+}
+
+void updatePTOffsets(const struct_message &packet) {
+    PT_O1.offset = packet.PT_O1_offset;
+    PT_O2.offset = packet.PT_O2_offset;
+    PT_E1.offset = packet.PT_E1_offset;
+    PT_E2.offset = packet.PT_E2_offset;
+    PT_C1.offset = packet.PT_C1_offset;
+    PT_X.offset = packet.PT_X_offset;
 }
 
 // Initialize all sensors and parameters.
@@ -584,7 +603,7 @@ void getReadings() {
     if (FlightState != IDLE) {
       writeSDCard(packetToString(dataPacket));
     }
-    printSensorReadings(); 
+    printSensorReadings();
   }
 }
 
@@ -601,7 +620,7 @@ void sendData() {
 void updateDataPacket() {
   dataPacket.messageTime = millis();
   dataPacket.sender = FLIGHT_ID;
-  
+
   dataPacket.rawReadings.PT_O1 = PT_O1.rawReading;
   dataPacket.rawReadings.PT_O2 = PT_O2.rawReading;
   dataPacket.rawReadings.PT_E1 = PT_E1.rawReading;
@@ -691,12 +710,12 @@ void setupSDCard() {
   }
 }
 
-void writeSDCard(String data) { 
+void writeSDCard(String data) {
   if (!sdCardFile) {
     if (DEBUG) { Serial.println("Error writing to sd card"); }
     return;
   }
-    
+
   int currTime = millis();
   sdCardFile.println(data);
   sdCardFile.flush();
