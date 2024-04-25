@@ -22,6 +22,7 @@ This code runs on the COM ESP32 and has a couple of main tasks.
 bool DEBUG = false;
 bool WIFIDEBUG = false;
 bool SWITCHES = false; // If we are using switches
+bool GUI_DEBUG = true;
 
 Switch SWITCH_ARMED = Switch(14);  //correct
 Switch SWITCH_PRESS = Switch(12);  //correct
@@ -173,6 +174,10 @@ void setup() {
 
 
 void loop() {
+  if (GUI_DEBUG) {
+    receiveDataPrint(incomingFlightReadings);
+  }
+
   dataSend(); //initiate send process
   // Get the state from Serial input
   if (Serial.available() > 0) {
@@ -336,8 +341,10 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
 }
 
 void receiveDataPrint(struct_message &incomingReadings) {
-  String serialMessage = " ";
+  String serialMessage = "";
+  // TIME
   serialMessage.concat(millis());
+  // FILTERED READINGS
   serialMessage.concat(" ");
   serialMessage.concat(incomingReadings.filteredReadings.PT_O1);
   serialMessage.concat(" ");
@@ -358,34 +365,53 @@ void receiveDataPrint(struct_message &incomingReadings) {
   serialMessage.concat(incomingReadings.filteredReadings.TC_3);
   serialMessage.concat(" ");
   serialMessage.concat(incomingReadings.filteredReadings.TC_4);
+  // RAW READINGS
   serialMessage.concat(" ");
-  // serialMessage.concat("\nEth comp: ");
-  serialMessage.concat(incomingDAQReadings.ethComplete ? "True" : "False");
-   serialMessage.concat(" ");
-  // serialMessage.concat(" Ox comp: ");
-  serialMessage.concat(incomingDAQReadings.oxComplete  ? "True" : "False");
+  serialMessage.concat(incomingReadings.rawReadings.PT_O1);
   serialMessage.concat(" ");
-  //serialMessage.concat("\nEth vent: ");
+  serialMessage.concat(incomingReadings.rawReadings.PT_O2);
+  serialMessage.concat(" ");
+  serialMessage.concat(incomingReadings.rawReadings.PT_E1);
+  serialMessage.concat(" ");
+  serialMessage.concat(incomingReadings.rawReadings.PT_E2);
+  serialMessage.concat(" ");
+  serialMessage.concat(incomingReadings.rawReadings.PT_C1);
+  serialMessage.concat(" ");
+  serialMessage.concat(incomingReadings.rawReadings.PT_X);
+  serialMessage.concat(" ");
+  serialMessage.concat(incomingReadings.rawReadings.TC_1);
+  serialMessage.concat(" ");
+  serialMessage.concat(incomingReadings.rawReadings.TC_2);
+  serialMessage.concat(" ");
+  serialMessage.concat(incomingReadings.rawReadings.TC_3);
+  serialMessage.concat(" ");
+  serialMessage.concat(incomingReadings.rawReadings.TC_4);
+  // STATES
+  serialMessage.concat(" ");
+  serialMessage.concat(COMState);
+  serialMessage.concat(" ");
+  serialMessage.concat(DAQState);
+  serialMessage.concat(" ");
+  serialMessage.concat(FlightState);
+  // PRESS STATUS
+  serialMessage.concat(" ");
+  serialMessage.concat(incomingDAQReadings.ethComplete ? "T" : "F");
+  serialMessage.concat(" ");
+  serialMessage.concat(incomingDAQReadings.oxComplete  ? "T" : "F");
+  // AUTO ABORT STATUS
+  serialMessage.concat(" ");
+  serialMessage.concat(incomingReadings.AUTOABORT ? "T" : "F");
   // OR the bits in case either FLIGHT or DAQ is in Abort mode
-  serialMessage.concat(incomingDAQReadings.ethVentComplete | incomingFlightReadings.ethVentComplete ? "True" : "False");
   serialMessage.concat(" ");
-  //serialMessage.concat(" Ox vent: ");
-  serialMessage.concat(incomingDAQReadings.oxVentComplete | incomingFlightReadings.oxVentComplete ? "True" : "False");
+  serialMessage.concat(incomingDAQReadings.ethVentComplete | incomingFlightReadings.ethVentComplete ? "T" : "F");
   serialMessage.concat(" ");
-
-  //serialMessage.concat("\n COM State: ");
-  serialMessage.concat(stateNames[COMState]);
+  serialMessage.concat(incomingDAQReadings.oxVentComplete | incomingFlightReadings.oxVentComplete ? "T" : "F");
+  // FLIGHT QUEUE LENGTH
   serialMessage.concat(" ");
-  //serialMessage.concat("   DAQ State: ");
-  serialMessage.concat(stateNames[DAQState]);
-  serialMessage.concat(" ");
-  //serialMessage.concat("   Flight State: ");
-  serialMessage.concat(stateNames[FlightState]);
-  serialMessage.concat(" ");
-  //serialMessage.concat("\n Flight Q Length: ");
   serialMessage.concat(incomingReadings.FlightQueueLength);
+  // SD CARD STATUS
   serialMessage.concat(" ");
-  // serialMessage.concat("\n SD Card Initialized");
-  serialMessage.concat(incomingReadings.sdCardInitialized ? "True" : "False");
+  serialMessage.concat(incomingReadings.sdCardInitialized ? "T" : "F");
+  
   Serial.println(serialMessage);
 }
