@@ -9,7 +9,7 @@ import csv
 import math
 
 def read_serial():
-    port_num = "COM5"
+    port_num = "COM6"
     esp32 = Serial(port=port_num, baudrate=115200)
 
     try:
@@ -92,7 +92,7 @@ if __name__ == "__main__":
     X = [[] for _ in range(instrument_count)]
     Y = []
 
-    file_base = f"NENEWNENWEW_calibration_{time.strftime('%Y-%m-%d', time.gmtime())}"
+    file_base = f"CORE_BOARD_1_WITH_BATTERY{time.strftime('%Y-%m-%d', time.gmtime())}"
     file_ext = ".csv"
     test_num = 1
 

@@ -193,7 +193,6 @@ void setup() {
   while (!Serial) delay(1);  // wait for Serial on Leonardo/Zero, etc.
 
   // MOSFET.
-  //  mosfet_pcf.startI2C(I2C_SDA, I2C_SCL, MOSFET_PCF_ADDR); // Only SEARCH, if using normal pins in Arduino
   mosfet_pcf_found = true;
 
   // Set pinMode to OUTPUT
@@ -266,7 +265,6 @@ void loop() {
   switch (DAQState) { //CHANGE STATES BASED ON DATA RECEIVED(ondatarecv) FROM COM
     case (IDLE):
       idle();
-      
       break;
 
     case (ARMED):  // NEED TO ADD TO CASE OPTIONS //ALLOWS OTHER CASES TO TRIGGER //INITIATE TANK PRESS LIVE READINGS
@@ -275,10 +273,8 @@ void loop() {
 
     case (PRESS):
       if (COMState == IDLE) {
-        
         mosfetCloseAllValves();
       }
-      
       press();
       break;
 
@@ -313,8 +309,6 @@ void reset() {
 
 void idle() {
   mosfetCloseAllValves();
-  // mosfetCloseValve(5);
-  // mosfetCloseValve(3);
   reset();  // must set oxComplete and ethComplete to false!
 }
 
@@ -480,6 +474,7 @@ void mosfetCloseAllValves() {
   if (mosfet_pcf_found) {
     for (int i = 0; i < 18; i++) {
       pcf8575.digitalWrite(i, LOW);
+      Serial.println("CLOSEING");
     }
   }
 }
@@ -487,12 +482,14 @@ void mosfetCloseAllValves() {
 void mosfetCloseValve(int num) {
   if (mosfet_pcf_found) {
     pcf8575.digitalWrite(num, LOW);
+    Serial.print("closing valve:"); Serial.print(num);
   }
 }
 
 void mosfetOpenValve(int num) {
   if (mosfet_pcf_found) {
     pcf8575.digitalWrite(num, HIGH);
+    Serial.print("OPE");
   }
 }
 
