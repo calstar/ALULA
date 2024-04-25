@@ -244,6 +244,13 @@ int FlightState = IDLE;
 // Structure example to send data.
 // Must match the receiver structure.
 struct struct_pt_offsets {
+  bool PT_O1_set;
+  bool PT_O2_set;
+  bool PT_E1_set;
+  bool PT_E2_set;
+  bool PT_C1_set;
+  bool PT_X_set;
+
   float PT_O1_offset;
   float PT_O2_offset;
   float PT_E1_offset;
@@ -282,7 +289,7 @@ struct struct_message {
 
   struct_readings filteredReadings;
   struct_readings rawReadings;
-  struct_readings struct_pt_offsets;
+  struct_pt_offsets pt_offsets;
 };
 
 struct_message dataPacket;
@@ -305,29 +312,45 @@ uint8_t DAQBroadcastAddress[] = {0xE8, 0x6B, 0xEA, 0xD3, 0x93, 0x88}; //temp onl
 
 void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
   struct_message packet;
-  memcpy(&packet, incomingData, sizeof(rPacket));
+  memcpy(&packet, incomingData, sizeof(packet));
   if (packet.sender == COM_ID) {
     incomingCOMData = packet;
     COMState = packet.COMState;
-    updatePTOffsets();
+    updatePTOffsets(packet);
+
     if (WIFIDEBUG) {Serial.print("COMSTATE: "); Serial.println(packet.COMState); }
 
   } else if (packet.sender == DAQ_ID) {
     incomingDAQData = packet;
     DAQState = packet.DAQState;
+
     if (WIFIDEBUG) {Serial.print("DAQSTATE: "); Serial.println(DAQState);}
   }
-  if (WIFIDEBUG) {Serial.print("SenderID: ");
-  Serial.print(packet.sender);}
+  if (WIFIDEBUG) {
+    Serial.print("SenderID: ");
+    Serial.print(packet.sender);
+  }
 }
 
 void updatePTOffsets(const struct_message &packet) {
-    PT_O1.offset = packet.PT_O1_offset;
-    PT_O2.offset = packet.PT_O2_offset;
-    PT_E1.offset = packet.PT_E1_offset;
-    PT_E2.offset = packet.PT_E2_offset;
-    PT_C1.offset = packet.PT_C1_offset;
-    PT_X.offset = packet.PT_X_offset;
+  if (packet.pt_offsets.PT_O1_set) {
+    PT_O1.offset = packet.pt_offsets.PT_O1_offset;
+  }
+  if (packet.pt_offsets.PT_O2_set) {
+    PT_O2.offset = packet.pt_offsets.PT_O2_offset;
+  }
+  if (packet.pt_offsets.PT_E1_set) {
+    PT_E1.offset = packet.pt_offsets.PT_E1_offset;
+  }
+  if (packet.pt_offsets.PT_E2_set) {
+    PT_E2.offset = packet.pt_offsets.PT_E2_offset;
+  }
+  if (packet.pt_offsets.PT_C1_set) {
+    PT_C1.offset = packet.pt_offsets.PT_C1_offset;
+  }
+  if (packet.pt_offsets.PT_X_set) {
+    PT_X.offset = packet.pt_offsets.PT_X_offset;
+  }
 }
 
 // Initialize all sensors and parameters.
@@ -650,6 +673,13 @@ void updateDataPacket() {
 
   dataPacket.ethVentComplete = ethVentComplete;
   dataPacket.oxVentComplete = oxVentComplete;
+
+  dataPacket.pt_offsets.PT_O1_offset = PT_O1.offset;
+  dataPacket.pt_offsets.PT_O2_offset = PT_O2.offset;
+  dataPacket.pt_offsets.PT_E1_offset = PT_E1.offset;
+  dataPacket.pt_offsets.PT_E2_offset = PT_E2.offset;
+  dataPacket.pt_offsets.PT_C1_offset = PT_C1.offset;
+  dataPacket.pt_offsets.PT_X_offset = PT_X.offset;
 }
 
 // void sendBoth(Queue<struct_message> queue) {

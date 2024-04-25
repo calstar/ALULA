@@ -69,6 +69,13 @@ uint8_t FlightBroadcastAddress[] = {0x34, 0x85, 0x18, 0x71, 0x06, 0x60}; //CORE 
 //Structure example to send data
 //Must match the receiver structure
 struct struct_pt_offsets {
+  bool PT_O1_set;
+  bool PT_O2_set;
+  bool PT_E1_set;
+  bool PT_E2_set;
+  bool PT_C1_set;
+  bool PT_X_set;
+
   float PT_O1_offset;
   float PT_O2_offset;
   float PT_E1_offset;
@@ -107,7 +114,7 @@ struct struct_message {
 
   struct_readings filteredReadings;
   struct_readings rawReadings;
-  struct_readings struct_pt_offsets;
+  struct_pt_offsets pt_offsets;
 };
 
 // Create a struct_message called Readings to recieve sensor readings remotely
