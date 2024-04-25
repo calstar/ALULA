@@ -51,13 +51,17 @@ esp32 = Serial(port=port_num, baudrate=115200)
 
 def collection():
     global values
-    global COM_S 
+    global COM_S
     global DAQ_S
     global FLIGHT_S
     global ETH_COMPLETE
     global OX_COMPLETE
     global ETH_VENT
     global OX_VENT
+    global FLIGHT_Q_LENGTH
+    global AUTO_ABORT
+    global SD_CARD_STATUS
+
 
     with open(filename, "a", newline='') as f:
         writer = csv.writer(f, delimiter=",")
@@ -69,9 +73,9 @@ def collection():
                 values = decoded_bytes.split(" ")
                 write_buffer.append(values)
 
-            
-                if len(values) == 20:
-                    
+
+                if len(values) == 31:
+
                     #  values = [safe_float(value) for value in values]
                     print(values)
                     x.append(float(values[0])/1000)
@@ -87,15 +91,21 @@ def collection():
                     # TC3.append(float(values[9]))
                     # TC4.append(float(values[10]))
 
-                    ETH_COMPLETE = values[11]
-                    OX_COMPLETE = values[12]
+                    COM_S = values[21]
+                    DAQ_S = values[22]
+                    FLIGHT_S = values[23]
 
-                    ETH_VENT = values[13]
-                    OX_VENT = values[14]
+                    ETH_COMPLETE = values[24]
+                    OX_COMPLETE = values[25]
 
-                    COM_S = values[15]
-                    DAQ_S = values[16]
-                    FLIGHT_S = values[17]
+                    AUTO_ABORT = values[26]
+
+                    ETH_VENT = values[27]
+                    OX_VENT = values[28]
+
+                    FLIGHT_Q_LENGTH = values[29]
+                    SD_CARD_STATUS = values[30]
+
 
                 if len(write_buffer) >= BUFFER_SIZE:
                         writer.writerows(write_buffer)
@@ -103,7 +113,7 @@ def collection():
 
             except:
                 continue
-     
+
 
 class LivePlotter(QMainWindow):
     def __init__(self, *args, **kwargs):
@@ -127,31 +137,31 @@ class LivePlotter(QMainWindow):
                                         graphWidget.plot([], [], pen=pg.mkPen(color=(0, 255, 0))),
                                         graphWidget.plot([], [], pen=pg.mkPen(color=(0, 0, 255)))]
 
-        
+
 
         # # BUTTON STUFF
         # ###########################################################
-        self.buttons = []  # Store button references if needed 
+        self.buttons = []  # Store button references if needed
         self.buttonLayout = QVBoxLayout()
-        
 
-        for i, name in enumerate(button_names): 
+
+        for i, name in enumerate(button_names):
             btn = QPushButton(name)
             btn.setStyleSheet("QPushButton {font-size: 25pt;}")
             btn.clicked.connect(lambda _, name=name, number=i: self.handleButtonClick(name, number))
-            self.buttonLayout.addWidget(btn)  
+            self.buttonLayout.addWidget(btn)
             self.buttons.append(btn)
-        self.buttonLayout.addStretch(1) 
+        self.buttonLayout.addStretch(1)
         buttonWidget = QWidget()
         buttonWidget.setLayout(self.buttonLayout)
-        self.layout.addWidget(buttonWidget, 0, 3, len(button_names) + 1, 1) 
-        self.layout.setColumnStretch(0, 3) 
+        self.layout.addWidget(buttonWidget, 0, 3, len(button_names) + 1, 1)
+        self.layout.setColumnStretch(0, 3)
         self.layout.setColumnStretch(1, 3)
         self.layout.setColumnStretch(2, 3)
-        self.layout.setColumnStretch(3, 1) 
+        self.layout.setColumnStretch(3, 1)
 
-        # # ########################################################### 
-       
+        # # ###########################################################
+
         self.timer = QTimer()
         self.timer.setInterval(300)  # ms
         self.timer.timeout.connect(self.update_plot_data)
@@ -159,7 +169,7 @@ class LivePlotter(QMainWindow):
 
     def update_plot_data(self):
 
-        try: 
+        try:
             current_time = x[-1] if x else None
 
             if current_time is not None:
@@ -170,23 +180,23 @@ class LivePlotter(QMainWindow):
                     for y_series in deque_list[1:]:  # Assuming self.y is a list of deques
                         y_series.popleft()
 
-            self.setWindowTitle(f"Time: {current_time}    COM: {COM_S}   DAQ: {DAQ_S}   FLIGHT: {FLIGHT_S}  ETH_COMPLETE: {ETH_COMPLETE}   OX_COMPLETE: {OX_COMPLETE}   ETH_VENT: {ETH_VENT}    OX_VENT: {OX_VENT}")
-            
+            self.setWindowTitle(f"Time: {current_time}    COM: {COM_S}   DAQ: {DAQ_S}   FLIGHT: {FLIGHT_S}  ETH_COMPLETE: {ETH_COMPLETE}  OX_COMPLETE: {OX_COMPLETE}   AUTO_ABORT: {AUTO_ABORT}   ETH_VENT: {ETH_VENT} OX_VENT: {OX_VENT}    Q_LENGTH: {FLIGHT_Q_LENGTH} SD_CARD_STATUS: {SD_CARD_STATUS}")
+
 
             for i, plotDataItem in enumerate(self.plotDataItems):
                 if i < 10:  # Update standard plots directly
                     plotDataItem.setData(list(x), list(deque_list[i + 1]))
                     self.graphWidgets[i].setTitle(f"{plot_titles[i]}: {deque_list[i + 1][-1]:.2f}")
-        
-    
+
+
         except Exception as e:
         # Log the exception or handle it as needed
             print(f"Error updating plot data: {e}")
 
     def handleButtonClick(self, name, number):
 
-        print(f"Button clicked: {name}")  
-        esp32.write(str(number).encode()) 
+        print(f"Button clicked: {name}")
+        esp32.write(str(number).encode())
 
 def safe_float(value):
     try:

@@ -395,23 +395,23 @@ void receiveDataPrint(struct_message &incomingReadings) {
   serialMessage.concat(FlightState);
   // PRESS STATUS
   serialMessage.concat(" ");
-  serialMessage.concat(incomingDAQReadings.ethComplete ? "T" : "F");
+  serialMessage.concat(incomingDAQReadings.ethComplete ? "True" : "False");
   serialMessage.concat(" ");
-  serialMessage.concat(incomingDAQReadings.oxComplete  ? "T" : "F");
+  serialMessage.concat(incomingDAQReadings.oxComplete  ? "True" : "False");
   // AUTO ABORT STATUS
   serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.AUTOABORT ? "T" : "F");
+  serialMessage.concat(incomingReadings.AUTOABORT ? "True" : "False");
   // OR the bits in case either FLIGHT or DAQ is in Abort mode
   serialMessage.concat(" ");
-  serialMessage.concat(incomingDAQReadings.ethVentComplete | incomingFlightReadings.ethVentComplete ? "T" : "F");
+  serialMessage.concat(incomingDAQReadings.ethVentComplete | incomingFlightReadings.ethVentComplete ? "True" : "False");
   serialMessage.concat(" ");
-  serialMessage.concat(incomingDAQReadings.oxVentComplete | incomingFlightReadings.oxVentComplete ? "T" : "F");
+  serialMessage.concat(incomingDAQReadings.oxVentComplete | incomingFlightReadings.oxVentComplete ? "True" : "False");
   // FLIGHT QUEUE LENGTH
   serialMessage.concat(" ");
   serialMessage.concat(incomingReadings.FlightQueueLength);
   // SD CARD STATUS
   serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.sdCardInitialized ? "T" : "F");
+  serialMessage.concat(incomingReadings.sdCardInitialized ? "True" : "False");
   
   Serial.println(serialMessage);
 }
