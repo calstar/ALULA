@@ -38,7 +38,7 @@ bool WIFIDEBUG = false;  // Don't send/receive data.
 
 // MODEL DEFINED PARAMETERS FOR TEST/HOTFIRE. Pressures in psi //
 float pressureFuel = 150;  //405;  // Set pressure for fuel: 412
-float pressureOx = 100;    //460;  // Set pressure for lox: 445
+float pressureOx = 40 ;    //460;  // Set pressure for lox: 445
 float threshold = 0.995;   // re-psressurrization threshold (/1x)
 float ventTo = 5;          // c2se solenoids at this pressure to preserve lifetime.
 #define abortPressure 525  // Cutoff pressure to automatically trigger abort
@@ -216,6 +216,7 @@ void setup() {
   // Set pinMode to OUTPUT
   for (int i = 0; i < 16; i++) {
     pcf8575.pinMode(i, OUTPUT);
+    pcf8575.digitalWrite(i, LOW);
   }
   pcf8575.begin();
   mosfet_pcf_found = true;

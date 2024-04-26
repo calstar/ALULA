@@ -35,7 +35,7 @@ button_names = ['Idle', 'Armed', 'Pressed', 'QD', 'Ignition', 'Hot Fire', 'Abort
 pt_names = ['PT_O1', 'PT_O2', 'PT_E1', 'PT_E2', 'PT_C1', 'PT_X']
 pt_offsets = [0, 0, 0, 0, 0, 00]
 
-file_base = f"HOTFIRE_{time.strftime('%Y-%m-%d', time.gmtime())}"
+file_base = f"LowPressureTest_{time.strftime('%Y-%m-%d', time.gmtime())}"
 file_ext = ".csv"
 test_num = 1
 
