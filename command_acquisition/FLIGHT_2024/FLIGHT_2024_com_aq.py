@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QApplication, QMainWindow, QGridLayout, QWidget, QPushButton, QVBoxLayout
+from PyQt5.QtWidgets import QApplication, QMainWindow, QGridLayout, QWidget, QPushButton, QVBoxLayout, QLineEdit
 import pyqtgraph as pg # pip install pyqtgraph
 from PyQt5.QtCore import QTimer
 import sys #only needed for mac
@@ -32,8 +32,10 @@ x, PT_O1, PT_O2, PT_E1, PT_E2, PT_C1, PT_X = deque_list
 
 plot_titles = ["PT_O1", "PT_O2", "PT_E1", "PT_E2", "PT_C1", "PT_X", "TC1", "TC2", "TC3", "TC4"]
 button_names = ['Idle', 'Armed', 'Pressed', 'QD', 'Ignition', 'Hot Fire', 'Abort']
+pt_names = ['PT_O1', 'PT_O2', 'PT_E1', 'PT_E2', 'PT_C1', 'PT_X']
+pt_offsets = [0, 0, 0, 0, 0, 00]
 
-file_base = f"HOTFIRE_{time.strftime('%Y-%m-%d', time.gmtime())}"
+file_base = f"LowPressureTest_{time.strftime('%Y-%m-%d', time.gmtime())}"
 file_ext = ".csv"
 test_num = 1
 
@@ -61,6 +63,7 @@ def collection():
     global FLIGHT_Q_LENGTH
     global AUTO_ABORT
     global SD_CARD_STATUS
+    global pt_offsets
 
 
     with open(filename, "a", newline='') as f:
@@ -74,7 +77,7 @@ def collection():
                 write_buffer.append(values)
 
 
-                if len(values) == 31:
+                if len(values) == 37:
 
                     #  values = [safe_float(value) for value in values]
                     print(values)
@@ -106,6 +109,7 @@ def collection():
                     FLIGHT_Q_LENGTH = values[29]
                     SD_CARD_STATUS = values[30]
 
+                    pt_offsets = values[31:37].copy()
 
                 if len(write_buffer) >= BUFFER_SIZE:
                         writer.writerows(write_buffer)
@@ -142,15 +146,38 @@ class LivePlotter(QMainWindow):
         # # BUTTON STUFF
         # ###########################################################
         self.buttons = []  # Store button references if needed
+        self.offsetTextboxes = [] # Store textbox references if needed
+        self.offsetButtons = [] # Store button references if needed
+
         self.buttonLayout = QVBoxLayout()
+        self.offsetButtonLayout = QVBoxLayout()
+        self.offsetTextLayout = QVBoxLayout()
 
-
+        # Setup buttons
         for i, name in enumerate(button_names):
             btn = QPushButton(name)
             btn.setStyleSheet("QPushButton {font-size: 25pt;}")
             btn.clicked.connect(lambda _, name=name, number=i: self.handleButtonClick(name, number))
             self.buttonLayout.addWidget(btn)
             self.buttons.append(btn)
+
+        # # ###########################################################
+        # Setup PT offsets
+        # Setup buttons
+        for i, pt_name in enumerate(pt_names):
+            btn = QPushButton("Update offset: " + pt_name + f" ({pt_offsets[i]})")
+            btn.setStyleSheet("QPushButton {font-size: 10pt;}")
+            btn.clicked.connect(lambda _, name=pt_name, number=i: self.ptOffsetButtonClick(name, number))
+            self.offsetButtonLayout.addWidget(btn)
+            self.offsetButtons.append(btn)
+
+        # Setup textboxes
+        for pt_name in enumerate(pt_names):
+            textbox = QLineEdit()
+            textbox.setStyleSheet("QLineEdit {font-size: 15pt;}")
+            self.offsetTextLayout.addWidget(textbox)
+            self.offsetTextboxes.append(textbox)
+
         self.buttonLayout.addStretch(1)
         buttonWidget = QWidget()
         buttonWidget.setLayout(self.buttonLayout)
@@ -160,7 +187,13 @@ class LivePlotter(QMainWindow):
         self.layout.setColumnStretch(2, 3)
         self.layout.setColumnStretch(3, 1)
 
-        # # ###########################################################
+        offsetButtonWidget = QWidget()
+        offsetButtonWidget.setLayout(self.offsetButtonLayout)
+        self.layout.addWidget(offsetButtonWidget, 3, 0, len(pt_names), 1)
+
+        offsetTextWidget = QWidget()
+        offsetTextWidget.setLayout(self.offsetTextLayout)
+        self.layout.addWidget(offsetTextWidget, 3, 1, len(pt_names), 1)
 
         self.timer = QTimer()
         self.timer.setInterval(300)  # ms
@@ -168,7 +201,6 @@ class LivePlotter(QMainWindow):
         self.timer.start()
 
     def update_plot_data(self):
-
         try:
             current_time = x[-1] if x else None
 
@@ -182,11 +214,13 @@ class LivePlotter(QMainWindow):
 
             self.setWindowTitle(f"Time: {current_time}    COM: {COM_S}   DAQ: {DAQ_S}   FLIGHT: {FLIGHT_S}  ETH_COMPLETE: {ETH_COMPLETE}  OX_COMPLETE: {OX_COMPLETE}   AUTO_ABORT: {AUTO_ABORT}   ETH_VENT: {ETH_VENT} OX_VENT: {OX_VENT}    Q_LENGTH: {FLIGHT_Q_LENGTH} SD_CARD_STATUS: {SD_CARD_STATUS}")
 
-
             for i, plotDataItem in enumerate(self.plotDataItems):
                 if i < 10:  # Update standard plots directly
                     plotDataItem.setData(list(x), list(deque_list[i + 1]))
                     self.graphWidgets[i].setTitle(f"{plot_titles[i]}: {deque_list[i + 1][-1]:.2f}")
+
+            for i, offset in enumerate(pt_offsets):
+                self.offsetButtons[i].setText("Update offset: " + pt_names[i] + f" ({pt_offsets[i]})")
 
 
         except Exception as e:
@@ -196,7 +230,12 @@ class LivePlotter(QMainWindow):
     def handleButtonClick(self, name, number):
 
         print(f"Button clicked: {name}")
-        esp32.write(str(number).encode())
+        esp32.write(("s" + str(number)).encode())
+
+    def ptOffsetButtonClick(self, name, id):
+        print(f"Button clicked: {name}")
+        print("Serial write: ", "o" + str(id) + str(self.offsetTextboxes[id].text()))
+        esp32.write(("o" + str(id) + str(self.offsetTextboxes[id].text())).encode())
 
 def safe_float(value):
     try:

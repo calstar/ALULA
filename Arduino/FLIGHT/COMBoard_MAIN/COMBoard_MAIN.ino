@@ -45,6 +45,9 @@ esp_now_peer_info_t peerInfo;
 enum STATES {IDLE, ARMED, PRESS, QD, IGNITION, HOTFIRE, ABORT};
 String stateNames[] = { "Idle", "Armed", "Press", "QD", "Ignition", "HOTFIRE", "Abort" };
 
+// Number of PTs in system
+#define NUM_PTS 6
+
 //#define DEBUG_IDLE 90
 //#define DEBUG_ARMED 91
 //#define DEBUG_PRESS 92
@@ -69,6 +72,22 @@ uint8_t FlightBroadcastAddress[] = {0x34, 0x85, 0x18, 0x71, 0x06, 0x60}; // CORE
 
 //Structure example to send data
 //Must match the receiver structure
+struct struct_pt_offsets {
+  bool PT_O1_set;
+  bool PT_O2_set;
+  bool PT_E1_set;
+  bool PT_E2_set;
+  bool PT_C1_set;
+  bool PT_X_set;
+
+  float PT_O1_offset;
+  float PT_O2_offset;
+  float PT_E1_offset;
+  float PT_E2_offset;
+  float PT_C1_offset;
+  float PT_X_offset;
+};
+
 struct struct_readings {
   float PT_O1;
   float PT_O2;
@@ -99,6 +118,7 @@ struct struct_message {
 
   struct_readings filteredReadings;
   struct_readings rawReadings;
+  struct_pt_offsets pt_offsets;
 };
 
 // Create a struct_message called Readings to recieve sensor readings remotely
@@ -110,6 +130,9 @@ struct_message sendCommands;
 int COMState = IDLE;
 int DAQState = IDLE;
 int FlightState = IDLE;
+
+// Turn this on to send PT offset updates to flight
+bool updatePTOffsets = false;
 
 void setup() {
   // put your setup code here, to run once:
@@ -149,7 +172,7 @@ void setup() {
   // Register peer
   peerInfo.channel = 0;
   peerInfo.encrypt = false;
-  
+
   // Add peer
   memcpy(peerInfo.peer_addr, DAQBroadcastAddress, 6);
 
@@ -158,7 +181,7 @@ void setup() {
   }
 
   memcpy(peerInfo.peer_addr, FlightBroadcastAddress, 6);
-  
+
   if (esp_now_add_peer(&peerInfo) != ESP_OK){
     Serial.println("Failed to add peer");
     return;
@@ -182,8 +205,16 @@ void loop() {
   dataSend(); //initiate send process
   // Get the state from Serial input
   if (Serial.available() > 0) {
-    COMState = Serial.read() - '0';
-    Serial.println(COMState);
+    char header = Serial.read();
+    if (header == 's') {
+      COMState = Serial.read() - '0';
+      Serial.println(COMState);
+    } else if (header == 'o') {
+      char ptNumber = Serial.read() - '0';
+      float newOffset = Serial.readString().toFloat();
+
+      updateSendDataWithOffsets(ptNumber, newOffset);
+    }
   }
   SWITCH_ARMED.poll();
   SWITCH_PRESS.poll();
@@ -191,7 +222,7 @@ void loop() {
   SWITCH_IGNITION.poll();
   SWITCH_HOTFIRE.poll();
   SWITCH_ABORT.poll();
-    
+
   if (DEBUG) {
     Serial.print("COM State: ");
     Serial.print(COMState);
@@ -293,8 +324,9 @@ void dataSend() {
   // Serial.println(COMState);
 
   // Send ABORT to flight
-  if (COMState != FlightState) { 
+  if (COMState != FlightState || updatePTOffsets) {
     esp_err_t result = esp_now_send(FlightBroadcastAddress, (uint8_t *) &sendCommands, sizeof(sendCommands));
+    updatePTOffsets = false;
     if (WIFIDEBUG) {
       if(result == ESP_OK) {
         Serial.println("Successful Send to FLIGHT!");
@@ -316,7 +348,7 @@ void dataSend() {
       }
     }
   }
-} 
+}
 
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   struct_message incomingReadings;
@@ -413,6 +445,52 @@ void receiveDataPrint(struct_message &incomingReadings) {
   // SD CARD STATUS
   serialMessage.concat(" ");
   serialMessage.concat(incomingReadings.sdCardInitialized ? "True" : "False");
-  
+  // PT Offsets
+  serialMessage.concat(" ");
+  serialMessage.concat(incomingReadings.pt_offsets.PT_O1_offset);
+  serialMessage.concat(" ");
+  serialMessage.concat(incomingReadings.pt_offsets.PT_O2_offset);
+  serialMessage.concat(" ");
+  serialMessage.concat(incomingReadings.pt_offsets.PT_E1_offset);
+  serialMessage.concat(" ");
+  serialMessage.concat(incomingReadings.pt_offsets.PT_E2_offset);
+  serialMessage.concat(" ");
+  serialMessage.concat(incomingReadings.pt_offsets.PT_C1_offset);
+  serialMessage.concat(" ");
+  serialMessage.concat(incomingReadings.pt_offsets.PT_X_offset);
+
   Serial.println(serialMessage);
+}
+
+void updateSendDataWithOffsets(int ptNumber, float newOffset) {
+    if (ptNumber < 0 || ptNumber >= NUM_PTS) {
+      return;
+    }
+    updatePTOffsets = true;
+    switch (ptNumber) {
+        case 0:
+            sendCommands.pt_offsets.PT_O1_set = true;
+            sendCommands.pt_offsets.PT_O1_offset = newOffset;
+            break;
+        case 1:
+            sendCommands.pt_offsets.PT_O2_set = true;
+            sendCommands.pt_offsets.PT_O2_offset = newOffset;
+            break;
+        case 2:
+            sendCommands.pt_offsets.PT_E1_set = true;
+            sendCommands.pt_offsets.PT_E1_offset = newOffset;
+            break;
+        case 3:
+            sendCommands.pt_offsets.PT_E2_set = true;
+            sendCommands.pt_offsets.PT_E2_offset = newOffset;
+            break;
+        case 4:
+            sendCommands.pt_offsets.PT_C1_set = true;
+            sendCommands.pt_offsets.PT_C1_offset = newOffset;
+            break;
+        case 5:
+            sendCommands.pt_offsets.PT_X_set = true;
+            sendCommands.pt_offsets.PT_X_offset = newOffset;
+            break;
+    }
 }

@@ -37,8 +37,8 @@ bool WIFIDEBUG = false;  // Don't send/receive data.
 #define SIMULATION_DELAY 25
 
 // MODEL DEFINED PARAMETERS FOR TEST/HOTFIRE. Pressures in psi //
-float pressureFuel = 390;  //405;  // Set pressure for fuel: 412
-float pressureOx = 450;    //460;  // Set pressure for lox: 445
+float pressureFuel = 150;  //405;  // Set pressure for fuel: 412
+float pressureOx = 40 ;    //460;  // Set pressure for lox: 445
 float threshold = 0.995;   // re-psressurrization threshold (/1x)
 float ventTo = 5;          // c2se solenoids at this pressure to preserve lifetime.
 #define abortPressure 525  // Cutoff pressure to automatically trigger abort
@@ -54,16 +54,16 @@ int period = 50;
 #define I2C_SCL 22 //22
 
 ////////////////////////////// MOSFETS ///////////////////////////////////////////////////////////////////
-#define MOSFET_ETH_MAIN 10 //10    
-#define MOSFET_ETH_PRESS 6 //6   
-#define MOSFET_VENT_ETH 12 //12   
-#define MOSFET_QD_MUSCLE 7 //7      
-#define MOSFET_IGNITER 8 //8     
-#define MOSFET_LOX_MAIN 9 //9    
-#define MOSFET_LOX_PRESS 4 //4  
-#define MOSFET_VENT_LOX 11 //11   
-#define MOSFET_ETH_LINE_VENT 5 //5     
-#define MOSFET_LOX_LINE_VENT 3 //3     
+#define MOSFET_ETH_MAIN 10 //10
+#define MOSFET_ETH_PRESS 6 //6
+#define MOSFET_VENT_ETH 12 //12
+#define MOSFET_QD_MUSCLE 7 //7
+#define MOSFET_IGNITER 8 //8
+#define MOSFET_LOX_MAIN 9 //9
+#define MOSFET_LOX_PRESS 4 //4
+#define MOSFET_VENT_LOX 11 //11
+#define MOSFET_ETH_LINE_VENT 5 //5
+#define MOSFET_LOX_LINE_VENT 3 //3
 
 // Initialize mosfets' io expander.
 //#define MOSFET_PCF_ADDR 0x20
@@ -98,6 +98,22 @@ bool flight_toggle = false;
 
 // Structure example to send data.
 // Must match the receiver structure.
+struct struct_pt_offsets {
+  bool PT_O1_set;
+  bool PT_O2_set;
+  bool PT_E1_set;
+  bool PT_E2_set;
+  bool PT_C1_set;
+  bool PT_X_set;
+
+  float PT_O1_offset;
+  float PT_O2_offset;
+  float PT_E1_offset;
+  float PT_E2_offset;
+  float PT_C1_offset;
+  float PT_X_offset;
+};
+
 struct struct_readings {
   float PT_O1;
   float PT_O2;
@@ -114,20 +130,21 @@ struct struct_readings {
 struct struct_message {
   int messageTime;
   int sender;
-
   int COMState;
   int DAQState;
   int FlightState;
   bool AUTOABORT;
-  
+
   short int FlightQueueLength;
   bool ethComplete;
   bool oxComplete;
   bool oxVentComplete;
   bool ethVentComplete;
   bool sdCardInitialized;
-  
+
   struct_readings filteredReadings;
+  struct_readings rawReadings;
+  struct_pt_offsets pt_offsets;
 };
 
 void print_struct_message(struct_message sm){
@@ -198,6 +215,7 @@ void setup() {
   // Set pinMode to OUTPUT
   for (int i = 0; i < 16; i++) {
     pcf8575.pinMode(i, OUTPUT);
+    pcf8575.digitalWrite(i, LOW);
   }
   pcf8575.begin();
   mosfet_pcf_found = true;
@@ -257,10 +275,10 @@ void loop() {
     flight_toggle = false; //reset toggle
   }
   if (millis()-time_send > period) {
-    sendData(COMBroadcastAddress); 
+    sendData(COMBroadcastAddress);
     time_send = millis();
   }
-  
+
   ////////////////////////// STATE MACHINE /////////////////////////////////////////////////////
   switch (DAQState) { //CHANGE STATES BASED ON DATA RECEIVED(ondatarecv) FROM COM
     case (IDLE):
@@ -345,7 +363,7 @@ void press() {
 // Disconnect harnessings and check state of rocket.
 void quick_disconnect() {
 //<<<<<<< Updated upstream
-  
+
   mosfetCloseValve(MOSFET_ETH_PRESS);  //close press valves
   mosfetCloseValve(MOSFET_LOX_PRESS);
   Serial.println(millis() - QD_start_time);
@@ -447,7 +465,7 @@ void abort_sequence() {
 // Sync state of DAQ board with COM board.
 void syncDAQState() {
   // Sync with COM only if DAQ doesn't detect an Abort, and COM doesn't want us to go back to Idle after Abort
-  
+
   if (COMState == QD && DAQState == PRESS) {
           QD_start_time = millis();
           Serial.print("QDDDDDDD:   ");
