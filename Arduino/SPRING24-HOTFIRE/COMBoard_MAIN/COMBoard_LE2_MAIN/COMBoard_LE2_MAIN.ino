@@ -16,8 +16,7 @@ This code runs on the COM ESP32 and has a couple of main tasks.
 
 //IF YOU WANT TO DEBUG, SET THIS TO 1. IF NOT SET ZERO
 int DEBUG = 0;
-// IF SWITCHES ARE ON, SET TO TRUE
-bool SWITCHES = true;
+bool SWITCHES = false;
 
 #define COM_ID 1
 #define DAQ_POWER_ID 2
@@ -94,8 +93,11 @@ float receiveTime = 0;
 //DAQ Protoboard {0x0C, 0xDC, 0x7E, 0xCB, 0x05, 0xC4}
 //NON BUSTED DAQ {0x7C, 0x9E, 0xBD, 0xD8, 0xFC, 0x14}
 // {0xC4, 0xDD, 0x57, 0x9E, 0x96, 0x34};
-uint8_t broadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x4F, 0x3C, 0xA4}; //Core board 1
-//uint8_t broadcastAddress[] = {0x08, 0x3A, 0xF2, 0xB7, 0xEE, 0x00}; //TEST
+// uint8_t broadcastAddress[] = {0x08, 0x3A, 0xF2, 0xB7, 0x29, 0xBC}; //DAQ 1
+//uint8_t broadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x4F, 0x3C, 0xA4}; //Core board 2
+//uint8_t broadcastAddress[] = {0x08, 0x3A, 0xF2, 0xB7, 0x29, 0xBC}; //TEST
+uint8_t broadcastAddress[] = {0xe4, 0x65, 0xB8, 0x27, 0x62, 0x64}; //POWER
+
 //{0x30, 0xC6, 0xF7, 0x2A, 0x28, 0x04}
 
 //Structure example to send data
@@ -136,12 +138,11 @@ esp_now_peer_info_t peerInfo;
 
 // Callback when data is received, should we add this to the daq_sense board?
 void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
-  struct_message myData;
   memcpy(&myData, incomingData, sizeof(myData));
   if (myData.id == DAQ_SENSE_ID) {
     SENSE = myData;
-    Serial.println(" ");
-    //Serial.println("dskljfhlksdj");
+    // Serial.println("received sense");
+    // Serial.println("dskljfhlksdj");
   }
   else if (myData.id == DAQ_POWER_ID) {
     POWER = myData;
@@ -211,19 +212,29 @@ void setup() {
 }
 
 void loop(){
-    receiveDataPrint();
-    loopStartTime=millis();
-    if (Serial.available() > 0) {
-    // read the incoming byte:
+  receiveDataPrint();
+  loopStartTime=millis();
+  if (Serial.available() > 0) {
+  // read the incoming byte:
     serialState = Serial.read()-48; //serial monitor input must be set to "No Line Ending"
   }
-  // Serial.print("I received: ");
+  if (POWER.DAQState != serialState) {
+    dataSendCheck(); 
+    // Serial.print("sdhgklsdhfljksf");
+  }
+  // Serial.print("I received: "); 
   SWITCH_ARMED.poll();
   SWITCH_PRESS.poll();
   SWITCH_QD.poll();
   SWITCH_IGNITION.poll();
   SWITCH_HOTFIRE.poll();
   SWITCH_ABORT.poll();
+  if (SWITCH_ABORT.on()) {Serial.println("abort switch on");}
+  if (SWITCH_ARMED.on()) {Serial.println("armed switch on");}
+  if (SWITCH_PRESS.on()) {Serial.println("press switch on");}
+  if (SWITCH_QD.on()) {Serial.println("qd switch on");}
+  if (SWITCH_IGNITION.on()) {Serial.println("ignitie switch on");}
+  if (SWITCH_HOTFIRE.on()) {Serial.println("hf switch on");}
   if (DEBUG ==1) {
   Serial.print("COM State: ");
   Serial.print(state);
@@ -237,7 +248,6 @@ void loop(){
 // }
 
   case (IDLE): //Includes polling
-    dataSendCheck();
     turnoffLEDs();
     if (SWITCH_ABORT.on()) {serialState=ABORT;}
     if (SWITCH_ARMED.on()) {serialState=ARMED;}
@@ -245,8 +255,7 @@ void loop(){
     break;
 
   case (ARMED):
-    dataSendCheck();
-    if (DAQState == ARMED) {digitalWrite(LED_ARMED, HIGH);}
+    if (POWER.DAQState == ARMED) {digitalWrite(LED_ARMED, HIGH);}
     if (SWITCH_ABORT.on()) {serialState=ABORT;}
     if (SWITCH_PRESS.on()) {serialState=PRESS;}
     if(!SWITCH_ARMED.on() && SWITCHES) {serialState=IDLE;}
@@ -256,14 +265,13 @@ void loop(){
   case (PRESS):
    // press();
     if (SWITCH_ABORT.on()) {serialState=ABORT;}
-    if (DAQState == PRESS) {digitalWrite(LED_PRESS, HIGH);}
+    if (POWER.DAQState == PRESS) {digitalWrite(LED_PRESS, HIGH);}
     if (ethComplete) {digitalWrite(LED_PRESSETH, HIGH);}
     if (oxComplete) {digitalWrite(LED_PRESSLOX, HIGH);}
     if (!ethComplete) {digitalWrite(LED_PRESSETH, LOW);}
     if (!oxComplete) {digitalWrite(LED_PRESSLOX, LOW);}
     if (SWITCH_QD.on()) {serialState=QD;}  //add pressComplete && later
     //add return to idle functionality hyer
-    dataSendCheck();
     if(!SWITCH_PRESS.on() && !SWITCH_ARMED.on() && SWITCHES) {serialState=IDLE;}
     state = serialState;
     break;
@@ -271,7 +279,7 @@ void loop(){
   case (QD):
     //quick_disconnect();
     if (SWITCH_ABORT.on()) {serialState=ABORT;}
-    if (DAQState == QD) {digitalWrite(LED_QD, HIGH);}
+    if (POWER.DAQState == QD) {digitalWrite(LED_QD, HIGH);}
     if (SWITCH_IGNITION.on()) {serialState=IGNITION;}
     if(!SWITCH_QD.on() && !SWITCH_ARMED.on() && SWITCHES) {serialState=IDLE;}
     dataSendCheck();
@@ -282,7 +290,7 @@ void loop(){
   case (IGNITION):
     //ignition();
     if (SWITCH_ABORT.on()) {serialState=ABORT;}
-    if (DAQState == IGNITION) {digitalWrite(LED_IGNITION, HIGH);}
+    if (POWER.DAQState == IGNITION) {digitalWrite(LED_IGNITION, HIGH);}
     if (SWITCH_HOTFIRE.on()) {serialState=HOTFIRE;}
     if(!SWITCH_ARMED.on() && !SWITCH_IGNITION.on() && SWITCHES) {
       serialState=IDLE;}
@@ -294,7 +302,7 @@ void loop(){
   case (HOTFIRE):
     // hotfire();
     if (SWITCH_ABORT.on()) {serialState=ABORT;}
-    if (DAQState == HOTFIRE) {digitalWrite(LED_HOTFIRE, HIGH);}
+    if (POWER.DAQState == HOTFIRE) {digitalWrite(LED_HOTFIRE, HIGH);}
     if (!SWITCH_ARMED.on() && !SWITCH_HOTFIRE.on() && SWITCHES) {
       serialState=IDLE;}
     dataSendCheck();
@@ -302,7 +310,7 @@ void loop(){
     break;
 
   case (ABORT):
-    if (DAQState == ABORT) {digitalWrite(LED_ABORT, HIGH);}
+    if (POWER.DAQState == ABORT) {digitalWrite(LED_ABORT, HIGH);}
     digitalWrite(LED_ABORT, HIGH);
     digitalWrite(LED_IGNITION,LOW);
     digitalWrite(LED_QD, LOW);
@@ -367,7 +375,7 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
 void receiveDataPrint() {
   serialMessage.clear();
   serialMessage.concat(" ");
-  serialMessage.concat(millis());
+  serialMessage.concat(SENSE.messageTime);
   serialMessage.concat(" ");
   serialMessage.concat(SENSE.messageTime);
   serialMessage.concat(" ");
@@ -407,4 +415,53 @@ void receiveDataPrint() {
   serialMessage.concat(" ");
   serialMessage.concat(SENSE.queueLength);
   Serial.println(serialMessage);
+  serialMessage = "";
 }
+
+
+////////BANDAID CODE FOR SENSE-COM COMMS ISSUE
+
+// void receiveDataPrint() {
+//   serialMessage.clear();
+//   serialMessage.concat(" ");
+//   serialMessage.concat(millis());
+//   serialMessage.concat(" ");
+//   serialMessage.concat(SENSE.messageTime);
+//   serialMessage.concat(" ");
+//   serialMessage.concat(POWER.messageTime);
+//   serialMessage.concat(" ");
+//   serialMessage.concat(POWER.PT_O1);
+//   serialMessage.concat(" ");
+//   serialMessage.concat(POWER.PT_O2);
+//   serialMessage.concat(" ");
+//   serialMessage.concat(POWER.PT_E1);
+//   serialMessage.concat(" ");
+//   serialMessage.concat(POWER.PT_E2);
+//   serialMessage.concat(" ");
+//   serialMessage.concat(POWER.PT_C1);
+//   serialMessage.concat(" ");
+//   serialMessage.concat(POWER.LC_1);
+//   serialMessage.concat(" ");
+//   serialMessage.concat(POWER.LC_2);
+//   serialMessage.concat(" ");
+//   serialMessage.concat(POWER.LC_3);
+//   serialMessage.concat(" ");
+//   serialMessage.concat(POWER.TC_1);
+//   serialMessage.concat(" ");
+//   serialMessage.concat(POWER.TC_2);
+//   serialMessage.concat(" ");
+//   serialMessage.concat(POWER.TC_3);
+//   serialMessage.concat(" ");
+//   serialMessage.concat(POWER.TC_4);
+//   serialMessage.concat(" ");
+//   serialMessage.concat(POWER.ethComplete);
+//   serialMessage.concat(" ");
+//   serialMessage.concat(POWER.oxComplete);
+//   serialMessage.concat(" ");
+//   serialMessage.concat(Commands.COMState);
+//   serialMessage.concat(" ");
+//   serialMessage.concat(POWER.DAQState);
+//   serialMessage.concat(" ");
+//   serialMessage.concat(SENSE.queueLength);
+//   Serial.println(serialMessage);
+// }

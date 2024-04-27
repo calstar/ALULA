@@ -7,6 +7,7 @@ This code runs on the DAQ ESP32 and has a couple of main tasks.
 2. Send sensor data to COM ESP32
 3. Actuate hotfire sequence
 */
+// Serial..
 
 //::::::Libraries::::::://
 #include <Arduino.h>
@@ -34,16 +35,15 @@ int DEBUG = 0;      // Simulate LOX and Eth fill.
 int WIFIDEBUG = 0;  // Don't send/receive data.
 
 // MODEL DEFINED PARAMETERS FOR TEST/HOTFIRE. Pressures in psi //
-float pressureFuel = 125;   //405;  // Set pressure for fuel: 412
-float pressureOx = 125;     //460;  // Set pressure for lox: 445
+float pressureFuel = 440;   //440 HF1;
+float pressureOx = 525;     //585 HF1; 
 float threshold = 0.995;   // re-psressurrization threshold (/1x)
-float ventTo = -5;          // c2se solenoids at this pressure to preserve lifetime.
-#define abortPressure 525  // Cutoff pressure to automatically trigger abort
+float ventTo = -50;          // c2se solenoids at this pressure to preserve lifetime.
+#define abortPressure 625  // Cutoff pressure to automatically trigger abort
 #define period 0.5         // Sets period for bang-bang control
 float sendDelay = 25;     // Sets frequency of data collection. 1/(sendDelay*10^-3) is frequency in Hz
 // END OF USER DEFINED PARAMETERS //
 // refer to https://docs.google.com/spreadsheets/d/17NrJWC0AR4Gjejme-EYuIJ5uvEJ98FuyQfYVWI3Qlio/edit#gid=1185803967 for all pinouts
-
 
 //::::::DEFINE INSTRUMENT PINOUTS::::::://
 #define TimeOut 100
@@ -99,7 +99,6 @@ float sendTime;
 short int queueLength = 0;
 
 
-
 // Structure example to send data.
 // Must match the receiver structure.
 typedef struct struct_message {
@@ -133,13 +132,11 @@ struct_message TEST;
 //::::::Broadcast Variables::::::://
 esp_now_peer_info_t peerInfo;
 // REPLACE WITH THE MAC Address of your receiver
-
-// OLD COM BOARD {0xC4, 0xDD, 0x57, 0x9E, 0x91, 0x6C}
-// COM BOARD {0x7C, 0x9E, 0xBD, 0xD7, 0x2B, 0xE8}
-// HEADERLESS BOARD {0x7C, 0x87, 0xCE, 0xF0 0x69, 0xAC}
-// NEWEST COM BOARD IN EVA {0x24, 0x62, 0xAB, 0xD2, 0x85, 0xDC}
-// uint8_t broadcastAddress[] = {0x24, 0x62, 0xAB, 0xD2, 0x85, 0xDC};
-uint8_t COMBroadcastAddress[] = {0x08, 0x3A, 0xF2, 0xB7, 0x29, 0xBC}; //COM CIRCUIT BOARD
+uint8_t COMBroadcastAddress[] = {0x30, 0xC6, 0xF7, 0x28, 0xEF, 0xF4}; //COM 4
+// uint8_t COMBroadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x51, 0xEC, 0x94}; //TEST ESP
+// uint8_t COMBroadcastAddress[] = {0x08, 0x3A, 0xF2, 0xB7, 0x29, 0xBC}; //Test ESP 2/10/24
+// uint8_t COMBroadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x4F, 0x3C, 0xA4}; //Core board 1
+// uint8_t COMBroadcastAddress[] = {0x08, 0x3A, 0xF2, 0xB7, 0x29, 0xBC}; //Core board 2
 //uint8_t COMBroadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x51, 0xEC, 0x94}; //TEST COM
 // uint8_t broadcastAddress[] = {0x48, 0xE7, 0x29, 0xA3, 0x0D, 0xA8}; // TEST
 // {0x7C, 0x87, 0xCE, 0xF0, 0x69, 0xAC};
@@ -191,7 +188,6 @@ void setup() {
   delay(500);              // startup time to make sure its good for personal testing
 
 
-
   // Broadcast setup.
   // Set device as a Wi-Fi Station
   WiFi.mode(WIFI_STA);
@@ -219,9 +215,8 @@ void setup() {
     return;
   }
   // Register for a callback function that will be called when data is received
-  if (!WIFIDEBUG) {
-    esp_now_register_recv_cb(OnDataRecv);
-  }
+  esp_now_register_recv_cb(OnDataRecv);
+
 
   sendTime = millis();
   DAQState = IDLE;
@@ -243,17 +238,17 @@ void loop() {
   switch (DAQState) {
     case (IDLE):
       sendDelay = IDLE_DELAY;
-      if (COMState == ARMED) { syncDAQState(); }
+      if (COMState == ARMED || COMState == ABORT) { syncDAQState(); }
       idle();
       break;
 
     case (ARMED):  // NEED TO ADD TO CASE OPTIONS //ALLOWS OTHER CASES TO TRIGGER //INITIATE TANK PRESS LIVE READINGS
-      if (COMState == IDLE || COMState == PRESS) { syncDAQState(); }
+      if (COMState == IDLE || COMState == PRESS || COMState == ABORT) { syncDAQState(); }
       armed();
       break;
 
     case (PRESS):
-      if (COMState == IDLE || (COMState == QD)) {
+      if (COMState == IDLE || (COMState == QD || COMState == ABORT)) {
         syncDAQState();
         int QDStart = millis();
         mosfetCloseAllValves();
@@ -262,7 +257,7 @@ void loop() {
       break;
 
     case (QD):
-      if (COMState == IDLE || COMState == IGNITION) {
+      if (COMState == IDLE || COMState == IGNITION || COMState == ABORT) {
         syncDAQState();
         mosfetCloseAllValves();
       }
@@ -270,7 +265,7 @@ void loop() {
       break;
 
     case (IGNITION):
-      if (COMState == IDLE || COMState == HOTFIRE) {
+      if (COMState == IDLE || COMState == HOTFIRE || COMState == ABORT) {
         syncDAQState();
         hotfireStart = millis();
       }
@@ -313,7 +308,7 @@ void armed() {
   mosfetCloseAllValves();
 }
 
-
+/* OLD PRESS SEQUENCE; STOPS PRESSING WHEN IT READS NOISE SPIKES
 void press() {
   if (!(oxComplete && ethComplete)) {
     if (DAQSenseCommands.PT_O1 < pressureOx * threshold) {
@@ -334,6 +329,31 @@ void press() {
       mosfetCloseValve(MOSFET_ETH_PRESS);
       ethComplete = true;
     }
+  }
+  CheckAbort();
+}
+*/
+
+void press() {
+  if (DAQSenseCommands.PT_O1 < pressureOx * threshold) {
+    oxComplete = false;
+    mosfetOpenValve(MOSFET_LOX_PRESS);
+    if (DEBUG) {
+      DAQSenseCommands.PT_O1 += (0.00075 * GEN_DELAY);
+    }
+  } else if (DAQSenseCommands.PT_O1 >= pressureOx) {
+    mosfetCloseValve(MOSFET_LOX_PRESS);
+    oxComplete = true;
+  }
+  if (DAQSenseCommands.PT_E1 < pressureFuel * threshold) {
+    ethComplete = false;
+    mosfetOpenValve(MOSFET_ETH_PRESS);
+    if (DEBUG) {
+      DAQSenseCommands.PT_E1 += (0.001 * GEN_DELAY);
+    }
+  } else if (DAQSenseCommands.PT_E1 >= pressureFuel) {
+    mosfetCloseValve(MOSFET_ETH_PRESS);
+    ethComplete = true;
   }
   CheckAbort();
 }
@@ -358,11 +378,6 @@ void ignition() {
 void hotfire() {
   mosfetCloseValve(MOSFET_IGNITER);
   mosfetOpenValve(MOSFET_ETH_MAIN);
-  //
-  //  if (millis() >= hotfireStart+3000) {
-  //    mosfetCloseValve(MOSFET_LOX_MAIN);
-  //  } else {
-
   if (millis() >= hotfireStart + 5) {
     mosfetOpenValve(MOSFET_LOX_MAIN);
     // Serial.print(hotfireStart);
@@ -376,7 +391,6 @@ void abort_sequence() {
   if (DEBUG) {
     mosfetOpenValve(MOSFET_VENT_LOX);
     mosfetOpenValve(MOSFET_VENT_ETH);
-//    delay(50);
   }
   // Waits for LOX pressure to decrease before venting Eth through pyro
   mosfetCloseValve(MOSFET_LOX_PRESS);
@@ -526,7 +540,18 @@ void addPacketToQueue() {
     queueLength += 1;
     PacketQueue[queueLength].id = DAQ_POWER_ID;
     PacketQueue[queueLength].messageTime = millis();
-    // PacketQueue[queueLength].TC_3 = TC_3.rawReading; // sinc daq and com when adding tcs
+    PacketQueue[queueLength].PT_O1 = DAQSenseCommands.PT_O1;
+    PacketQueue[queueLength].PT_O1 = DAQSenseCommands.PT_O2;
+    PacketQueue[queueLength].PT_O1 = DAQSenseCommands.PT_E1;
+    PacketQueue[queueLength].PT_O1 = DAQSenseCommands.PT_E2;
+    PacketQueue[queueLength].PT_O1 = DAQSenseCommands.PT_C1;
+    PacketQueue[queueLength].PT_O1 = DAQSenseCommands.LC_1;
+    PacketQueue[queueLength].PT_O1 = DAQSenseCommands.LC_2;
+    PacketQueue[queueLength].PT_O1 = DAQSenseCommands.LC_3;
+    PacketQueue[queueLength].PT_O1 = DAQSenseCommands.TC_1;
+    PacketQueue[queueLength].PT_O1 = DAQSenseCommands.TC_2;
+    PacketQueue[queueLength].PT_O1 = DAQSenseCommands.TC_3;
+    PacketQueue[queueLength].PT_O1 = DAQSenseCommands.TC_4;
     PacketQueue[queueLength].queueLength = queueLength;
     PacketQueue[queueLength].DAQState = DAQState;
     PacketQueue[queueLength].oxComplete = oxComplete;

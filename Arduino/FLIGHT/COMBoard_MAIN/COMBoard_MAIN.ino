@@ -9,14 +9,20 @@ This code runs on the COM ESP32 and has a couple of main tasks.
 #include <Wire.h>
 #include <Arduino.h>
 #include "HX711.h"
-#include <ezButton.h>
+//#include <ezButton.h>
 #include "avdweb_Switch.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/Task.h"
 
+#define COM_ID 0
+#define DAQ_ID 1
+#define FLIGHT_ID 2
+
 //IF YOU WANT TO DEBUG, SET THIS TO True, if not, set False
 bool DEBUG = false;
 bool WIFIDEBUG = false;
+bool SWITCHES = false; // If we are using switches
+bool GUI_DEBUG = false;
 
 Switch SWITCH_ARMED = Switch(14);  //correct
 Switch SWITCH_PRESS = Switch(12);  //correct
@@ -36,8 +42,11 @@ Switch SWITCH_ABORT = Switch(18);
 
 esp_now_peer_info_t peerInfo;
 
-enum STATES {IDLE, ARMED, PRESS, QD, EQD, IGNITION, HOTFIRE, ABORT};
+enum STATES {IDLE, ARMED, PRESS, QD, IGNITION, HOTFIRE, ABORT};
 String stateNames[] = { "Idle", "Armed", "Press", "QD", "Ignition", "HOTFIRE", "Abort" };
+
+// Number of PTs in system
+#define NUM_PTS 6
 
 //#define DEBUG_IDLE 90
 //#define DEBUG_ARMED 91
@@ -47,7 +56,7 @@ String stateNames[] = { "Idle", "Armed", "Press", "QD", "Ignition", "HOTFIRE", "
 //#define DEBUG_HOTFIRE 95
 //#define DEBUG_ABORT 96
 
-//ENSURE IP ADDRESS IS CORRECT FOR DEVICE IN USE!!!
+//ENSURE MAC ADDRESS IS CORRECT FOR DEVICE IN USE!!!
 //DAQ Breadboard {0x24, 0x62, 0xAB, 0xD2, 0x85, 0xDC}
 //DAQ Protoboard {0x0C, 0xDC, 0x7E, 0xCB, 0x05, 0xC4}
 //NON BUSTED DAQ {0x7C, 0x9E, 0xBD, 0xD8, 0xFC, 0x14}
@@ -56,44 +65,74 @@ String stateNames[] = { "Idle", "Armed", "Press", "QD", "Ignition", "HOTFIRE", "
 //uint8_t broadcastAddress[] = {0x08, 0x3A, 0xF2, 0xB7, 0xEE, 0x00}; //TEST
 //{0x30, 0xC6, 0xF7, 0x2A, 0x28, 0x04}
 
-uint8_t DAQSenseBroadcastAddress[] = {0xB0, 0xA7, 0x32, 0xDE, 0xD3, 0x1C};
+uint8_t DAQBroadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x50, 0x23, 0x34};
+// uint8_t FlightBroadcastAddress[] = {0x48, 0x27, 0xE2, 0x2C, 0x80, 0xD8}; //CORE 1 V2
+uint8_t FlightBroadcastAddress[] = {0x34, 0x85, 0x18, 0x71, 0x06, 0x60}; // CORE 2 V2
+// uint8_t FlightBroadcastAddress[] = {0x48, 0x27, 0xE2, 0x2F, 0x22, 0x08}; //CORE 3 V2
 
 //Structure example to send data
 //Must match the receiver structure
-struct struct_message {
-  int messageTime;
-  int sender;
+struct struct_pt_offsets {
+  bool PT_O1_set;
+  bool PT_O2_set;
+  bool PT_E1_set;
+  bool PT_E2_set;
+  bool PT_C1_set;
+  bool PT_X_set;
+
+  float PT_O1_offset;
+  float PT_O2_offset;
+  float PT_E1_offset;
+  float PT_E2_offset;
+  float PT_C1_offset;
+  float PT_X_offset;
+};
+
+struct struct_readings {
   float PT_O1;
   float PT_O2;
   float PT_E1;
   float PT_E2;
   float PT_C1;
-  float LC_1;
-  float LC_2;
-  float LC_3;
+  float PT_X;
   float TC_1;
   float TC_2;
   float TC_3;
   float TC_4;
+};
+
+struct struct_message {
+  int messageTime;
+  int sender;
   int COMState;
-  int DAQSenseState;
-  int DAQPowerState;
-  short int COMQueueLength;
-  short int DAQPowerQueueLength;
+  int DAQState;
+  int FlightState;
+  bool AUTOABORT;
+
+  short int FlightQueueLength;
   bool ethComplete;
   bool oxComplete;
   bool oxVentComplete;
   bool ethVentComplete;
+  bool sdCardInitialized;
+
+  struct_readings filteredReadings;
+  struct_readings rawReadings;
+  struct_pt_offsets pt_offsets;
 };
 
 // Create a struct_message called Readings to recieve sensor readings remotely
-struct_message incomingReadings;
+struct_message incomingDAQReadings;
+struct_message incomingFlightReadings;
 // Create a struct_message to send commands
-struct_message Commands;
+struct_message sendCommands;
 
 int COMState = IDLE;
-int DAQSenseState = IDLE;
-int DAQPowerState = IDLE;
+int DAQState = IDLE;
+int FlightState = IDLE;
+
+// Turn this on to send PT offset updates to flight
+bool updatePTOffsets = false;
 
 void setup() {
   // put your setup code here, to run once:
@@ -120,8 +159,6 @@ void setup() {
   digitalWrite(LED_ABORT, LOW);
 
 
-//
-//  while(SWITCH_ABORT.on()){digitalWrite(LED_ABORT, HIGH);}
   Serial.println(WiFi.macAddress());
   //set device as WiFi station
   WiFi.mode(WIFI_STA);
@@ -133,11 +170,18 @@ void setup() {
   }
 
   // Register peer
-  memcpy(peerInfo.peer_addr, DAQSenseBroadcastAddress, 6);
   peerInfo.channel = 0;
   peerInfo.encrypt = false;
-  
+
   // Add peer
+  memcpy(peerInfo.peer_addr, DAQBroadcastAddress, 6);
+
+  if (esp_now_add_peer(&peerInfo) != ESP_OK){
+    Serial.println("Failed to add peer");
+  }
+
+  memcpy(peerInfo.peer_addr, FlightBroadcastAddress, 6);
+
   if (esp_now_add_peer(&peerInfo) != ESP_OK){
     Serial.println("Failed to add peer");
     return;
@@ -154,80 +198,89 @@ void setup() {
 
 
 void loop() {
-  if (Serial.available() > 0) {
-    // read the incoming byte:
-    COMState = (int)Serial.parseInt();
+  if (GUI_DEBUG) {
+    receiveDataPrint(incomingFlightReadings);
   }
 
+  dataSend(); //initiate send process
+  // Get the state from Serial input
+  if (Serial.available() > 0) {
+    char header = Serial.read();
+    if (header == 's') {
+      COMState = Serial.read() - '0';
+      Serial.println(COMState);
+    } else if (header == 'o') {
+      char ptNumber = Serial.read() - '0';
+      float newOffset = Serial.readString().toFloat();
+
+      updateSendDataWithOffsets(ptNumber, newOffset);
+    }
+  }
   SWITCH_ARMED.poll();
   SWITCH_PRESS.poll();
   SWITCH_QD.poll();
   SWITCH_IGNITION.poll();
   SWITCH_HOTFIRE.poll();
   SWITCH_ABORT.poll();
-    
+
   if (DEBUG) {
     Serial.print("COM State: ");
     Serial.print(COMState);
-    Serial.print(" \tDAQ Sense State: ");
-    Serial.print(DAQSenseState);
-    Serial.print(" \tDAQ Power State: ");
-    Serial.println(DAQPowerState);
-    if(!SWITCH_PRESS.on() && !SWITCH_ARMED.on() && !SWITCH_ABORT.on() && !SWITCH_QD.on() && !SWITCH_IGNITION.on() && !SWITCH_HOTFIRE.on()) { COMState = IDLE; }
+    Serial.print(" \tDAQ State: ");
+    Serial.print(DAQState);
+    Serial.print(" \tFlight State: ");
+    Serial.println(FlightState);
+    Serial.print("Size of send commands: ");
+    Serial.println(sizeof(sendCommands));
+    // if(!SWITCH_PRESS.on() && !SWITCH_ARMED.on() && !SWITCH_ABORT.on() && !SWITCH_QD.on() && !SWITCH_IGNITION.on() && !SWITCH_HOTFIRE.on()) {
+    //   Serial.println("GOING BACK TO IDLE");
+    //    COMState = IDLE; }
   }
 
   switch (COMState) {
-    checkAbort();
 
+    checkAbort();
     case (IDLE): //Includes polling
       idle();
-      dataSend();
-
       if (SWITCH_ARMED.on()) {COMState=ARMED;}
       break;
 
     case (ARMED):
-      dataSend();
-      if (DAQPowerState == ARMED) {digitalWrite(LED_ARMED, HIGH);}
+      if (DAQState == ARMED) {digitalWrite(LED_ARMED, HIGH);}
       if (SWITCH_PRESS.on()) { COMState=PRESS; }
-      if(!SWITCH_ARMED.on()) { COMState=IDLE; }
+      if(!SWITCH_ARMED.on() && SWITCHES) { COMState=IDLE; }
       break;
 
     case (PRESS):
-      dataSend();
-      if (DAQPowerState == PRESS) { digitalWrite(LED_PRESS, HIGH); }
-      if (incomingReadings.ethComplete) { digitalWrite(LED_PRESSETH, HIGH); }
-      if (incomingReadings.oxComplete) { digitalWrite(LED_PRESSLOX, HIGH); }
-      if (!incomingReadings.ethComplete) { digitalWrite(LED_PRESSETH, LOW); }
-      if (!incomingReadings.oxComplete) { digitalWrite(LED_PRESSLOX, LOW); }
-      if (SWITCH_QD.on()) { COMState = QD; }
-      if(!SWITCH_PRESS.on() && !SWITCH_ARMED.on()) { COMState = IDLE; }
+      // if (DAQState == PRESS) { digitalWrite(LED_PRESS, HIGH); }
+      // // if (incomingDAQReadings.ethComplete) { digitalWrite(LED_PRESSETH, HIGH); }
+      // // if (incomingDAQReadings.oxComplete) { digitalWrite(LED_PRESSLOX, HIGH); }
+      // // if (!incomingDAQReadings.ethComplete) { digitalWrite(LED_PRESSETH, LOW); }
+      // // if (!incomingDAQReadings.oxComplete) { digitalWrite(LED_PRESSLOX, LOW); }
+      // if (SWITCH_QD.on()) { COMState = QD; }
+      // if(!SWITCH_PRESS.on() && !SWITCH_ARMED.on() && SWITCHES) { COMState = IDLE; }
       break;
 
     case (QD):
-      //quick_disconnect();
-      if (DAQPowerState == QD) {digitalWrite(LED_QD, HIGH);}
+      if (DAQState == QD) {digitalWrite(LED_QD, HIGH);}
       if (SWITCH_IGNITION.on()) { COMState = IGNITION; }
-      if(!SWITCH_QD.on() && !SWITCH_PRESS.on() && !SWITCH_ARMED.on()) { COMState = IDLE; }
-      dataSend();
+      if(!SWITCH_QD.on() && !SWITCH_PRESS.on() && !SWITCH_ARMED.on() && SWITCHES) { COMState = IDLE; }
       break;
 
 
     case (IGNITION):
-      //ignition();
-      if (DAQPowerState == IGNITION) {digitalWrite(LED_IGNITION, HIGH);}
+      if (DAQState == IGNITION) {digitalWrite(LED_IGNITION, HIGH);}
       if (SWITCH_HOTFIRE.on()) { COMState = HOTFIRE; }
-      if(!SWITCH_QD.on() && !SWITCH_PRESS.on() && !SWITCH_ARMED.on() && !SWITCH_IGNITION.on()) { COMState = IDLE; }
-      dataSend();
+      if(!SWITCH_QD.on() && !SWITCH_PRESS.on() && !SWITCH_ARMED.on() && !SWITCH_IGNITION.on() && SWITCHES) { COMState = IDLE; }
       break;
 
     case (HOTFIRE):
-      if (DAQPowerState == HOTFIRE) {digitalWrite(LED_HOTFIRE, HIGH);}
-      dataSend();
+      if (DAQState == HOTFIRE) {digitalWrite(LED_HOTFIRE, HIGH);}
+      if (!SWITCH_ARMED.on() && !SWITCH_HOTFIRE.on() && SWITCHES) { COMState = IDLE; }
       break;
 
     case (ABORT):
-      if (DAQPowerState == ABORT) {digitalWrite(LED_ABORT, HIGH);}
+      if (DAQState == ABORT) {digitalWrite(LED_ABORT, HIGH);}
       digitalWrite(LED_ABORT, HIGH);
       digitalWrite(LED_IGNITION,LOW);
       digitalWrite(LED_QD, LOW);
@@ -237,8 +290,7 @@ void loop() {
       digitalWrite(LED_PRESSLOX, LOW);
       digitalWrite(LED_HOTFIRE, LOW);
       COMState = ABORT;
-      dataSend();
-      if(!SWITCH_QD.on() && !SWITCH_PRESS.on() && !SWITCH_ARMED.on() && !SWITCH_IGNITION.on() && !SWITCH_HOTFIRE.on() && !SWITCH_ABORT.on()) {COMState = IDLE;}
+      if(!SWITCH_QD.on() && !SWITCH_PRESS.on() && !SWITCH_ARMED.on() && !SWITCH_IGNITION.on() && !SWITCH_HOTFIRE.on() && !SWITCH_ABORT.on() && SWITCHES) {COMState = IDLE;}
       break;
   }
 }
@@ -266,67 +318,179 @@ void checkAbort() {
 
 void dataSend() {
   // Set values to send
-  Commands.COMState = COMState;
-  // Send message via ESP-NOW
-  esp_err_t result = esp_now_send(DAQSenseBroadcastAddress, (uint8_t *) &Commands, sizeof(Commands));
+  sendCommands.sender = COM_ID;
+  sendCommands.COMState = COMState;
+  // Serial.println("com: ");
+  // Serial.println(COMState);
+
+  // Send ABORT to flight
+  if (COMState != FlightState || updatePTOffsets) {
+    esp_err_t result = esp_now_send(FlightBroadcastAddress, (uint8_t *) &sendCommands, sizeof(sendCommands));
+    updatePTOffsets = false;
+    if (WIFIDEBUG) {
+      if(result == ESP_OK) {
+        Serial.println("Successful Send to FLIGHT!");
+      } else {
+        Serial.println("Failed Send to FLIGHT");
+      }
+    }
+  }
+
+  // Don't send data if states are already synced
+  if (COMState != DAQState) {
+    esp_err_t result = esp_now_send(DAQBroadcastAddress, (uint8_t *) &sendCommands, sizeof(sendCommands));
+    if (WIFIDEBUG) { //printouts to debug wifi/comms
+      if (result == ESP_OK) {
+      Serial.println("Sent with success to DAQ");
+      }
+      else {
+        Serial.println("Error sending the data to DAQ");
+      }
+    }
+  }
 }
 
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
+  struct_message incomingReadings;
   memcpy(&incomingReadings, incomingData, sizeof(incomingReadings));
-  // Serial.print("Bytes received: ");
-  // Serial.println(len);
-  DAQPowerState = incomingReadings.DAQPowerState;
-  DAQSenseState = incomingReadings.DAQSenseState;
-  receiveDataPrint();
+
+  if (incomingReadings.sender == DAQ_ID) {
+    incomingDAQReadings = incomingReadings;
+    DAQState = incomingReadings.DAQState;
+    if (DEBUG){
+      Serial.print("DAQSTATE: ");
+      Serial.println(DAQState);
+    }
+
+  }
+  else if (incomingReadings.sender == FLIGHT_ID) {
+    incomingFlightReadings = incomingReadings;
+    FlightState = incomingReadings.FlightState;
+    receiveDataPrint(incomingFlightReadings);
+    if (incomingReadings.AUTOABORT){
+      COMState = ABORT;
+    }
+  }
 }
 
-void receiveDataPrint() {
-  String serialMessage = " ";
+void receiveDataPrint(struct_message &incomingReadings) {
+  String serialMessage = "";
+  // TIME
   serialMessage.concat(millis());
+  // FILTERED READINGS
   serialMessage.concat(" ");
-  serialMessage.concat();
+  serialMessage.concat(incomingReadings.filteredReadings.PT_O1);
   serialMessage.concat(" ");
-    serialMessage.concat(millis());
+  serialMessage.concat(incomingReadings.filteredReadings.PT_O2);
   serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.PT_O1);
+  serialMessage.concat(incomingReadings.filteredReadings.PT_E1);
   serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.PT_O2);
+  serialMessage.concat(incomingReadings.filteredReadings.PT_E2);
   serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.PT_E1);
+  serialMessage.concat(incomingReadings.filteredReadings.PT_C1);
   serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.PT_E2);
+  serialMessage.concat(incomingReadings.filteredReadings.PT_X);
   serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.PT_C1);
+  serialMessage.concat(incomingReadings.filteredReadings.TC_1);
   serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.LC_1);
+  serialMessage.concat(incomingReadings.filteredReadings.TC_2);
   serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.LC_2);
+  serialMessage.concat(incomingReadings.filteredReadings.TC_3);
   serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.LC_3);
+  serialMessage.concat(incomingReadings.filteredReadings.TC_4);
+  // RAW READINGS
   serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.TC_1);
+  serialMessage.concat(incomingReadings.rawReadings.PT_O1);
   serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.TC_2);
+  serialMessage.concat(incomingReadings.rawReadings.PT_O2);
   serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.TC_3);
+  serialMessage.concat(incomingReadings.rawReadings.PT_E1);
   serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.TC_4);
-  serialMessage.concat("\nEth comp: ");
-  serialMessage.concat(Commands.ethComplete ? "True" : "False");
-  serialMessage.concat(" Ox comp: ");
-  serialMessage.concat(Commands.oxComplete  ? "True" : "False");
-  serialMessage.concat("\n COM State: ");
-  serialMessage.concat(stateNames[COMState]);
-  serialMessage.concat("   Sense State: ");
-  serialMessage.concat(stateNames[DAQSenseState]);
-  serialMessage.concat("   Power State: ");
-  serialMessage.concat(stateNames[DAQPowerState]);
-  //  serialMessage.concat(readingCap1);
-  //  serialMessage.concat(" ");
-  //  serialMessage.concat(readingCap2);
-  serialMessage.concat("\nCOM Q Length: ");
-  serialMessage.concat(Commands.COMQueueLength);
-  serialMessage.concat("  DAQPower Q Length: ");
-  serialMessage.concat(Commands.DAQPowerQueueLength);
+  serialMessage.concat(incomingReadings.rawReadings.PT_E2);
+  serialMessage.concat(" ");
+  serialMessage.concat(incomingReadings.rawReadings.PT_C1);
+  serialMessage.concat(" ");
+  serialMessage.concat(incomingReadings.rawReadings.PT_X);
+  serialMessage.concat(" ");
+  serialMessage.concat(incomingReadings.rawReadings.TC_1);
+  serialMessage.concat(" ");
+  serialMessage.concat(incomingReadings.rawReadings.TC_2);
+  serialMessage.concat(" ");
+  serialMessage.concat(incomingReadings.rawReadings.TC_3);
+  serialMessage.concat(" ");
+  serialMessage.concat(incomingReadings.rawReadings.TC_4);
+  // STATES
+  serialMessage.concat(" ");
+  serialMessage.concat(COMState);
+  serialMessage.concat(" ");
+  serialMessage.concat(DAQState);
+  serialMessage.concat(" ");
+  serialMessage.concat(FlightState);
+  // PRESS STATUS
+  serialMessage.concat(" ");
+  serialMessage.concat(incomingDAQReadings.ethComplete ? "True" : "False");
+  serialMessage.concat(" ");
+  serialMessage.concat(incomingDAQReadings.oxComplete  ? "True" : "False");
+  // AUTO ABORT STATUS
+  serialMessage.concat(" ");
+  serialMessage.concat(incomingReadings.AUTOABORT ? "True" : "False");
+  // OR the bits in case either FLIGHT or DAQ is in Abort mode
+  serialMessage.concat(" ");
+  serialMessage.concat(incomingDAQReadings.ethVentComplete | incomingFlightReadings.ethVentComplete ? "True" : "False");
+  serialMessage.concat(" ");
+  serialMessage.concat(incomingDAQReadings.oxVentComplete | incomingFlightReadings.oxVentComplete ? "True" : "False");
+  // FLIGHT QUEUE LENGTH
+  serialMessage.concat(" ");
+  serialMessage.concat(incomingReadings.FlightQueueLength);
+  // SD CARD STATUS
+  serialMessage.concat(" ");
+  serialMessage.concat(incomingReadings.sdCardInitialized ? "True" : "False");
+  // PT Offsets
+  serialMessage.concat(" ");
+  serialMessage.concat(incomingReadings.pt_offsets.PT_O1_offset);
+  serialMessage.concat(" ");
+  serialMessage.concat(incomingReadings.pt_offsets.PT_O2_offset);
+  serialMessage.concat(" ");
+  serialMessage.concat(incomingReadings.pt_offsets.PT_E1_offset);
+  serialMessage.concat(" ");
+  serialMessage.concat(incomingReadings.pt_offsets.PT_E2_offset);
+  serialMessage.concat(" ");
+  serialMessage.concat(incomingReadings.pt_offsets.PT_C1_offset);
+  serialMessage.concat(" ");
+  serialMessage.concat(incomingReadings.pt_offsets.PT_X_offset);
+
   Serial.println(serialMessage);
+}
+
+void updateSendDataWithOffsets(int ptNumber, float newOffset) {
+    if (ptNumber < 0 || ptNumber >= NUM_PTS) {
+      return;
+    }
+    updatePTOffsets = true;
+    switch (ptNumber) {
+        case 0:
+            sendCommands.pt_offsets.PT_O1_set = true;
+            sendCommands.pt_offsets.PT_O1_offset = newOffset;
+            break;
+        case 1:
+            sendCommands.pt_offsets.PT_O2_set = true;
+            sendCommands.pt_offsets.PT_O2_offset = newOffset;
+            break;
+        case 2:
+            sendCommands.pt_offsets.PT_E1_set = true;
+            sendCommands.pt_offsets.PT_E1_offset = newOffset;
+            break;
+        case 3:
+            sendCommands.pt_offsets.PT_E2_set = true;
+            sendCommands.pt_offsets.PT_E2_offset = newOffset;
+            break;
+        case 4:
+            sendCommands.pt_offsets.PT_C1_set = true;
+            sendCommands.pt_offsets.PT_C1_offset = newOffset;
+            break;
+        case 5:
+            sendCommands.pt_offsets.PT_X_set = true;
+            sendCommands.pt_offsets.PT_X_offset = newOffset;
+            break;
+    }
 }

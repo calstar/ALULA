@@ -1,5 +1,5 @@
 from serial import Serial
-import pandas as pd
+# import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from collections import deque
@@ -9,7 +9,7 @@ import csv
 import math
 
 def read_serial():
-    port_num = "COM4"
+    port_num = "COM6"
     esp32 = Serial(port=port_num, baudrate=115200)
 
     try:
@@ -18,6 +18,7 @@ def read_serial():
             try:
                 decoded_bytes = data[:len(data)-2].decode("utf-8")
                 str_data = decoded_bytes.split(" ")
+                # 5str_data = str_data[1:]
                 print("got it", str_data)
 
                 # if len(str_data) == instrument_count:
@@ -25,7 +26,6 @@ def read_serial():
                 
             except:
                 continue
-
     except KeyboardInterrupt:
         interrupt(instrument_deques) # control C
 
@@ -92,7 +92,7 @@ if __name__ == "__main__":
     X = [[] for _ in range(instrument_count)]
     Y = []
 
-    file_base = f"calibration_{time.strftime('%Y-%m-%d', time.gmtime())}"
+    file_base = f"CORE_BOARD_1_WITH_BATTERY{time.strftime('%Y-%m-%d', time.gmtime())}"
     file_ext = ".csv"
     test_num = 1
 
