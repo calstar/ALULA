@@ -372,18 +372,15 @@ void quick_disconnect() {
 
 //=======
   if (millis() - QD_start_time <= 1000){
-    Serial.println("CLOSE PRESS VALVES ");
     mosfetCloseValve(MOSFET_ETH_PRESS);  //close press valves
     mosfetCloseValve(MOSFET_LOX_PRESS);
   }
 //>>>>>>> Stashed changes
   if (millis() - QD_start_time > 2000 && millis() - QD_start_time <= 4000){
-    Serial.println("OPENED LINE VENT VALVES");
     mosfetOpenValve(MOSFET_ETH_LINE_VENT);
     mosfetOpenValve(MOSFET_LOX_LINE_VENT);
   }
   if (millis() - QD_start_time > 4000){
-    Serial.println("MUSCLE VALVE");
     mosfetCloseValve(MOSFET_ETH_LINE_VENT);
     mosfetCloseValve(MOSFET_LOX_LINE_VENT);
     mosfetOpenValve(MOSFET_QD_MUSCLE);
@@ -468,8 +465,6 @@ void syncDAQState() {
 
   if (COMState == QD && DAQState == PRESS) {
           QD_start_time = millis();
-          Serial.print("QDDDDDDD:   ");
-          Serial.println(QD_start_time);
           mosfetCloseAllValves();
         }
   if (COMState == HOTFIRE && DAQState == IGNITION){
@@ -492,7 +487,6 @@ void mosfetCloseAllValves() {
   if (mosfet_pcf_found) {
     for (int i = 0; i < 18; i++) {
       pcf8575.digitalWrite(i, LOW);
-      Serial.println("CLOSEING");
     }
   }
 }
@@ -500,14 +494,12 @@ void mosfetCloseAllValves() {
 void mosfetCloseValve(int num) {
   if (mosfet_pcf_found) {
     pcf8575.digitalWrite(num, LOW);
-    Serial.print("closing valve:"); Serial.print(num);
   }
 }
 
 void mosfetOpenValve(int num) {
   if (mosfet_pcf_found) {
     pcf8575.digitalWrite(num, HIGH);
-    Serial.print("OPE");
   }
 }
 
@@ -521,7 +513,9 @@ void sendData(uint8_t broadcastAddress[]) {
   esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&outgoingData, sizeof(outgoingData));
   if (result != ESP_OK) {
     // Serial.println(broadcastAddress);
-    Serial.println("Error sending the data");
+    if (WIFIDEBUG) {
+      Serial.println("Error sending the data");
+    }
   }
 }
 

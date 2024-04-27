@@ -30,6 +30,8 @@ write_buffer = []
 deque_list = [deque(maxlen=data_len) for _ in range(num_plots + 1)]
 x, PT_O1, PT_O2, PT_E1, PT_E2, PT_C1, PT_X = deque_list
 
+pt_deques = [PT_O1, PT_O2, PT_E1, PT_E2, PT_X]
+
 plot_titles = ["PT_O1", "PT_O2", "PT_E1", "PT_E2", "PT_C1", "PT_X", "TC1", "TC2", "TC3", "TC4"]
 button_names = ['Idle', 'Armed', 'Pressed', 'QD', 'Ignition', 'Hot Fire', 'Abort']
 pt_names = ['PT_O1', 'PT_O2', 'PT_E1', 'PT_E2', 'PT_C1', 'PT_X']
@@ -148,10 +150,12 @@ class LivePlotter(QMainWindow):
         self.buttons = []  # Store button references if needed
         self.offsetTextboxes = [] # Store textbox references if needed
         self.offsetButtons = [] # Store button references if needed
+        self.zeroOffsetButtons = []
 
         self.buttonLayout = QVBoxLayout()
         self.offsetButtonLayout = QVBoxLayout()
         self.offsetTextLayout = QVBoxLayout()
+        self.zeroOffsetButtonLayout = QVBoxLayout()
 
         # Setup buttons
         for i, name in enumerate(button_names):
@@ -178,6 +182,13 @@ class LivePlotter(QMainWindow):
             self.offsetTextLayout.addWidget(textbox)
             self.offsetTextboxes.append(textbox)
 
+        for pt_name in enumerate(pt_names):
+            btn = QPushButton("ZERO offset")
+            btn.setStyleSheet("QPushButton {font-size: 10pt;}")
+            btn.clicked.connect(lambda _, name=pt_name: self.ptZeroOffsetButtonClick(name))
+            self.zeroOffsetButtonLayout.addWidget(btn)
+            self.zeroOffsetButtons.append(btn)
+
         self.buttonLayout.addStretch(1)
         buttonWidget = QWidget()
         buttonWidget.setLayout(self.buttonLayout)
@@ -194,6 +205,10 @@ class LivePlotter(QMainWindow):
         offsetTextWidget = QWidget()
         offsetTextWidget.setLayout(self.offsetTextLayout)
         self.layout.addWidget(offsetTextWidget, 3, 1, len(pt_names), 1)
+
+        zeroOffsetTextWidget = QWidget()
+        zeroOffsetTextWidget.setLayout(self.zeroOffsetButtonLayout)
+        self.layout.addWidget(zeroOffsetTextWidget, 3, 2, len(pt_names), 1)
 
         self.timer = QTimer()
         self.timer.setInterval(300)  # ms
@@ -236,6 +251,9 @@ class LivePlotter(QMainWindow):
         print(f"Button clicked: {name}")
         print("Serial write: ", "o" + str(id) + str(self.offsetTextboxes[id].text()))
         esp32.write(("o" + str(id) + str(self.offsetTextboxes[id].text())).encode())
+
+    def ptZeroOffsetButtonClick(self, id):
+        esp32.write(("o" + str(id) + str(pt_deques[id][-1])).encode())
 
 def safe_float(value):
     try:
