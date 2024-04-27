@@ -30,12 +30,12 @@ write_buffer = []
 deque_list = [deque(maxlen=data_len) for _ in range(num_plots + 1)]
 x, PT_O1, PT_O2, PT_E1, PT_E2, PT_C1, PT_X = deque_list
 
-pt_deques = [PT_O1, PT_O2, PT_E1, PT_E2, PT_X]
+pt_deques = [PT_O1, PT_O2, PT_E1, PT_E2, PT_C1, PT_X]
 
 plot_titles = ["PT_O1", "PT_O2", "PT_E1", "PT_E2", "PT_C1", "PT_X", "TC1", "TC2", "TC3", "TC4"]
 button_names = ['Idle', 'Armed', 'Pressed', 'QD', 'Ignition', 'Hot Fire', 'Abort']
 pt_names = ['PT_O1', 'PT_O2', 'PT_E1', 'PT_E2', 'PT_C1', 'PT_X']
-pt_offsets = [0, 0, 0, 0, 0, 00]
+pt_offsets = [0, 0, 0, 0, 0, 0]
 
 file_base = f"LowPressureTest_{time.strftime('%Y-%m-%d', time.gmtime())}"
 file_ext = ".csv"
@@ -182,10 +182,10 @@ class LivePlotter(QMainWindow):
             self.offsetTextLayout.addWidget(textbox)
             self.offsetTextboxes.append(textbox)
 
-        for pt_name in enumerate(pt_names):
+        for i, pt_name in enumerate(pt_names):
             btn = QPushButton("ZERO offset")
             btn.setStyleSheet("QPushButton {font-size: 10pt;}")
-            btn.clicked.connect(lambda _, name=pt_name: self.ptZeroOffsetButtonClick(name))
+            btn.clicked.connect(lambda _, name=pt_name, number=i: self.ptZeroOffsetButtonClick(name, number))
             self.zeroOffsetButtonLayout.addWidget(btn)
             self.zeroOffsetButtons.append(btn)
 
@@ -252,8 +252,15 @@ class LivePlotter(QMainWindow):
         print("Serial write: ", "o" + str(id) + str(self.offsetTextboxes[id].text()))
         esp32.write(("o" + str(id) + str(self.offsetTextboxes[id].text())).encode())
 
-    def ptZeroOffsetButtonClick(self, id):
-        esp32.write(("o" + str(id) + str(pt_deques[id][-1])).encode())
+    def ptZeroOffsetButtonClick(self, name, id):
+        try:
+            print(f"Zeroing offset for {id}")
+            new_offset = float(pt_offsets[id]) - float(pt_deques[id][-1])
+            print(f"New offset is {new_offset}")
+            esp32.write(("o" + str(id) + str(new_offset)).encode())
+        except Exception as e:
+            print(e)
+            pass
 
 def safe_float(value):
     try:
