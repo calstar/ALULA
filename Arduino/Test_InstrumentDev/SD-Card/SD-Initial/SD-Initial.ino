@@ -20,9 +20,15 @@
 #include <SPI.h>
 #include <SD.h>
 
+#define HSPI_MISO 21
+#define HSPI_MOSI 19
+#define HSPI_SCLK 20
+#define HSPI_CS 33
+
+SPIClass* hspi = NULL;
 
 // change this to match your SD shield or module;
-const int chipSelect = 5;
+const int chipSelect = 33;
 
 void setup() {
   // Open serial communications and wait for port to open:
@@ -30,7 +36,10 @@ void setup() {
   while (!Serial) {
     ; // wait for serial port to connect. Needed for native USB port only
   }
-  pinMode(chipSelect, OUTPUT);
+
+  hspi = new SPIClass(HSPI);
+  hspi->begin(HSPI_SCLK,HSPI_MISO,HSPI_MOSI,HSPI_CS);
+  pinMode(HSPI_CS,OUTPUT);
 
 
   Serial.print("\nInitializing SD card...");
