@@ -163,6 +163,8 @@ class LivePlotter(QMainWindow):
 
         # Setup buttons
         for i, name in enumerate(button_names):
+            if (i == len(button_names) - 1): # REDS ABORT SYSTEM
+                break
             btn = QPushButton(name)
             btn.setStyleSheet("QPushButton {font-size: 25pt;}")
             btn.clicked.connect(lambda _, name=name, number=i: self.handleButtonClick(name, number))

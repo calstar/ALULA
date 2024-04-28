@@ -309,8 +309,9 @@ void loop() {
       break;
 
     case (ABORT):
-      abort_sequence();
-      break;
+      break; // REDS ABORT SYSTEM
+      // abort_sequence();
+      // break;
   }
 }
 
@@ -405,58 +406,61 @@ void hotfire() {
 int cumulativeAbortTime = 0; // How long we have been in high-pressure state
 int lastAbortCheckTime = -1; // Last time we called checkAbort()
 void checkAbort() {
-  if (lastAbortCheckTime == -1) {
-    lastAbortCheckTime = millis();
-    return;
-  }
+  return; // REDS ABORT SYSTEM
+  // if (lastAbortCheckTime == -1) {
+  //   lastAbortCheckTime = millis();
+  //   return;
+  // }
 
-  int deltaTime = millis() - lastAbortCheckTime;
-  if (FLIGHT.filteredReadings.PT_O1 >= abortPressure || FLIGHT.filteredReadings.PT_E1 >= abortPressure) {
-    cumulativeAbortTime += deltaTime;
-  }
-  else {
-    cumulativeAbortTime = max(cumulativeAbortTime - deltaTime, 0);
-  }
-  lastAbortCheckTime = millis();
+  // int deltaTime = millis() - lastAbortCheckTime;
+  // if (FLIGHT.filteredReadings.PT_O1 >= abortPressure || FLIGHT.filteredReadings.PT_E1 >= abortPressure) {
+  //   cumulativeAbortTime += deltaTime;
+  // }
+  // else {
+  //   cumulativeAbortTime = max(cumulativeAbortTime - deltaTime, 0);
+  // }
+  // lastAbortCheckTime = millis();
 
-  if (COMState == ABORT || cumulativeAbortTime >= ABORT_ACTIVATION_DELAY) {
-    abort_sequence();
-    DAQState = ABORT;
-  }
+  // if (COMState == ABORT || cumulativeAbortTime >= ABORT_ACTIVATION_DELAY) {
+  //   abort_sequence();
+  //   DAQState = ABORT;
+  // }
 
 }
 
 
 void abort_sequence() {
-  mosfetOpenValve(MOSFET_VENT_LOX);
-  mosfetOpenValve(MOSFET_VENT_ETH);
-  // Waits for LOX pressure to decrease before venting Eth through pyro
-  mosfetCloseValve(MOSFET_LOX_PRESS);
-  mosfetCloseValve(MOSFET_ETH_PRESS);
-  mosfetCloseValve(MOSFET_LOX_MAIN);
-  mosfetCloseValve(MOSFET_ETH_MAIN);
-  mosfetCloseValve(MOSFET_IGNITER);
+  return; // REDS ABORT SYSTEM
 
-  int currtime = millis();
+  // mosfetOpenValve(MOSFET_VENT_LOX);
+  // mosfetOpenValve(MOSFET_VENT_ETH);
+  // // Waits for LOX pressure to decrease before venting Eth through pyro
+  // mosfetCloseValve(MOSFET_LOX_PRESS);
+  // mosfetCloseValve(MOSFET_ETH_PRESS);
+  // mosfetCloseValve(MOSFET_LOX_MAIN);
+  // mosfetCloseValve(MOSFET_ETH_MAIN);
+  // mosfetCloseValve(MOSFET_IGNITER);
 
-  if (FLIGHT.filteredReadings.PT_O1 > ventTo) {  // vent only lox down to vent to pressure
-    mosfetOpenValve(MOSFET_VENT_LOX);
-    if (PRESS_DEBUG) {
-      FLIGHT.filteredReadings.PT_O1 = FLIGHT.filteredReadings.PT_O1 - (0.0005 * SIMULATION_DELAY);
-    }
-  } else {                              // lox vented to acceptable hold pressure
-    mosfetCloseValve(MOSFET_VENT_LOX);  // close lox
-    oxVentComplete = true;
-  }
-  if (FLIGHT.filteredReadings.PT_E1 > ventTo) {
-    mosfetOpenValve(MOSFET_VENT_ETH);  // vent ethanol
-    if (PRESS_DEBUG) {
-      FLIGHT.filteredReadings.PT_E1 = FLIGHT.filteredReadings.PT_E1 - (0.0005 * SIMULATION_DELAY);
-    }
-  } else {
-    mosfetCloseValve(MOSFET_VENT_ETH);
-    ethVentComplete = true;
-  }
+  // int currtime = millis();
+
+  // if (FLIGHT.filteredReadings.PT_O1 > ventTo) {  // vent only lox down to vent to pressure
+  //   mosfetOpenValve(MOSFET_VENT_LOX);
+  //   if (PRESS_DEBUG) {
+  //     FLIGHT.filteredReadings.PT_O1 = FLIGHT.filteredReadings.PT_O1 - (0.0005 * SIMULATION_DELAY);
+  //   }
+  // } else {                              // lox vented to acceptable hold pressure
+  //   mosfetCloseValve(MOSFET_VENT_LOX);  // close lox
+  //   oxVentComplete = true;
+  // }
+  // if (FLIGHT.filteredReadings.PT_E1 > ventTo) {
+  //   mosfetOpenValve(MOSFET_VENT_ETH);  // vent ethanol
+  //   if (PRESS_DEBUG) {
+  //     FLIGHT.filteredReadings.PT_E1 = FLIGHT.filteredReadings.PT_E1 - (0.0005 * SIMULATION_DELAY);
+  //   }
+  // } else {
+  //   mosfetCloseValve(MOSFET_VENT_ETH);
+  //   ethVentComplete = true;
+  // }
 }
 
 // Sync state of DAQ board with COM board.

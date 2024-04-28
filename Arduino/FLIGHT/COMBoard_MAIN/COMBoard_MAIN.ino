@@ -286,18 +286,19 @@ void loop() {
       break;
 
     case (ABORT):
-      if (DAQState == ABORT) {digitalWrite(LED_ABORT, HIGH);}
-      digitalWrite(LED_ABORT, HIGH);
-      digitalWrite(LED_IGNITION,LOW);
-      digitalWrite(LED_QD, LOW);
-      digitalWrite(LED_ARMED, LOW);
-      digitalWrite(LED_PRESS, LOW);
-      digitalWrite(LED_PRESSETH, LOW);
-      digitalWrite(LED_PRESSLOX, LOW);
-      digitalWrite(LED_HOTFIRE, LOW);
-      COMState = ABORT;
-      if(!SWITCH_QD.on() && !SWITCH_PRESS.on() && !SWITCH_ARMED.on() && !SWITCH_IGNITION.on() && !SWITCH_HOTFIRE.on() && !SWITCH_ABORT.on() && SWITCHES) {COMState = IDLE;}
-      break;
+      break; // REDS ABORT SYSTEM
+      // if (DAQState == ABORT) {digitalWrite(LED_ABORT, HIGH);}
+      // digitalWrite(LED_ABORT, HIGH);
+      // digitalWrite(LED_IGNITION,LOW);
+      // digitalWrite(LED_QD, LOW);
+      // digitalWrite(LED_ARMED, LOW);
+      // digitalWrite(LED_PRESS, LOW);
+      // digitalWrite(LED_PRESSETH, LOW);
+      // digitalWrite(LED_PRESSLOX, LOW);
+      // digitalWrite(LED_HOTFIRE, LOW);
+      // COMState = ABORT;
+      // if(!SWITCH_QD.on() && !SWITCH_PRESS.on() && !SWITCH_ARMED.on() && !SWITCH_IGNITION.on() && !SWITCH_HOTFIRE.on() && !SWITCH_ABORT.on() && SWITCHES) {COMState = IDLE;}
+      // break;
   }
 }
 

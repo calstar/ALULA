@@ -545,29 +545,31 @@ void launch() {
 }
 
 void abort_sequence() {
-  mosfetOpenValve(MOSFET_VENT_LOX);
-  mosfetOpenValve(MOSFET_VENT_ETH);
+  return; // REDS SYSTEM ABORT
 
-  int currtime = millis();
+  // mosfetOpenValve(MOSFET_VENT_LOX);
+  // mosfetOpenValve(MOSFET_VENT_ETH);
 
-  if (dataPacket.filteredReadings.PT_O1 > ventTo) {  // vent only lox down to vent to pressure
-    mosfetOpenValve(MOSFET_VENT_LOX);
-    if (DEBUG) {
-      dataPacket.filteredReadings.PT_O1 = dataPacket.filteredReadings.PT_O1 - (0.0005 * SIMULATION_DELAY);
-    }
-  } else {                              // lox vented to acceptable hold pressure
-    mosfetCloseValve(MOSFET_VENT_LOX);  // close lox
-    oxVentComplete = true;
-  }
-  if (dataPacket.filteredReadings.PT_E1 > ventTo) {
-    mosfetOpenValve(MOSFET_VENT_ETH);  // vent ethanol
-    if (DEBUG) {
-      dataPacket.filteredReadings.PT_E1 = dataPacket.filteredReadings.PT_E1 - (0.0005 * SIMULATION_DELAY);
-    }
-  } else {
-    mosfetCloseValve(MOSFET_VENT_ETH);
-    ethVentComplete = true;
-  }
+  // int currtime = millis();
+
+  // if (dataPacket.filteredReadings.PT_O1 > ventTo) {  // vent only lox down to vent to pressure
+  //   mosfetOpenValve(MOSFET_VENT_LOX);
+  //   if (DEBUG) {
+  //     dataPacket.filteredReadings.PT_O1 = dataPacket.filteredReadings.PT_O1 - (0.0005 * SIMULATION_DELAY);
+  //   }
+  // } else {                              // lox vented to acceptable hold pressure
+  //   mosfetCloseValve(MOSFET_VENT_LOX);  // close lox
+  //   oxVentComplete = true;
+  // }
+  // if (dataPacket.filteredReadings.PT_E1 > ventTo) {
+  //   mosfetOpenValve(MOSFET_VENT_ETH);  // vent ethanol
+  //   if (DEBUG) {
+  //     dataPacket.filteredReadings.PT_E1 = dataPacket.filteredReadings.PT_E1 - (0.0005 * SIMULATION_DELAY);
+  //   }
+  // } else {
+  //   mosfetCloseValve(MOSFET_VENT_ETH);
+  //   ethVentComplete = true;
+  // }
 }
 
 void mosfetCloseAllValves() {
@@ -587,25 +589,27 @@ int cumulativeAbortTime = 0; // How long we have been in high-pressure state
 int lastAbortCheckTime = -1; // Last time we called checkAbort()
 
 void checkAbort() {
-  if (lastAbortCheckTime == -1) {
-    lastAbortCheckTime = millis();
-    return;
-  }
+  return; // REDS SYSTEM ABORT
 
-  int deltaTime = millis() - lastAbortCheckTime;
+  // if (lastAbortCheckTime == -1) {
+  //   lastAbortCheckTime = millis();
+  //   return;
+  // }
 
-  if (dataPacket.filteredReadings.PT_O1 >= abortPressure || dataPacket.filteredReadings.PT_E1 >= abortPressure) {
-    cumulativeAbortTime += deltaTime;
-  }
-  else {
-    cumulativeAbortTime = max(cumulativeAbortTime - deltaTime, 0);
-  }
+  // int deltaTime = millis() - lastAbortCheckTime;
 
-  if (cumulativeAbortTime >= ABORT_ACTIVATION_DELAY) {
-    abort_sequence();
-    AUTOABORT = true;
-    if (DEBUG) {Serial.print("AUTOABORT: "); Serial.println(AUTOABORT);}
-  }
+  // if (dataPacket.filteredReadings.PT_O1 >= abortPressure || dataPacket.filteredReadings.PT_E1 >= abortPressure) {
+  //   cumulativeAbortTime += deltaTime;
+  // }
+  // else {
+  //   cumulativeAbortTime = max(cumulativeAbortTime - deltaTime, 0);
+  // }
+
+  // if (cumulativeAbortTime >= ABORT_ACTIVATION_DELAY) {
+  //   abort_sequence();
+  //   AUTOABORT = true;
+  //   if (DEBUG) {Serial.print("AUTOABORT: "); Serial.println(AUTOABORT);}
+  // }
 }
 
 //::::::DATA LOGGING AND COMMUNICATION::::::://
