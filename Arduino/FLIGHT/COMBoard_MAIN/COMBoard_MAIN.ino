@@ -19,10 +19,11 @@ This code runs on the COM ESP32 and has a couple of main tasks.
 #define FLIGHT_ID 2
 
 //IF YOU WANT TO DEBUG, SET THIS TO True, if not, set False
+bool DAQ_DEBUG = false;
 bool DEBUG = false;
 bool WIFIDEBUG = false;
 bool SWITCHES = false; // If we are using switches
-bool GUI_DEBUG = true;
+bool GUI_DEBUG = false;
 
 Switch SWITCH_ARMED = Switch(14);  //correct
 Switch SWITCH_PRESS = Switch(12);  //correct
@@ -362,7 +363,7 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   if (incomingReadings.sender == DAQ_ID) {
     incomingDAQReadings = incomingReadings;
     DAQState = incomingReadings.DAQState;
-    if (DEBUG){
+    if (DAQ_DEBUG){
       Serial.print("DAQSTATE: ");
       Serial.println(DAQState);
     }
