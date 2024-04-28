@@ -31,20 +31,20 @@ PCF8575 pcf8575(0x20);
 
 // DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE.
 // MOSFET must not trigger while in debug.
-bool PRESS_DEBUG = true;    // Simulate LOX and Eth fill.
+bool PRESS_DEBUG = false;    // Simulate LOX and Eth fill.
 bool WIFIDEBUG = false;  // Don't send/receive data.
 
 #define SIMULATION_DELAY 25
 
 // MODEL DEFINED PARAMETERS FOR TEST/HOTFIRE. Pressures in psi //
-float pressureFuel = 150;  //405;  // Set pressure for fuel: 412
+float pressureFuel = 40;  //405;  // Set pressure for fuel: 412
 float pressureOx = 40 ;    //460;  // Set pressure for lox: 445
 float threshold = 0.995;   // re-psressurrization threshold (/1x)
 float ventTo = 5;          // c2se solenoids at this pressure to preserve lifetime.
-#define abortPressure 525  // Cutoff pressure to automatically trigger abort
+#define abortPressure 99525  // Cutoff pressure to automatically trigger abort
 // refer to https://docs.google.com/spreadsheets/d/17NrJWC0AR4Gjejme-EYuIJ5uvEJ98FuyQfYVWI3Qlio/edit#gid=1185803967 for all pinouts
 
-#define ABORT_ACTIVATION_DELAY 500 // Number of milliseconds to wait at high pressure before activating abort
+#define ABORT_ACTIVATION_DELAY 9999500 // Number of milliseconds to wait at high pressure before activating abort
 
 int time_send = 0;
 int period = 50;
