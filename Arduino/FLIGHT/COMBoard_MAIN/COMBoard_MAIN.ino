@@ -22,7 +22,7 @@ This code runs on the COM ESP32 and has a couple of main tasks.
 bool DEBUG = false;
 bool WIFIDEBUG = false;
 bool SWITCHES = false; // If we are using switches
-bool GUI_DEBUG = false;
+bool GUI_DEBUG = true;
 
 Switch SWITCH_ARMED = Switch(14);  //correct
 Switch SWITCH_PRESS = Switch(12);  //correct
@@ -199,6 +199,11 @@ void setup() {
 
 void loop() {
   if (GUI_DEBUG) {
+    incomingFlightReadings.AUTOABORT = false;
+    incomingFlightReadings.ethVentComplete = true;
+    incomingFlightReadings.oxVentComplete = true;
+
+    incomingDAQReadings.oxComplete = true;
     receiveDataPrint(incomingFlightReadings);
   }
 

@@ -133,7 +133,7 @@ class LivePlotter(QMainWindow):
 
         self.graphWidgets = [pg.PlotWidget(title=plot_titles[i]) for i in range(num_plots)]
         for i, graphWidget in enumerate(self.graphWidgets):
-            self.layout.addWidget(graphWidget, i // 3, i % 3)
+            self.layout.addWidget(graphWidget, i // 3 + 1, i % 3)
 
             if i != 6:  # For all other graphs
                 plotDataItem = graphWidget.plot([], [])
@@ -156,6 +156,10 @@ class LivePlotter(QMainWindow):
         self.offsetButtonLayout = QVBoxLayout()
         self.offsetTextLayout = QVBoxLayout()
         self.zeroOffsetButtonLayout = QVBoxLayout()
+
+        self.oxCompleteLayout = QVBoxLayout()
+        self.ethCompleteLayout = QVBoxLayout()
+        self.ventLayout = QVBoxLayout()
 
         # Setup buttons
         for i, name in enumerate(button_names):
@@ -210,6 +214,34 @@ class LivePlotter(QMainWindow):
         zeroOffsetTextWidget.setLayout(self.zeroOffsetButtonLayout)
         self.layout.addWidget(zeroOffsetTextWidget, 3, 2, len(pt_names), 1)
 
+        # LED indicator
+        self.oxCompleteIndicator = QPushButton("Ox\nComplete")
+        self.ethCompleteIndicator = QPushButton("Eth\nComplete")
+
+        self.abortIndicator = QPushButton("ABORT")
+        self.ethVentIndicator = QPushButton("Ox\nvent")
+        self.oxVentIndicator = QPushButton("Eth\nvent")
+
+        self.oxCompleteLayout.addWidget(self.oxCompleteIndicator)
+        self.ethCompleteLayout.addWidget(self.ethCompleteIndicator)
+
+        self.ventLayout.addWidget(self.abortIndicator)
+        self.ventLayout.addWidget(self.oxVentIndicator)
+        self.ventLayout.addWidget(self.ethVentIndicator)
+
+        oxCompleteWidget = QWidget()
+        oxCompleteWidget.setLayout(self.oxCompleteLayout)
+        ethCompleteWidget = QWidget()
+        ethCompleteWidget.setLayout(self.ethCompleteLayout)
+
+        ventWidget = QWidget()
+        ventWidget.setLayout(self.ventLayout)
+
+        self.layout.addWidget(oxCompleteWidget, 0, 0, 1, 1)
+        self.layout.addWidget(ethCompleteWidget, 0, 2, 1, 1)
+        self.layout.addWidget(ventWidget, 6, 3, 1, 1)
+
+        # Timer
         self.timer = QTimer()
         self.timer.setInterval(300)  # ms
         self.timer.timeout.connect(self.update_plot_data)
@@ -236,7 +268,30 @@ class LivePlotter(QMainWindow):
 
             for i, offset in enumerate(pt_offsets):
                 self.offsetButtons[i].setText("Update offset: " + pt_names[i] + f" ({pt_offsets[i]})")
-
+        
+            # Update indicator LED colors
+            if OX_COMPLETE == "True":
+                self.oxCompleteIndicator.setStyleSheet("background-color: green")
+            else:
+                self.oxCompleteIndicator.setStyleSheet("background-color: red")
+            if ETH_COMPLETE == "True":
+                self.ethCompleteIndicator.setStyleSheet("background-color: green")
+            else:
+                self.ethCompleteIndicator.setStyleSheet("background-color: red")
+            if AUTO_ABORT == "True":
+                self.abortIndicator.setStyleSheet("background-color: red")
+                if OX_VENT == "True":
+                    self.oxVentIndicator.setStyleSheet("background-color: green")
+                else:
+                    self.oxVentIndicator.setStyleSheet("background-color: red")
+                if ETH_VENT == "True":
+                    self.ethVentIndicator.setStyleSheet("background-color: green")
+                else:
+                    self.ethVentIndicator.setStyleSheet("background-color: red")
+            else:
+                self.abortIndicator.setStyleSheet("background-color: gray")
+                self.oxVentIndicator.setStyleSheet("background-color: gray")
+                self.ethVentIndicator.setStyleSheet("background-color: gray")
 
         except Exception as e:
         # Log the exception or handle it as needed
