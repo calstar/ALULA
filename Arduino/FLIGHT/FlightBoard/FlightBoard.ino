@@ -310,6 +310,9 @@ uint8_t COMBroadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x4F, 0x3C, 0xA4}; //temp onl
 // uint8_t DAQBroadcastAddress[] = {0x44, 0x17, 0x93, 0x5C, 0x13, 0x60}; //temp only: 44:17:93:5c:13:60
 uint8_t DAQBroadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x50, 0x23, 0x34};
 
+uint8_t ConorBroadcastAddress[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x01};
+
+
 void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
   struct_message packet;
   memcpy(&packet, incomingData, sizeof(packet));
@@ -418,6 +421,12 @@ void setup() {
   }
 
   memcpy(peerInfo.peer_addr, DAQBroadcastAddress, 6);
+  if (esp_now_add_peer(&peerInfo) != ESP_OK) {
+    Serial.println("Failed to add peer");
+    return;
+  }
+
+  memcpy(peerInfo.peer_addr, ConorBroadcastAddress, 6);
   if (esp_now_add_peer(&peerInfo) != ESP_OK) {
     Serial.println("Failed to add peer");
     return;
