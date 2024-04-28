@@ -4,26 +4,28 @@ This code runs on the COM ESP32 and has a couple of main tasks.
 2. Send servo commands to DAQ ESP32
 */
 
+#include <Ra01S.h>
+#include <map>
+#include <list>
+#include <vector>
+#include <SD.h>
 #include <esp_now.h>
 #include <WiFi.h>
 #include <Wire.h>
 #include <Arduino.h>
-#include "HX711.h"
-//#include <ezButton.h>
-#include "freertos/FreeRTOS.h"
-#include "freertos/Task.h"
-#include "FS.h"
-#include "SD.h"
 #include "SPI.h"
+#include <list>
+#include <vector>
+#include <map>
 
 enum STATES { IDLE, ARMED, PRESS, QD, IGNITION, LAUNCH, ABORT };
 
-#define SD_CARD_CS 5
+#define SD_CARD_CS 10
 
 const char* sdCardFilename = "/data.txt";
 File sdCardFile;
 
-bool WIFIDEBUG = false;
+bool WIFIDEBUG = true;
 
 esp_now_peer_info_t peerInfo;
 
@@ -89,11 +91,16 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
   writeSDCard(packetToString(incomingFlightReadings));
 }
 
-void setup() {
-  // put your setup code here, to run once:
-  Serial.begin(115200);
+SX126x  lora(15,               //Port-Pin Output: SPI select
+             21,               //Port-Pin Output: Reset 
+             39               //Port-Pin Input:  Busy
+             );
 
-  Serial.println(WiFi.macAddress());
+void setup() {
+  Serial.print("Setting up...");
+  // put your setup code here, to run once:
+  delay(1000);
+  Serial.begin(115200);
   //set device as WiFi station
   WiFi.mode(WIFI_STA);
 
@@ -120,34 +127,74 @@ void setup() {
   // Register for a callback function that will be called when data is received
   esp_now_register_recv_cb(OnDataRecv);
 
+  int16_t ret = lora.begin(915000000, 22);    
+
+  if (ret != ERR_NONE) while(1) {delay(1);}
+
+  lora.LoRaConfig(LORA_SPREADING_FACTOR, 
+                  LORA_BANDWIDTH, 
+                  LORA_CODINGRATE, 
+                  LORA_PREAMBLE_LENGTH, 
+                  LORA_PAYLOAD_LENGTH, 
+                  true,               //crcOn  
+                  false);          
+
   setupSDCard();
 }
 
+int i =0;
 void loop() {
-
+  // while (i++ < 5) {
+  // writeSDCard("Hello");
+  // }
 }
 
 void setupSDCard() {
-  Serial.print("Initializing SD card...");
   if (!SD.begin(SD_CARD_CS)) {
-    Serial.println("initialization failed!");
-    return;
+    Serial.println("SD card mount failed!");
+    delay(100);
+  }
+  sdCardFile = SD.open(sdCardFilename, FILE_APPEND);
+  if (SD.exists(sdCardFilename)) {
+    Serial.println("File created successfully!");
+  } 
+  else {
+    Serial.println("File not created :^(");
   }
 
-  Serial.println("SD card initialization done.");
-
-  if (!SD.open(sdCardFilename, FILE_WRITE) && WIFIDEBUG) {
-    Serial.println("Error opening SD card file"); // Error handling if file opening fails
-  }
+  if (sdCardFile) {
+    sdCardFile.print("Writing to file...");   
+    sdCardFile.println("Space Technologies and Rocketry");
+    sdCardFile.println("Computerized Utility Receiver");
+    sdCardFile.println("Version 47 Prototype 2 Code");
+    sdCardFile.println("Designed, Assembled, and Coded by Conor Van Bibber");
+    sdCardFile.println("Launch Number: 01");
+    sdCardFile.close();
+    
+  } else {
+    // if the file didn't open, print an error:
+    Serial.println("error opening file");
+  }  
 }
+
 void writeSDCard(String data) {
+  Serial.println(data);
+
+  digitalWrite(15, HIGH);
+  digitalWrite(SD_CARD_CS, LOW);
+  sdCardFile = SD.open(sdCardFilename, FILE_WRITE);
   if (!sdCardFile) {
     if (WIFIDEBUG) { Serial.println("Error writing to sd card"); }
     return;
   }
 
-  sdCardFile.println(data);
-  sdCardFile.flush();
+  for (int i = 0; i < data.length(); i++) {
+    sdCardFile.print((char) data[i]);
+  }
+  sdCardFile.println();
+  
+  sdCardFile.close();
+  digitalWrite(SD_CARD_CS, HIGH);
 }
 
 String readingsToString(const struct_readings &packet) {
@@ -188,6 +235,8 @@ String packetToString(const struct_message &packet) {
   data = data + packet.FlightQueueLength + "\n";
   data = data + packet.oxComplete + " " + packet.ethComplete + " " + packet.oxVentComplete + " " + packet.ethVentComplete + "\n";
   data = data + offsetsToString(packet.pt_offsets) + "\n";
+
+  
 
   return data;
 }
