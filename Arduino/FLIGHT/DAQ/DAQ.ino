@@ -32,6 +32,7 @@ PCF8575 pcf8575(0x20);
 // DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE.
 // MOSFET must not trigger while in debug.
 bool PRESS_DEBUG = false;    // Simulate LOX and Eth fill.
+bool STATE_DEBUG = true; // run through states manually
 bool WIFIDEBUG = false;  // Don't send/receive data.
 
 #define SIMULATION_DELAY 25
@@ -269,7 +270,7 @@ void loop() {
     // Serial.print("        DAQState: ");
     // Serial.println(DAQState);
     }
-  syncDAQState();
+  if (STATE_DEBUG) {SyncSerial();} else {syncDAQState();}
   if (flight_toggle == true || DAQState != FLIGHT.DAQState) {
     sendData(FlightBroadcastAddress); // This sends to both COM and Flight
     flight_toggle = false; //reset toggle
@@ -477,6 +478,9 @@ void syncDAQState() {
   if (DAQState != ABORT || COMState == IDLE) {
     DAQState = COMState;
   }
+}
+
+void SyncSerial() {
   if (Serial.available() > 0) {
   // Serial.read reads a single character as ASCII. Number 1 is 49 in ASCII.
   // Serial sends character and new line character "\n", which is 10 in ASCII.
@@ -485,6 +489,7 @@ void syncDAQState() {
     FlightState = SERIALState;
   }
   }
+  Serial.println(FlightState);
 }
 
 void mosfetCloseAllValves() {
