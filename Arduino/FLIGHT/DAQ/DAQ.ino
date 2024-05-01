@@ -32,8 +32,8 @@ PCF8575 pcf8575(0x20);
 // DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE.
 // MOSFET must not trigger while in debug.
 bool PRESS_DEBUG = false;    // Simulate LOX and Eth fill.
-bool STATE_DEBUG = true; // run through states manually
-bool WIFIDEBUG = false;  // Don't send/receive data.
+bool STATE_DEBUG = false; // run through states manually
+bool WIFIDEBUG = true;  // Don't send/receive data.
 
 #define SIMULATION_DELAY 25
 
@@ -189,11 +189,8 @@ uint8_t FlightBroadcastAddress[] = {0x34, 0x85, 0x18, 0x71, 0x06, 0x60}; //CORE 
 void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
   struct_message Packet;
   memcpy(&Packet, incomingData, sizeof(Packet));
-
-  if (WIFIDEBUG){
-    //Serial.println(packetToString(&Packet));
-    print_struct_message(Packet);
-  }
+  Serial.print("Getting data");
+  if (WIFIDEBUG){print_struct_message(Packet);}
 
   if (Packet.sender == COM_ID) {
     incomingCOMReadings = Packet;
@@ -368,7 +365,7 @@ void quick_disconnect() {
 
   mosfetCloseValve(MOSFET_ETH_PRESS);  //close press valves
   mosfetCloseValve(MOSFET_LOX_PRESS);
-  Serial.println(millis() - QD_start_time);
+  // Serial.println(millis() - QD_start_time);
 
   //FIX THE QD LOGIC - PRESS VALVESS TURN OFF, BUT THE QD LINES DO NOT ACTUATE
 
@@ -489,6 +486,7 @@ void SyncSerial() {
     FlightState = SERIALState;
   }
   }
+  Serial.print("FlightState:   ");
   Serial.println(FlightState);
 }
 
@@ -515,8 +513,6 @@ void mosfetOpenValve(int num) {
 //////////////////// COMMUNICATION /////////////////////////////
 
 void sendData(uint8_t broadcastAddress[]) {
-  if (WIFIDEBUG) {
-  }
   updateDataPacket();
   // Send message via ESP-NOW
   esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&outgoingData, sizeof(outgoingData));
