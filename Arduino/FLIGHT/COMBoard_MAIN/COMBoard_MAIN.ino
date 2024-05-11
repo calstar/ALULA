@@ -4,6 +4,7 @@ This code runs on the COM ESP32 and has a couple of main tasks.
 2. Send servo commands to DAQ ESP32
 */
 
+#include <esp_wifi.h>
 #include <esp_now.h>
 #include <WiFi.h>
 #include <Wire.h>
@@ -23,7 +24,7 @@ bool DAQ_DEBUG = false;
 bool DEBUG = false;
 bool WIFIDEBUG = false;
 bool SWITCHES = false; // If we are using switches
-bool GUI_DEBUG = false;
+bool GUI_DEBUG = true;
 
 Switch SWITCH_ARMED = Switch(14);  //correct
 Switch SWITCH_PRESS = Switch(12);  //correct
@@ -68,7 +69,7 @@ String stateNames[] = { "Idle", "Armed", "Press", "QD", "Ignition", "HOTFIRE", "
 
 uint8_t DAQBroadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x50, 0x23, 0x34};
 // uint8_t FlightBroadcastAddress[] = {0x48, 0x27, 0xE2, 0x2C, 0x80, 0xD8}; //CORE 1 V2
-uint8_t FlightBroadcastAddress[] = {0x34, 0x85, 0x18, 0x71, 0x06, 0x60}; // CORE 2 V2
+uint8_t FlightBroadcastAddress[] = {0x48, 0x27, 0xE2, 0x88, 0x34, 0x44}; // CORE 2 V2
 // uint8_t FlightBroadcastAddress[] = {0x48, 0x27, 0xE2, 0x2F, 0x22, 0x08}; //CORE 3 V2
 
 //Structure example to send data
@@ -163,6 +164,9 @@ void setup() {
   Serial.println(WiFi.macAddress());
   //set device as WiFi station
   WiFi.mode(WIFI_STA);
+  //LOOK AT THIS LOOK AT THIS LOOK AT THIS THIS IS THE TESTING FOR LONG RANGE AGAIN LOOK AT THIS
+  esp_wifi_set_protocol( WIFI_IF_STA , WIFI_PROTOCOL_LR);
+
 
   //initialize ESP32
   if (esp_now_init() != ESP_OK) {
@@ -193,12 +197,14 @@ void setup() {
 
   // Register for a callback function that will be called when data is received
   esp_now_register_recv_cb(OnDataRecv);
+  
 
   COMState = IDLE;
 }
 
 
 void loop() {
+
   if (GUI_DEBUG) {
     incomingFlightReadings.AUTOABORT = false;
     incomingFlightReadings.ethVentComplete = true;
