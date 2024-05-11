@@ -144,13 +144,14 @@ struct struct_message {
   bool sdCardInitialized;
 
   struct_readings filteredReadings;
-  struct_readings rawReadings;
+  // struct_readings rawReadings;
   struct_pt_offsets pt_offsets;
 };
 
 void print_struct_message(struct_message sm){
   Serial.print("SenderID: ");
   Serial.print(sm.sender);
+  Serail.print(sm.)
   Serial.print("  COMState: ");
   Serial.print(sm.COMState);
   Serial.print("  DAQState: ");
@@ -177,21 +178,17 @@ struct_message incomingCOMReadings;
 struct_message FLIGHT;
 
 uint8_t COMBroadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x4F, 0x3C, 0xA4}; //temp only: c8:f0:9e:4f:3c:a4
-//<<<<<<< Updated upstream
-//=======
-//uint8_t FlightBroadcastAddress[] = {0x48, 0x27, 0xE2, 0x2C, 0x80, 0xD8}; //CORE 1 V2
-//>>>>>>> Stashed changes
-uint8_t FlightBroadcastAddress[] = {0x34, 0x85, 0x18, 0x71, 0x06, 0x60}; //CORE 2 V2
-//uint8_t FlightBroadcastAddress[] = {0x48, 0x27, 0xE2, 0x2F, 0x22, 0x08}; //CORE 3 V2
+
+uint8_t FlightBroadcastAddress[] = {0x48, 0x27, 0xE2, 0x88, 0x39, 0x44}; //CORE A
+
 
 
 // Callback when data is received
 void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
   struct_message Packet;
   memcpy(&Packet, incomingData, sizeof(Packet));
-  Serial.print("Getting data");
-  if (WIFIDEBUG){print_struct_message(Packet);}
-
+  if (WIFIDEBUG){  Serial.print("Getting data"); print_struct_message(Packet);}
+  
   if (Packet.sender == COM_ID) {
     incomingCOMReadings = Packet;
     COMState = Packet.COMState;
