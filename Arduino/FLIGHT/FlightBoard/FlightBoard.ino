@@ -210,12 +210,12 @@ public:
 
 #define HX_CLK 17
 // EXTRA PIN THAT CAN BE USED: 16 (PT6)
-struct_hx711 PT_O1{ {}, HX_CLK, 15, .offset = -104.6, .slope = 0.014878509 }; //swapped w/C1 04/19
-struct_hx711 PT_O2{ {}, HX_CLK, 38, .offset = -90.9, .slope = 1.518551107 };
-struct_hx711 PT_E1{ {}, HX_CLK, 6, .offset = -195.1, .slope = 0.037664861 };
-struct_hx711 PT_E2{ {}, HX_CLK, 7, .offset = -200.4, .slope = 0.017309222 };
-struct_hx711 PT_C1{ {}, HX_CLK, 4, .offset = 0, .slope = 0.036179209 }; //currently broken
-struct_hx711 PT_X{ {}, HX_CLK, 39, .offset = 0, .slope = 1 }; //pt6 - extra
+struct_hx711 PT_O1{ {}, HX_CLK, 4, .offset = -22.9473300084651, .slope = 0.016332024 };
+struct_hx711 PT_O2{ {}, HX_CLK, 39, .offset = -57.5041088477761, .slope = 0.0136673702877281 }; // HX06!!!!!!!
+struct_hx711 PT_E1{ {}, HX_CLK, 6, .offset = -15.9074763060451, .slope = 0.0130559241581655 };
+struct_hx711 PT_E2{ {}, HX_CLK, 7, .offset = -12.0162479505697, .slope = 0.0130956075903724 };
+struct_hx711 PT_C1{ {}, HX_CLK, 15, .offset = -48.5027983093585, .slope = 0.0133465652647482 }; 
+struct_hx711 PT_X{ {}, HX_CLK, 39, .offset = 0, .slope = 1 }; 
 
 // LOADCELLS UNUSED IN FLIGHT
 
@@ -546,31 +546,30 @@ void launch() {
 }
 
 void abort_sequence() {
-  return; // REDS SYSTEM ABORT
 
-  // mosfetOpenValve(MOSFET_VENT_LOX);
-  // mosfetOpenValve(MOSFET_VENT_ETH);
+  mosfetOpenValve(MOSFET_VENT_LOX);
+  mosfetOpenValve(MOSFET_VENT_ETH);
 
-  // int currtime = millis();
+  int currtime = millis();
 
-  // if (dataPacket.filteredReadings.PT_O1 > ventTo) {  // vent only lox down to vent to pressure
-  //   mosfetOpenValve(MOSFET_VENT_LOX);
-  //   if (DEBUG) {
-  //     dataPacket.filteredReadings.PT_O1 = dataPacket.filteredReadings.PT_O1 - (0.0005 * SIMULATION_DELAY);
-  //   }
-  // } else {                              // lox vented to acceptable hold pressure
-  //   mosfetCloseValve(MOSFET_VENT_LOX);  // close lox
-  //   oxVentComplete = true;
-  // }
-  // if (dataPacket.filteredReadings.PT_E1 > ventTo) {
-  //   mosfetOpenValve(MOSFET_VENT_ETH);  // vent ethanol
-  //   if (DEBUG) {
-  //     dataPacket.filteredReadings.PT_E1 = dataPacket.filteredReadings.PT_E1 - (0.0005 * SIMULATION_DELAY);
-  //   }
-  // } else {
-  //   mosfetCloseValve(MOSFET_VENT_ETH);
-  //   ethVentComplete = true;
-  // }
+  if (dataPacket.filteredReadings.PT_O1 > ventTo) {  // vent only lox down to vent to pressure
+    mosfetOpenValve(MOSFET_VENT_LOX);
+    if (DEBUG) {
+      dataPacket.filteredReadings.PT_O1 = dataPacket.filteredReadings.PT_O1 - (0.0005 * SIMULATION_DELAY);
+    }
+  } else {                              // lox vented to acceptable hold pressure
+    mosfetCloseValve(MOSFET_VENT_LOX);  // close lox
+    oxVentComplete = true;
+  }
+  if (dataPacket.filteredReadings.PT_E1 > ventTo) {
+    mosfetOpenValve(MOSFET_VENT_ETH);  // vent ethanol
+    if (DEBUG) {
+      dataPacket.filteredReadings.PT_E1 = dataPacket.filteredReadings.PT_E1 - (0.0005 * SIMULATION_DELAY);
+    }
+  } else {
+    mosfetCloseValve(MOSFET_VENT_ETH);
+    ethVentComplete = true;
+  }
 }
 
 void mosfetCloseAllValves() {
