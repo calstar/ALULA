@@ -589,27 +589,27 @@ int cumulativeAbortTime = 0; // How long we have been in high-pressure state
 int lastAbortCheckTime = -1; // Last time we called checkAbort()
 
 void checkAbort() {
-  return; // REDS SYSTEM ABORT
+  // return; // REDS SYSTEM ABORT
 
-  // if (lastAbortCheckTime == -1) {
-  //   lastAbortCheckTime = millis();
-  //   return;
-  // }
+  if (lastAbortCheckTime == -1) {
+    lastAbortCheckTime = millis();
+    return;
+  }
 
-  // int deltaTime = millis() - lastAbortCheckTime;
+  int deltaTime = millis() - lastAbortCheckTime;
 
-  // if (dataPacket.filteredReadings.PT_O1 >= abortPressure || dataPacket.filteredReadings.PT_E1 >= abortPressure) {
-  //   cumulativeAbortTime += deltaTime;
-  // }
-  // else {
-  //   cumulativeAbortTime = max(cumulativeAbortTime - deltaTime, 0);
-  // }
+  if (dataPacket.filteredReadings.PT_O1 >= abortPressure || dataPacket.filteredReadings.PT_E1 >= abortPressure) {
+    cumulativeAbortTime += deltaTime;
+  }
+  else {
+    cumulativeAbortTime = max(cumulativeAbortTime - deltaTime, 0);
+  }
 
-  // if (cumulativeAbortTime >= ABORT_ACTIVATION_DELAY) {
-  //   abort_sequence();
-  //   AUTOABORT = true;
-  //   if (DEBUG) {Serial.print("AUTOABORT: "); Serial.println(AUTOABORT);}
-  // }
+  if (cumulativeAbortTime >= ABORT_ACTIVATION_DELAY) {
+    abort_sequence();
+    AUTOABORT = true;
+    if (DEBUG) {Serial.print("AUTOABORT: "); Serial.println(AUTOABORT);}
+  }
 }
 
 //::::::DATA LOGGING AND COMMUNICATION::::::://
