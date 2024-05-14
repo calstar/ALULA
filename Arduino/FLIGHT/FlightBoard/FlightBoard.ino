@@ -546,31 +546,30 @@ void launch() {
 }
 
 void abort_sequence() {
-  return; // REDS SYSTEM ABORT
 
-  // mosfetOpenValve(MOSFET_VENT_LOX);
-  // mosfetOpenValve(MOSFET_VENT_ETH);
+  mosfetOpenValve(MOSFET_VENT_LOX);
+  mosfetOpenValve(MOSFET_VENT_ETH);
 
-  // int currtime = millis();
+  int currtime = millis();
 
-  // if (dataPacket.filteredReadings.PT_O1 > ventTo) {  // vent only lox down to vent to pressure
-  //   mosfetOpenValve(MOSFET_VENT_LOX);
-  //   if (DEBUG) {
-  //     dataPacket.filteredReadings.PT_O1 = dataPacket.filteredReadings.PT_O1 - (0.0005 * SIMULATION_DELAY);
-  //   }
-  // } else {                              // lox vented to acceptable hold pressure
-  //   mosfetCloseValve(MOSFET_VENT_LOX);  // close lox
-  //   oxVentComplete = true;
-  // }
-  // if (dataPacket.filteredReadings.PT_E1 > ventTo) {
-  //   mosfetOpenValve(MOSFET_VENT_ETH);  // vent ethanol
-  //   if (DEBUG) {
-  //     dataPacket.filteredReadings.PT_E1 = dataPacket.filteredReadings.PT_E1 - (0.0005 * SIMULATION_DELAY);
-  //   }
-  // } else {
-  //   mosfetCloseValve(MOSFET_VENT_ETH);
-  //   ethVentComplete = true;
-  // }
+  if (dataPacket.filteredReadings.PT_O1 > ventTo) {  // vent only lox down to vent to pressure
+    mosfetOpenValve(MOSFET_VENT_LOX);
+    if (DEBUG) {
+      dataPacket.filteredReadings.PT_O1 = dataPacket.filteredReadings.PT_O1 - (0.0005 * SIMULATION_DELAY);
+    }
+  } else {                              // lox vented to acceptable hold pressure
+    mosfetCloseValve(MOSFET_VENT_LOX);  // close lox
+    oxVentComplete = true;
+  }
+  if (dataPacket.filteredReadings.PT_E1 > ventTo) {
+    mosfetOpenValve(MOSFET_VENT_ETH);  // vent ethanol
+    if (DEBUG) {
+      dataPacket.filteredReadings.PT_E1 = dataPacket.filteredReadings.PT_E1 - (0.0005 * SIMULATION_DELAY);
+    }
+  } else {
+    mosfetCloseValve(MOSFET_VENT_ETH);
+    ethVentComplete = true;
+  }
 }
 
 void mosfetCloseAllValves() {
