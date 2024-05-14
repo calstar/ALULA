@@ -210,12 +210,12 @@ public:
 
 #define HX_CLK 17
 // EXTRA PIN THAT CAN BE USED: 16 (PT6)
-struct_hx711 PT_O1{ {}, HX_CLK, 4, .offset = -22.9473300084651, .slope = 0.016332024 };
-struct_hx711 PT_O2{ {}, HX_CLK, 39, .offset = -57.5041088477761, .slope = 0.0136673702877281 }; // HX06!!!!!!!
-struct_hx711 PT_E1{ {}, HX_CLK, 6, .offset = -15.9074763060451, .slope = 0.0130559241581655 };
-struct_hx711 PT_E2{ {}, HX_CLK, 7, .offset = -12.0162479505697, .slope = 0.0130956075903724 };
-struct_hx711 PT_C1{ {}, HX_CLK, 15, .offset = -48.5027983093585, .slope = 0.0133465652647482 }; 
-struct_hx711 PT_X{ {}, HX_CLK, 39, .offset = 0, .slope = 1 }; 
+struct_hx711 PT_O1{ {}, HX_CLK, 4, .offset = -22.947, .slope = 0.016332};
+struct_hx711 PT_O2{ {}, HX_CLK, 39, .offset = -57.50, .slope = 0.013667}; // HX06!!!!!!!
+struct_hx711 PT_E1{ {}, HX_CLK, 6, .offset = -15.907, .slope = 0.013055};
+struct_hx711 PT_E2{ {}, HX_CLK, 7, .offset = -12.016, .slope = 0.013095};
+struct_hx711 PT_C1{ {}, HX_CLK, 15, .offset = -48.50, .slope = 0.013346}; 
+struct_hx711 PT_X{ {}, HX_CLK, 5, .offset = 0, .slope = 1 }; 
 
 // LOADCELLS UNUSED IN FLIGHT
 
@@ -228,8 +228,8 @@ struct_hx711 PT_X{ {}, HX_CLK, 39, .offset = 0, .slope = 1 };
 #define SD_CLK 12
 #define SD_DO 13
 
-struct_max31855 TC_1{ Adafruit_MAX31855(TC_CLK, 39, TC_DO), 39, .offset = 0, .slope = 1 };
-struct_max31855 TC_2{ Adafruit_MAX31855(TC_CLK, 38, TC_DO), 38, .offset = 0, .slope = 1 };
+struct_max31855 TC_1{ Adafruit_MAX31855(TC_CLK, 16, TC_DO), 16, .offset = 0, .slope = 1 };
+struct_max31855 TC_2{ Adafruit_MAX31855(TC_CLK, 18, TC_DO), 18, .offset = 0, .slope = 1 };
 struct_max31855 TC_3{ Adafruit_MAX31855(TC_CLK, 35, TC_DO), 35, .offset = 0, .slope = 1 };
 struct_max31855 TC_4{ Adafruit_MAX31855(TC_CLK, 34, TC_DO), 34, .offset = 0, .slope = 1 };
 
@@ -768,9 +768,9 @@ void printSensorReadings() {
   String serialMessage = " ";
   serialMessage.concat(millis());
   serialMessage.concat(" ");
-  serialMessage.concat(PT_O1.rawReading);
+  serialMessage.concat(PT_O1.filteredReading);
   serialMessage.concat(" ");
-  serialMessage.concat(PT_O2.rawReading);
+  serialMessage.concat(PT_O2.filteredReading);
   serialMessage.concat(" ");
   serialMessage.concat(PT_E1.filteredReading);
   serialMessage.concat(" ");
