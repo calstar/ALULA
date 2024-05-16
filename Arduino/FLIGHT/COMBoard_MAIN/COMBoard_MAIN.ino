@@ -24,7 +24,7 @@ bool DAQ_DEBUG = false;
 bool DEBUG = false;
 bool WIFIDEBUG = false;
 bool SWITCHES = false; // If we are using switches
-bool GUI_DEBUG = true;
+bool GUI_DEBUG = false;
 
 Switch SWITCH_ARMED = Switch(14);  //correct
 Switch SWITCH_PRESS = Switch(12);  //correct
@@ -163,7 +163,7 @@ void setup() {
   //set device as WiFi station
   WiFi.mode(WIFI_STA);
   //LOOK AT THIS LOOK AT THIS LOOK AT THIS THIS IS THE TESTING FOR LONG RANGE AGAIN LOOK AT THIS
-  esp_wifi_set_protocol( WIFI_IF_STA , WIFI_PROTOCOL_LR);
+  // esp_wifi_set_protocol( WIFI_IF_STA , WIFI_PROTOCOL_LR);
 
 
   //initialize ESP32
@@ -410,26 +410,26 @@ void receiveDataPrint(struct_message &incomingReadings) {
   serialMessage.concat(" ");
   serialMessage.concat(incomingReadings.filteredReadings.TC_4);
   // RAW READINGS
-  serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.rawReadings.PT_O1);
-  serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.rawReadings.PT_O2);
-  serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.rawReadings.PT_E1);
-  serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.rawReadings.PT_E2);
-  serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.rawReadings.PT_C1);
-  serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.rawReadings.PT_X);
-  serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.rawReadings.TC_1);
-  serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.rawReadings.TC_2);
-  serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.rawReadings.TC_3);
-  serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.rawReadings.TC_4);
+  // serialMessage.concat(" ");
+  // serialMessage.concat(incomingReadings.rawReadings.PT_O1);
+  // serialMessage.concat(" ");
+  // serialMessage.concat(incomingReadings.rawReadings.PT_O2);
+  // serialMessage.concat(" ");
+  // serialMessage.concat(incomingReadings.rawReadings.PT_E1);
+  // serialMessage.concat(" ");
+  // serialMessage.concat(incomingReadings.rawReadings.PT_E2);
+  // serialMessage.concat(" ");
+  // serialMessage.concat(incomingReadings.rawReadings.PT_C1);
+  // serialMessage.concat(" ");
+  // serialMessage.concat(incomingReadings.rawReadings.PT_X);
+  // serialMessage.concat(" ");
+  // serialMessage.concat(incomingReadings.rawReadings.TC_1);
+  // serialMessage.concat(" ");
+  // serialMessage.concat(incomingReadings.rawReadings.TC_2);
+  // serialMessage.concat(" ");
+  // serialMessage.concat(incomingReadings.rawReadings.TC_3);
+  // serialMessage.concat(" ");
+  // serialMessage.concat(incomingReadings.rawReadings.TC_4);
   // STATES
   serialMessage.concat(" ");
   serialMessage.concat(COMState);
@@ -445,30 +445,30 @@ void receiveDataPrint(struct_message &incomingReadings) {
   // AUTO ABORT STATUS
   serialMessage.concat(" ");
   serialMessage.concat(incomingReadings.AUTOABORT ? "True" : "False");
-  // OR the bits in case either FLIGHT or DAQ is in Abort mode
-  serialMessage.concat(" ");
-  serialMessage.concat(incomingDAQReadings.ethVentComplete | incomingFlightReadings.ethVentComplete ? "True" : "False");
-  serialMessage.concat(" ");
-  serialMessage.concat(incomingDAQReadings.oxVentComplete | incomingFlightReadings.oxVentComplete ? "True" : "False");
-  // FLIGHT QUEUE LENGTH
-  serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.FlightQueueLength);
-  // SD CARD STATUS
-  serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.sdCardInitialized ? "True" : "False");
+  // // OR the bits in case either FLIGHT or DAQ is in Abort mode
+  // serialMessage.concat(" ");
+  // serialMessage.concat(incomingDAQReadings.ethVentComplete | incomingFlightReadings.ethVentComplete ? "True" : "False");
+  // serialMessage.concat(" ");
+  // serialMessage.concat(incomingDAQReadings.oxVentComplete | incomingFlightReadings.oxVentComplete ? "True" : "False");
+  // // FLIGHT QUEUE LENGTH
+  // serialMessage.concat(" ");
+  // serialMessage.concat(incomingReadings.FlightQueueLength);
+  // // SD CARD STATUS
+  // serialMessage.concat(" ");
+  // serialMessage.concat(incomingReadings.sdCardInitialized ? "True" : "False");
   // PT Offsets
-  serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.pt_offsets.PT_O1_offset);
-  serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.pt_offsets.PT_O2_offset);
-  serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.pt_offsets.PT_E1_offset);
-  serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.pt_offsets.PT_E2_offset);
-  serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.pt_offsets.PT_C1_offset);
-  serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.pt_offsets.PT_X_offset);
+  // serialMessage.concat(" ");
+  // serialMessage.concat(incomingReadings.pt_offsets.PT_O1_offset);
+  // serialMessage.concat(" ");
+  // serialMessage.concat(incomingReadings.pt_offsets.PT_O2_offset);
+  // serialMessage.concat(" ");
+  // serialMessage.concat(incomingReadings.pt_offsets.PT_E1_offset);
+  // serialMessage.concat(" ");
+  // serialMessage.concat(incomingReadings.pt_offsets.PT_E2_offset);
+  // serialMessage.concat(" ");
+  // serialMessage.concat(incomingReadings.pt_offsets.PT_C1_offset);
+  // serialMessage.concat(" ");
+  // serialMessage.concat(incomingReadings.pt_offsets.PT_X_offset);
 
   Serial.println(serialMessage);
 }

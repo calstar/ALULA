@@ -151,7 +151,6 @@ struct struct_message {
 void print_struct_message(struct_message sm){
   Serial.print("SenderID: ");
   Serial.print(sm.sender);
-  Serail.print(sm.)
   Serial.print("  COMState: ");
   Serial.print(sm.COMState);
   Serial.print("  DAQState: ");
@@ -177,7 +176,7 @@ struct_message outgoingData;
 struct_message incomingCOMReadings;
 struct_message FLIGHT;
 
-uint8_t COMBroadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x4F, 0x3C, 0xA4}; //temp only: c8:f0:9e:4f:3c:a4
+uint8_t COMBroadcastAddress[] = {0x24, 0xDC, 0xC3, 0x4B, 0x61, 0xE0}; //temp only: c8:f0:9e:4f:3c:a4
 
 uint8_t FlightBroadcastAddress[] = {0x48, 0x27, 0xE2, 0x88, 0x39, 0x44}; //CORE A
 

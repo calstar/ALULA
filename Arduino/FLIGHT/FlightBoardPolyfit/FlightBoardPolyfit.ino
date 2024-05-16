@@ -25,6 +25,7 @@ FOR DEBUGGING:
 //::::::Libraries::::::://
 #include <Arduino.h>
 #include <esp_now.h>
+#include <esp_wifi.h>
 #include <WiFi.h>
 #include <Wire.h>
 #include <SPI.h>
@@ -212,7 +213,7 @@ public:
 
 #define HX_CLK 17
 // EXTRA PIN THAT CAN BE USED: 16 (PT6)
-struct_hx711 PT_O1{ {}, HX_CLK, 4, .offset = -71.3234, .slope = 0.02218904, .poly = -0.0000001227967};
+struct_hx711 PT_O1{ {}, HX_CLK, 4, .offset = -71.3234, .slope = 0.02218904, .poly = -0.0000001227967}; 
 struct_hx711 PT_O2{ {}, HX_CLK, 39, .offset = -126.47996, .slope = 0.0196046, .poly = -0.0000000951045}; // HX06!!!!!!!
 struct_hx711 PT_E1{ {}, HX_CLK, 6, .offset = -60.69267, .slope = 0.0175649, .poly = -0.0000000771310};
 struct_hx711 PT_E2{ {}, HX_CLK, 7, .offset = -65.9275, .slope = 0.0184976, .poly = -0.000000092407020};
@@ -396,7 +397,9 @@ void setup() {
 
   // Broadcast setup.
   // Set device as a Wi-Fi Station
-  WiFi.mode(WIFI_STA);
+  WiFi.mode(WIFI_MODE_STA);
+  //LOOK AT THIS LOOK AT THIS LOOK AT THIS THIS IS THE TESTING FOR LONG RANGE AGAIN LOOK AT THIS
+  // esp_wifi_set_protocol( WIFI_IF_STA , WIFI_PROTOCOL_LR);
   // Print MAC Accress on startup for easier connections
   Serial.print("My MAC Address :");
   Serial.println(WiFi.macAddress());
