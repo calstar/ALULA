@@ -37,7 +37,7 @@ button_names = ['Idle', 'Armed', 'Pressed', 'QD', 'Ignition', 'Hot Fire', 'Abort
 pt_names = ['PT_O1', 'PT_O2', 'PT_E1', 'PT_E2', 'PT_C1', 'PT_X']
 pt_offsets = [0, 0, 0, 0, 0, 0]
 
-file_base = f"LowPressureTest_{time.strftime('%Y-%m-%d', time.gmtime())}"
+file_base = f"FLIGHTtest_{time.strftime('%Y-%m-%d', time.gmtime())}"
 file_ext = ".csv"
 test_num = 1
 
@@ -64,7 +64,7 @@ def collection():
     global OX_VENT
     global FLIGHT_Q_LENGTH
     global AUTO_ABORT
-    global SD_CARD_STATUS
+    # global SD_CARD_STATUS
     global pt_offsets
 
 
@@ -79,7 +79,7 @@ def collection():
                 write_buffer.append(values)
 
 
-                if len(values) == 37:
+                if len(values) == 28:
 
                     #  values = [safe_float(value) for value in values]
                     print(values)
@@ -96,22 +96,22 @@ def collection():
                     # TC3.append(float(values[9]))
                     # TC4.append(float(values[10]))
 
-                    COM_S = values[21]
-                    DAQ_S = values[22]
-                    FLIGHT_S = values[23]
+                    COM_S = values[13]
+                    DAQ_S = values[14]
+                    FLIGHT_S = values[15]
 
-                    ETH_COMPLETE = values[24]
-                    OX_COMPLETE = values[25]
+                    ETH_COMPLETE = values[16]
+                    OX_COMPLETE = values[17]
 
-                    AUTO_ABORT = values[26]
+                    AUTO_ABORT = values[18]
 
-                    ETH_VENT = values[27]
-                    OX_VENT = values[28]
+                    ETH_VENT = values[19]
+                    OX_VENT = values[20]
 
-                    FLIGHT_Q_LENGTH = values[29]
-                    SD_CARD_STATUS = values[30]
+                    FLIGHT_Q_LENGTH = values[21]
+                    # SD_CARD_STATUS = values[30]
 
-                    pt_offsets = values[31:37].copy()
+                    pt_offsets = values[22:28].copy()
 
                 if len(write_buffer) >= BUFFER_SIZE:
                         writer.writerows(write_buffer)
@@ -163,8 +163,8 @@ class LivePlotter(QMainWindow):
 
         # Setup buttons
         for i, name in enumerate(button_names):
-            if (i == len(button_names) - 1): # REDS ABORT SYSTEM
-                break
+            # if (i == len(button_names) - 1): # REDS ABORT SYSTEM
+            #     break
             btn = QPushButton(name)
             btn.setStyleSheet("QPushButton {font-size: 25pt;}")
             btn.clicked.connect(lambda _, name=name, number=i: self.handleButtonClick(name, number))
@@ -261,7 +261,7 @@ class LivePlotter(QMainWindow):
                     for y_series in deque_list[1:]:  # Assuming self.y is a list of deques
                         y_series.popleft()
 
-            self.setWindowTitle(f"Time: {current_time}    COM: {COM_S}   DAQ: {DAQ_S}   FLIGHT: {FLIGHT_S}  ETH_COMPLETE: {ETH_COMPLETE}  OX_COMPLETE: {OX_COMPLETE}   AUTO_ABORT: {AUTO_ABORT}   ETH_VENT: {ETH_VENT} OX_VENT: {OX_VENT}    Q_LENGTH: {FLIGHT_Q_LENGTH} SD_CARD_STATUS: {SD_CARD_STATUS}")
+            self.setWindowTitle(f"Time: {current_time}    COM: {COM_S}   DAQ: {DAQ_S}   FLIGHT: {FLIGHT_S}  ETH_COMPLETE: {ETH_COMPLETE}  OX_COMPLETE: {OX_COMPLETE}   AUTO_ABORT: {AUTO_ABORT}   ETH_VENT: {ETH_VENT} OX_VENT: {OX_VENT}    Q_LENGTH: {FLIGHT_Q_LENGTH}")
 
             for i, plotDataItem in enumerate(self.plotDataItems):
                 if i < 10:  # Update standard plots directly
