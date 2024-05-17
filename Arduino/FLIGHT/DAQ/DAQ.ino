@@ -38,14 +38,14 @@ bool WIFIDEBUG = true;  // Don't send/receive data.
 #define SIMULATION_DELAY 25
 
 // MODEL DEFINED PARAMETERS FOR TEST/HOTFIRE. Pressures in psi //
-float pressureFuel = 150;  //405;  // Set pressure for fuel: 412
-float pressureOx = 150;    //460;  // Set pressure for lox: 445
-float threshold = 0.99;   // re-psressurrization threshold (/1x)
+float pressureFuel = 150;  //500;  // Set pressure for fuel
+float pressureOx = 150;    //500;  // Set pressure for lox
+float threshold = 0.98;   // re-psressurrization threshold (/1x)
 float ventTo = 5;          // c2se solenoids at this pressure to preserve lifetime.
-#define abortPressure 99525  // Cutoff pressure to automatically trigger abort
+#define abortPressure 700  // Cutoff pressure to automatically trigger abort
 // refer to https://docs.google.com/spreadsheets/d/17NrJWC0AR4Gjejme-EYuIJ5uvEJ98FuyQfYVWI3Qlio/edit#gid=1185803967 for all pinouts
 
-#define ABORT_ACTIVATION_DELAY 9999500 // Number of milliseconds to wait at high pressure before activating abort
+#define ABORT_ACTIVATION_DELAY 999 // Number of milliseconds to wait at high pressure before activating abort
 
 int time_send = 0;
 int period = 50;
@@ -107,12 +107,12 @@ struct struct_pt_offsets {
   bool PT_C1_set;
   bool PT_X_set;
 
-  float PT_O1_offset;
-  float PT_O2_offset;
-  float PT_E1_offset;
-  float PT_E2_offset;
-  float PT_C1_offset;
-  float PT_X_offset;
+  int PT_O1_offset;
+  int PT_O2_offset;
+  int PT_E1_offset;
+  int PT_E2_offset;
+  int PT_C1_offset;
+  int PT_X_offset;
 };
 
 struct struct_readings {
@@ -122,10 +122,10 @@ struct struct_readings {
   float PT_E2;
   float PT_C1;
   float PT_X;
-  float TC_1;
-  float TC_2;
-  float TC_3;
-  float TC_4;
+  int TC_1;
+  int TC_2;
+  int TC_3;
+  int TC_4;
 };
 
 struct struct_message {
@@ -144,7 +144,7 @@ struct struct_message {
   bool sdCardInitialized;
 
   struct_readings filteredReadings;
-  // struct_readings rawReadings;
+  struct_readings rawReadings;
   struct_pt_offsets pt_offsets;
 };
 
@@ -266,10 +266,12 @@ void loop() {
   if (STATE_DEBUG) {SyncSerial();} else {syncDAQState();}
   if (flight_toggle == true || DAQState != FLIGHT.DAQState) {
     sendData(FlightBroadcastAddress); // This sends to both COM and Flight
+    Serial.println("SENDING TO FLIGHT");
     flight_toggle = false; //reset toggle
   }
   if (millis()-time_send > period) {
     sendData(COMBroadcastAddress);
+    Serial.println("SENDING TO COM");
     time_send = millis();
   }
 
@@ -357,25 +359,15 @@ void press() {
 
 // Disconnect harnessings and check state of rocket.
 void quick_disconnect() {
-//<<<<<<< Updated upstream
-
   mosfetCloseValve(MOSFET_ETH_PRESS);  //close press valves
   mosfetCloseValve(MOSFET_LOX_PRESS);
   // Serial.println(millis() - QD_start_time);
 
-  //FIX THE QD LOGIC - PRESS VALVESS TURN OFF, BUT THE QD LINES DO NOT ACTUATE
-
-//=======
-  if (millis() - QD_start_time <= 1000){
-    mosfetCloseValve(MOSFET_ETH_PRESS);  //close press valves
-    mosfetCloseValve(MOSFET_LOX_PRESS);
-  }
-//>>>>>>> Stashed changes
-  if (millis() - QD_start_time > 2000 && millis() - QD_start_time <= 4000){
+  if ((millis() - QD_start_time) > 500 && (millis() - QD_start_time) <= 3000){
     mosfetOpenValve(MOSFET_ETH_LINE_VENT);
     mosfetOpenValve(MOSFET_LOX_LINE_VENT);
   }
-  if (millis() - QD_start_time > 4000){
+  if (millis() - QD_start_time > 3000){
     mosfetCloseValve(MOSFET_ETH_LINE_VENT);
     mosfetCloseValve(MOSFET_LOX_LINE_VENT);
     mosfetOpenValve(MOSFET_QD_MUSCLE);
@@ -424,37 +416,37 @@ void checkAbort() {
 
 
 void abort_sequence() {
-  return; // REDS ABORT SYSTEM
+  // return; // REDS ABORT SYSTEM
 
-  // mosfetOpenValve(MOSFET_VENT_LOX);
-  // mosfetOpenValve(MOSFET_VENT_ETH);
-  // // Waits for LOX pressure to decrease before venting Eth through pyro
-  // mosfetCloseValve(MOSFET_LOX_PRESS);
-  // mosfetCloseValve(MOSFET_ETH_PRESS);
-  // mosfetCloseValve(MOSFET_LOX_MAIN);
-  // mosfetCloseValve(MOSFET_ETH_MAIN);
-  // mosfetCloseValve(MOSFET_IGNITER);
+  mosfetOpenValve(MOSFET_VENT_LOX);
+  mosfetOpenValve(MOSFET_VENT_ETH);
+  // Waits for LOX pressure to decrease before venting Eth through pyro
+  mosfetCloseValve(MOSFET_LOX_PRESS);
+  mosfetCloseValve(MOSFET_ETH_PRESS);
+  mosfetCloseValve(MOSFET_LOX_MAIN);
+  mosfetCloseValve(MOSFET_ETH_MAIN);
+  mosfetCloseValve(MOSFET_IGNITER);
 
-  // int currtime = millis();
+  int currtime = millis();
 
-  // if (FLIGHT.filteredReadings.PT_O1 > ventTo) {  // vent only lox down to vent to pressure
-  //   mosfetOpenValve(MOSFET_VENT_LOX);
-  //   if (PRESS_DEBUG) {
-  //     FLIGHT.filteredReadings.PT_O1 = FLIGHT.filteredReadings.PT_O1 - (0.0005 * SIMULATION_DELAY);
-  //   }
-  // } else {                              // lox vented to acceptable hold pressure
-  //   mosfetCloseValve(MOSFET_VENT_LOX);  // close lox
-  //   oxVentComplete = true;
-  // }
-  // if (FLIGHT.filteredReadings.PT_E1 > ventTo) {
-  //   mosfetOpenValve(MOSFET_VENT_ETH);  // vent ethanol
-  //   if (PRESS_DEBUG) {
-  //     FLIGHT.filteredReadings.PT_E1 = FLIGHT.filteredReadings.PT_E1 - (0.0005 * SIMULATION_DELAY);
-  //   }
-  // } else {
-  //   mosfetCloseValve(MOSFET_VENT_ETH);
-  //   ethVentComplete = true;
-  // }
+  if (FLIGHT.filteredReadings.PT_O1 > ventTo) {  // vent only lox down to vent to pressure
+    mosfetOpenValve(MOSFET_VENT_LOX);
+    if (PRESS_DEBUG) {
+      FLIGHT.filteredReadings.PT_O1 = FLIGHT.filteredReadings.PT_O1 - (0.0005 * SIMULATION_DELAY);
+    }
+  } else {                              // lox vented to acceptable hold pressure
+    mosfetCloseValve(MOSFET_VENT_LOX);  // close lox
+    oxVentComplete = true;
+  }
+  if (FLIGHT.filteredReadings.PT_E1 > ventTo) {
+    mosfetOpenValve(MOSFET_VENT_ETH);  // vent ethanol
+    if (PRESS_DEBUG) {
+      FLIGHT.filteredReadings.PT_E1 = FLIGHT.filteredReadings.PT_E1 - (0.0005 * SIMULATION_DELAY);
+    }
+  } else {
+    mosfetCloseValve(MOSFET_VENT_ETH);
+    ethVentComplete = true;
+  }
 }
 
 // Sync state of DAQ board with COM board.

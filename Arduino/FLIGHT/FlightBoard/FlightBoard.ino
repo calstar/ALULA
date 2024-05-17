@@ -25,6 +25,7 @@ FOR DEBUGGING:
 //::::::Libraries::::::://
 #include <Arduino.h>
 #include <esp_now.h>
+#include <esp_wifi.h>
 #include <WiFi.h>
 #include <Wire.h>
 #include <SPI.h>
@@ -45,11 +46,11 @@ FOR DEBUGGING:
 // DEBUG TRIGGER: SET TO 1 FOR DEBUG MODE.
 // MOSFET must not trigger while in debug.
 bool DEBUG = false;   // RUN THROUGH STATES MANUALLY.
-bool WIFIDEBUG = true; // PRINT OUT A BUNCH OF DEBUG STATEMENTS.
+bool WIFIDEBUG = false; // PRINT OUT A BUNCH OF DEBUG STATEMENTS.
 // refer to https://docs.google.com/spreadsheets/d/17NrJWC0AR4Gjejme-EYuIJ5uvEJ98FuyQfYVWI3Qlio/edit#gid=1185803967 for all pinouts
 
 // ABORT VARIABLES //
-#define abortPressure 625  // Cutoff pressure to automatically trigger abort
+#define abortPressure 700  // Cutoff pressure to automatically trigger abort
 #define ventTo -50
 bool oxVentComplete = false;
 bool ethVentComplete = false;
@@ -59,8 +60,8 @@ bool AUTOABORT = false;
 #define MOSFET_VENT_ETH 47
 
 #define DATA_TIMEOUT 100
-#define IDLE_DELAY 15
-#define GEN_DELAY 16
+#define IDLE_DELAY 150
+#define GEN_DELAY 25
 float sendDelay = IDLE_DELAY; // Frequency of sending data [ms]  updated based on state
 
 float readDelay = 25;     // Frequency of data collection [ms]
@@ -113,7 +114,7 @@ public:
 
 struct MovingMedianFilter {
 private:
-  const unsigned BUFFER_SIZE = 25;
+  const unsigned BUFFER_SIZE = 8;
   RunningMedian medianFilter;
 
 public:
@@ -141,14 +142,14 @@ private:
 
 public:
   Board scale;
-  float offset;
+  int offset;
   float slope;
   float poly;
   float filteredReading = -1;
   float rawReading = -1;
-  float unshiftedRawReading = -1; // Raw reading before slope offset transformation is applied to it
+  int unshiftedRawReading = -1; // Raw reading before slope offset transformation is applied to it
 
-  struct_data_board(Board scale, float offset, float slope, float poly)
+  struct_data_board(Board scale, int offset, float slope, float poly)
     : scale(scale) {
     this->scale = scale;
     this->offset = offset;
@@ -164,8 +165,8 @@ public:
     float newReading = readRawFromBoard();
     filter.addReading(newReading);
     unshiftedRawReading = newReading;
-    rawReading = poly * sq(newReading) + slope * newReading + offset;
-    filteredReading = poly * sq(filter.getReading()) + slope * filter.getReading() + offset;
+    rawReading = poly * sq(newReading) + slope * newReading + float(offset);
+    filteredReading = poly * sq(filter.getReading()) + slope * filter.getReading() + float(offset);
   }
 
   void resetReading() {
@@ -181,7 +182,7 @@ public:
   int clk;
   int gpio;
 
-  struct_hx711(HX711 scale, int clk, int gpio, float offset, float slope, float poly)
+  struct_hx711(HX711 scale, int clk, int gpio, int offset, float slope, float poly)
     : struct_data_board(scale, offset, slope, poly) {
     this->clk = clk;
     this->gpio = gpio;
@@ -192,7 +193,7 @@ public:
       return scale.read();
     }
     // Returns the last raw reading upon timeout
-    return (rawReading - offset) / slope;
+    return (rawReading - float(offset)) / slope;
   }
 };
 
@@ -200,7 +201,7 @@ struct struct_max31855 : struct_data_board<Adafruit_MAX31855> {
 public:
   int cs;
 
-  struct_max31855(Adafruit_MAX31855 scale, float cs, float offset, float slope)
+  struct_max31855(Adafruit_MAX31855 scale, float cs, int offset, float slope)
     : struct_data_board(scale, offset, slope, 0) {
     this->cs = cs;
   }
@@ -212,11 +213,11 @@ public:
 
 #define HX_CLK 17
 // EXTRA PIN THAT CAN BE USED: 16 (PT6)
-struct_hx711 PT_O1{ {}, HX_CLK, 4, .offset = -71.3234, .slope = 0.02218904, .poly = -0.0000001227967};
-struct_hx711 PT_O2{ {}, HX_CLK, 39, .offset = -126.47996, .slope = 0.0196046, .poly = -0.0000000951045}; // HX06!!!!!!!
-struct_hx711 PT_E1{ {}, HX_CLK, 6, .offset = -60.69267, .slope = 0.0175649, .poly = -0.0000000771310};
-struct_hx711 PT_E2{ {}, HX_CLK, 7, .offset = -65.9275, .slope = 0.0184976, .poly = -0.000000092407020};
-struct_hx711 PT_C1{ {}, HX_CLK, 15, .offset = -113.6023, .slope = 0.019020, .poly = -0.0000000906559}; 
+struct_hx711 PT_O1{ {}, HX_CLK, 4, .offset = -71, .slope = 0.02218904, .poly = -0.0000001227967}; 
+struct_hx711 PT_O2{ {}, HX_CLK, 39, .offset = -126, .slope = 0.0196046, .poly = -0.0000000951045}; // HX06!!!!!!!
+struct_hx711 PT_E1{ {}, HX_CLK, 6, .offset = -60, .slope = 0.0175649, .poly = -0.0000000771310};
+struct_hx711 PT_E2{ {}, HX_CLK, 7, .offset = -65, .slope = 0.0184976, .poly = -0.000000092407020};
+struct_hx711 PT_C1{ {}, HX_CLK, 15, .offset = -113, .slope = 0.019020, .poly = -0.0000000906559}; 
 struct_hx711 PT_X{ {}, HX_CLK, 5, .offset = 0, .slope = 1, .poly = 0}; 
 
 // LOADCELLS UNUSED IN FLIGHT
@@ -253,12 +254,12 @@ struct struct_pt_offsets {
   bool PT_C1_set;
   bool PT_X_set;
 
-  float PT_O1_offset;
-  float PT_O2_offset;
-  float PT_E1_offset;
-  float PT_E2_offset;
-  float PT_C1_offset;
-  float PT_X_offset;
+  int PT_O1_offset;
+  int PT_O2_offset;
+  int PT_E1_offset;
+  int PT_E2_offset;
+  int PT_C1_offset;
+  int PT_X_offset;
 };
 
 struct struct_readings {
@@ -268,10 +269,10 @@ struct struct_readings {
   float PT_E2;
   float PT_C1;
   float PT_X;
-  float TC_1;
-  float TC_2;
-  float TC_3;
-  float TC_4;
+  int TC_1;
+  int TC_2;
+  int TC_3;
+  int TC_4;
 };
 struct_readings rawReadings;
 
@@ -291,7 +292,7 @@ struct struct_message {
   bool sdCardInitialized;
 
   struct_readings filteredReadings;
-  // struct_readings rawReadings;
+  struct_readings rawReadings;
   struct_pt_offsets pt_offsets;
 };
 
@@ -311,7 +312,7 @@ esp_now_peer_info_t peerInfo;
 
 uint8_t COMBroadcastAddress[] = {0x24, 0xDC, 0xC3, 0x4B, 0x61, 0xE0}; //temp only: c8:f0:9e:4f:3c:a4
 // uint8_t DAQBroadcastAddress[] = {0x44, 0x17, 0x93, 0x5C, 0x13, 0x60}; //temp only: 44:17:93:5c:13:60
-uint8_t DAQBroadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x50, 0x23, 0x34};
+uint8_t DAQBroadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x4F, 0x3C, 0xA4};
 
 uint8_t SDCardBroadcastAddress[] = {0xF4, 0x12, 0xFA, 0x47, 0xEE, 0x30};
 
@@ -396,7 +397,9 @@ void setup() {
 
   // Broadcast setup.
   // Set device as a Wi-Fi Station
-  WiFi.mode(WIFI_STA);
+  WiFi.mode(WIFI_MODE_STA);
+  //LOOK AT THIS LOOK AT THIS LOOK AT THIS THIS IS THE TESTING FOR LONG RANGE AGAIN LOOK AT THIS
+  // esp_wifi_set_protocol( WIFI_IF_STA , WIFI_PROTOCOL_LR);
   // Print MAC Accress on startup for easier connections
   Serial.print("My MAC Address :");
   Serial.println(WiFi.macAddress());
@@ -659,16 +662,16 @@ void updateDataPacket() {
   dataPacket.messageTime = millis();
   dataPacket.sender = FLIGHT_ID;
 
-  // dataPacket.rawReadings.PT_O1 = PT_O1.rawReading;
-  // dataPacket.rawReadings.PT_O2 = PT_O2.rawReading;
-  // dataPacket.rawReadings.PT_E1 = PT_E1.rawReading;
-  // dataPacket.rawReadings.PT_E2 = PT_E2.rawReading;
-  // dataPacket.rawReadings.PT_C1 = PT_C1.rawReading;
-  // dataPacket.rawReadings.PT_X = PT_X.rawReading;
-  // dataPacket.rawReadings.TC_1 = TC_1.rawReading;
-  // dataPacket.rawReadings.TC_2 = TC_2.rawReading;
-  // dataPacket.rawReadings.TC_3 = TC_3.rawReading;
-  // dataPacket.rawReadings.TC_4 = TC_4.rawReading;
+  dataPacket.rawReadings.PT_O1 = PT_O1.rawReading;
+  dataPacket.rawReadings.PT_O2 = PT_O2.rawReading;
+  dataPacket.rawReadings.PT_E1 = PT_E1.rawReading;
+  dataPacket.rawReadings.PT_E2 = PT_E2.rawReading;
+  dataPacket.rawReadings.PT_C1 = PT_C1.rawReading;
+  dataPacket.rawReadings.PT_X = PT_X.rawReading;
+  dataPacket.rawReadings.TC_1 = TC_1.rawReading;
+  dataPacket.rawReadings.TC_2 = TC_2.rawReading;
+  dataPacket.rawReadings.TC_3 = TC_3.rawReading;
+  dataPacket.rawReadings.TC_4 = TC_4.rawReading;
 
   dataPacket.filteredReadings.PT_O1 = PT_O1.filteredReading;
   dataPacket.filteredReadings.PT_O2 = PT_O2.filteredReading;
