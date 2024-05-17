@@ -33,7 +33,7 @@ x, PT_O1, PT_O2, PT_E1, PT_E2, PT_C1, PT_X = deque_list
 pt_deques = [PT_O1, PT_O2, PT_E1, PT_E2, PT_C1, PT_X]
 
 plot_titles = ["PT_O1", "PT_O2", "PT_E1", "PT_E2", "PT_C1", "PT_X", "TC1", "TC2", "TC3", "TC4"]
-button_names = ['Idle', 'Armed', 'Pressed', 'QD', 'Ignition', 'Hot Fire', 'Abort']
+button_names = [' Idle ', ' Armed ', 'Pressed', '  QD  ', 'Ignition', 'Hot Fire', ' Abort ']
 pt_names = ['PT_O1', 'PT_O2', 'PT_E1', 'PT_E2', 'PT_C1', 'PT_X']
 pt_offsets = [0, 0, 0, 0, 0, 0]
 
@@ -129,9 +129,8 @@ class LivePlotter(QMainWindow):
         self.centralWidget = QWidget()
         self.setCentralWidget(self.centralWidget)
         self.layout = QGridLayout(self.centralWidget)
-
+        self.current_state = 0  # Add state variable
         self.plotDataItems = []
-
         self.graphWidgets = [pg.PlotWidget(title=plot_titles[i]) for i in range(num_plots)]
         for i, graphWidget in enumerate(self.graphWidgets):
             self.layout.addWidget(graphWidget, i // 3 + 1, i % 3)
@@ -144,10 +143,6 @@ class LivePlotter(QMainWindow):
                                         graphWidget.plot([], [], pen=pg.mkPen(color=(0, 255, 0))),
                                         graphWidget.plot([], [], pen=pg.mkPen(color=(0, 0, 255)))]
 
-
-
-        # # BUTTON STUFF
-        # ###########################################################
         self.buttons = []  # Store button references if needed
         self.offsetTextboxes = [] # Store textbox references if needed
         self.offsetButtons = [] # Store button references if needed
@@ -162,22 +157,19 @@ class LivePlotter(QMainWindow):
         self.ethCompleteLayout = QVBoxLayout()
         self.ventLayout = QVBoxLayout()
 
+
         # Setup buttons
         for i, name in enumerate(button_names):
-            # if (i == len(button_names) - 1): # REDS ABORT SYSTEM
-            #     break
             btn = QPushButton(name)
-            btn.setStyleSheet("QPushButton {font-size: 25pt;}")
+            btn.setStyleSheet("QPushButton {font-size: 25pt; padding: 45px;}")
             btn.clicked.connect(lambda _, name=name, number=i: self.handleButtonClick(name, number))
             self.buttonLayout.addWidget(btn)
             self.buttons.append(btn)
 
-        # # ###########################################################
         # Setup PT offsets
-        # Setup buttons
         for i, pt_name in enumerate(pt_names):
             btn = QPushButton("Update offset: " + pt_name + f" ({pt_offsets[i]})")
-            btn.setStyleSheet("QPushButton {font-size: 10pt;}")
+            btn.setStyleSheet("QPushButton {font-size: 15pt; padding: 10px;}")
             btn.clicked.connect(lambda _, name=pt_name, number=i: self.ptOffsetButtonClick(name, number))
             self.offsetButtonLayout.addWidget(btn)
             self.offsetButtons.append(btn)
@@ -185,13 +177,13 @@ class LivePlotter(QMainWindow):
         # Setup textboxes
         for pt_name in enumerate(pt_names):
             textbox = QLineEdit()
-            textbox.setStyleSheet("QLineEdit {font-size: 15pt;}")
+            textbox.setStyleSheet("QLineEdit {font-size: 20pt; padding: 10px;}")
             self.offsetTextLayout.addWidget(textbox)
             self.offsetTextboxes.append(textbox)
 
         for i, pt_name in enumerate(pt_names):
             btn = QPushButton("ZERO offset")
-            btn.setStyleSheet("QPushButton {font-size: 10pt;}")
+            btn.setStyleSheet("QPushButton {font-size: 15pt; padding: 10px;}")
             btn.clicked.connect(lambda _, name=pt_name, number=i: self.ptZeroOffsetButtonClick(name, number))
             self.zeroOffsetButtonLayout.addWidget(btn)
             self.zeroOffsetButtons.append(btn)
@@ -203,7 +195,7 @@ class LivePlotter(QMainWindow):
         self.layout.setColumnStretch(0, 3)
         self.layout.setColumnStretch(1, 3)
         self.layout.setColumnStretch(2, 3)
-        self.layout.setColumnStretch(3, 1)
+        self.layout.setColumnStretch(3, 2)
 
         offsetButtonWidget = QWidget()
         offsetButtonWidget.setLayout(self.offsetButtonLayout)
@@ -220,14 +212,12 @@ class LivePlotter(QMainWindow):
         # LED indicator
         self.oxCompleteIndicator = QPushButton("Ox\nComplete")
         self.ethCompleteIndicator = QPushButton("Eth\nComplete")
-
         self.abortIndicator = QPushButton("ABORT")
         self.ethVentIndicator = QPushButton("Ox\nvent")
         self.oxVentIndicator = QPushButton("Eth\nvent")
 
         self.oxCompleteLayout.addWidget(self.oxCompleteIndicator)
         self.ethCompleteLayout.addWidget(self.ethCompleteIndicator)
-
         self.ventLayout.addWidget(self.abortIndicator)
         self.ventLayout.addWidget(self.oxVentIndicator)
         self.ventLayout.addWidget(self.ethVentIndicator)
@@ -236,19 +226,20 @@ class LivePlotter(QMainWindow):
         oxCompleteWidget.setLayout(self.oxCompleteLayout)
         ethCompleteWidget = QWidget()
         ethCompleteWidget.setLayout(self.ethCompleteLayout)
-
         ventWidget = QWidget()
         ventWidget.setLayout(self.ventLayout)
 
         self.layout.addWidget(oxCompleteWidget, 0, 0, 1, 1)
         self.layout.addWidget(ethCompleteWidget, 0, 2, 1, 1)
-        self.layout.addWidget(ventWidget, 6, 3, 1, 1)
+        self.layout.addWidget(ventWidget, 7, 3, 1, 1)
 
         # Timer
         self.timer = QTimer()
         self.timer.setInterval(300)  # ms
         self.timer.timeout.connect(self.update_plot_data)
         self.timer.start()
+        
+        self.update_button_styles()
 
     def update_plot_data(self):
         try:
@@ -271,7 +262,7 @@ class LivePlotter(QMainWindow):
 
             for i, offset in enumerate(pt_offsets):
                 self.offsetButtons[i].setText("Update offset: " + pt_names[i] + f" ({pt_offsets[i]})")
-        
+
             # Update indicator LED colors
             if OX_COMPLETE == "True":
                 self.oxCompleteIndicator.setStyleSheet("background-color: green")
@@ -297,13 +288,14 @@ class LivePlotter(QMainWindow):
                 self.ethVentIndicator.setStyleSheet("background-color: gray")
 
         except Exception as e:
-        # Log the exception or handle it as needed
+            # Log the exception or handle it as needed
             print(f"Error updating plot data: {e}")
 
     def handleButtonClick(self, name, number):
-
         print(f"Button clicked: {name}")
         esp32.write(("s" + str(number)).encode())
+        self.current_state = number  # Update the current state
+        self.update_button_styles()  # Update button styles
 
     def ptOffsetButtonClick(self, name, id):
         print(f"Button clicked: {name}")
@@ -320,12 +312,19 @@ class LivePlotter(QMainWindow):
             print(e)
             pass
 
+    def update_button_styles(self):
+        for i, btn in enumerate(self.buttons):
+            if i == self.current_state:
+                btn.setStyleSheet("QPushButton {font-size: 35pt; padding: 45px; background-color: grey;}")
+            else:
+                btn.setStyleSheet("QPushButton {font-size: 25pt; padding: 45px;}")
+
+
 def safe_float(value):
     try:
         return float(value) if value.lower() != "nan" else 0.0
     except ValueError:
         return 0.0
-
 
 def main():
     t1 = Thread(target=collection)
