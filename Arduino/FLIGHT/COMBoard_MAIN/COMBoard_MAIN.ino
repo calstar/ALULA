@@ -67,7 +67,7 @@ String stateNames[] = { "Idle", "Armed", "Press", "QD", "Ignition", "HOTFIRE", "
 //uint8_t broadcastAddress[] = {0x08, 0x3A, 0xF2, 0xB7, 0xEE, 0x00}; //TEST
 //{0x30, 0xC6, 0xF7, 0x2A, 0x28, 0x04}
 
-uint8_t DAQBroadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x50, 0x23, 0x34}; 
+uint8_t DAQBroadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x4F, 0x3C, 0xA4}; 
 uint8_t FlightBroadcastAddress[] = {0x48, 0x27, 0xE2, 0x88, 0x39, 0x44}; //CORE A
 
 //Structure example to send data
@@ -80,12 +80,12 @@ struct struct_pt_offsets {
   bool PT_C1_set;
   bool PT_X_set;
 
-  float PT_O1_offset;
-  float PT_O2_offset;
-  float PT_E1_offset;
-  float PT_E2_offset;
-  float PT_C1_offset;
-  float PT_X_offset;
+  int PT_O1_offset;
+  int PT_O2_offset;
+  int PT_E1_offset;
+  int PT_E2_offset;
+  int PT_C1_offset;
+  int PT_X_offset;
 };
 
 struct struct_readings {
@@ -95,10 +95,10 @@ struct struct_readings {
   float PT_E2;
   float PT_C1;
   float PT_X;
-  float TC_1;
-  float TC_2;
-  float TC_3;
-  float TC_4;
+  int TC_1;
+  int TC_2;
+  int TC_3;
+  int TC_4;
 };
 
 struct struct_message {
@@ -221,7 +221,7 @@ void loop() {
       Serial.println(COMState);
     } else if (header == 'o') {
       char ptNumber = Serial.read() - '0';
-      float newOffset = Serial.readString().toFloat();
+      int newOffset = Serial.readString().toInt();
 
       updateSendDataWithOffsets(ptNumber, newOffset);
     }
@@ -290,19 +290,19 @@ void loop() {
       break;
 
     case (ABORT):
-      break; // REDS ABORT SYSTEM
-      // if (DAQState == ABORT) {digitalWrite(LED_ABORT, HIGH);}
-      // digitalWrite(LED_ABORT, HIGH);
-      // digitalWrite(LED_IGNITION,LOW);
-      // digitalWrite(LED_QD, LOW);
-      // digitalWrite(LED_ARMED, LOW);
-      // digitalWrite(LED_PRESS, LOW);
-      // digitalWrite(LED_PRESSETH, LOW);
-      // digitalWrite(LED_PRESSLOX, LOW);
-      // digitalWrite(LED_HOTFIRE, LOW);
-      // COMState = ABORT;
-      // if(!SWITCH_QD.on() && !SWITCH_PRESS.on() && !SWITCH_ARMED.on() && !SWITCH_IGNITION.on() && !SWITCH_HOTFIRE.on() && !SWITCH_ABORT.on() && SWITCHES) {COMState = IDLE;}
-      // break;
+      //break; // REDS ABORT SYSTEM
+      if (DAQState == ABORT) {digitalWrite(LED_ABORT, HIGH);}
+      digitalWrite(LED_ABORT, HIGH);
+      digitalWrite(LED_IGNITION,LOW);
+      digitalWrite(LED_QD, LOW);
+      digitalWrite(LED_ARMED, LOW);
+      digitalWrite(LED_PRESS, LOW);
+      digitalWrite(LED_PRESSETH, LOW);
+      digitalWrite(LED_PRESSLOX, LOW);
+      digitalWrite(LED_HOTFIRE, LOW);
+      COMState = ABORT;
+      if(!SWITCH_QD.on() && !SWITCH_PRESS.on() && !SWITCH_ARMED.on() && !SWITCH_IGNITION.on() && !SWITCH_HOTFIRE.on() && !SWITCH_ABORT.on() && SWITCHES) {COMState = IDLE;}
+      break;
   }
 }
 
@@ -401,27 +401,28 @@ void receiveDataPrint(struct_message &incomingReadings) {
   serialMessage.concat(incomingReadings.filteredReadings.PT_C1);
   serialMessage.concat(" ");
   serialMessage.concat(incomingReadings.filteredReadings.PT_X);
-  serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.filteredReadings.TC_1);
-  serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.filteredReadings.TC_2);
-  serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.filteredReadings.TC_3);
-  serialMessage.concat(" ");
-  serialMessage.concat(incomingReadings.filteredReadings.TC_4);
+
+  // serialMessage.concat(" ");
+  // serialMessage.concat(incomingReadings.filteredReadings.TC_1);
+  // serialMessage.concat(" ");
+  // serialMessage.concat(incomingReadings.filteredReadings.TC_2);
+  // serialMessage.concat(" ");
+  // serialMessage.concat(incomingReadings.filteredReadings.TC_3);
+  // serialMessage.concat(" ");
+  // serialMessage.concat(incomingReadings.filteredReadings.TC_4);
   // RAW READINGS
-  // serialMessage.concat(" ");
-  // serialMessage.concat(incomingReadings.rawReadings.PT_O1);
-  // serialMessage.concat(" ");
-  // serialMessage.concat(incomingReadings.rawReadings.PT_O2);
-  // serialMessage.concat(" ");
-  // serialMessage.concat(incomingReadings.rawReadings.PT_E1);
-  // serialMessage.concat(" ");
-  // serialMessage.concat(incomingReadings.rawReadings.PT_E2);
-  // serialMessage.concat(" ");
-  // serialMessage.concat(incomingReadings.rawReadings.PT_C1);
-  // serialMessage.concat(" ");
-  // serialMessage.concat(incomingReadings.rawReadings.PT_X);
+  serialMessage.concat(" ");
+  serialMessage.concat(incomingReadings.rawReadings.PT_O1);
+  serialMessage.concat(" ");
+  serialMessage.concat(incomingReadings.rawReadings.PT_O2);
+  serialMessage.concat(" ");
+  serialMessage.concat(incomingReadings.rawReadings.PT_E1);
+  serialMessage.concat(" ");
+  serialMessage.concat(incomingReadings.rawReadings.PT_E2);
+  serialMessage.concat(" ");
+  serialMessage.concat(incomingReadings.rawReadings.PT_C1);
+  serialMessage.concat(" ");
+  serialMessage.concat(incomingReadings.rawReadings.PT_X);
   // serialMessage.concat(" ");
   // serialMessage.concat(incomingReadings.rawReadings.TC_1);
   // serialMessage.concat(" ");
@@ -430,7 +431,8 @@ void receiveDataPrint(struct_message &incomingReadings) {
   // serialMessage.concat(incomingReadings.rawReadings.TC_3);
   // serialMessage.concat(" ");
   // serialMessage.concat(incomingReadings.rawReadings.TC_4);
-  // STATES
+  
+  // Serial.print("SIZEOFFIRST"); Serial.print(sizeof(serialMessage));
   serialMessage.concat(" ");
   serialMessage.concat(COMState);
   serialMessage.concat(" ");
@@ -445,35 +447,35 @@ void receiveDataPrint(struct_message &incomingReadings) {
   // AUTO ABORT STATUS
   serialMessage.concat(" ");
   serialMessage.concat(incomingReadings.AUTOABORT ? "True" : "False");
-  // // OR the bits in case either FLIGHT or DAQ is in Abort mode
-  // serialMessage.concat(" ");
-  // serialMessage.concat(incomingDAQReadings.ethVentComplete | incomingFlightReadings.ethVentComplete ? "True" : "False");
-  // serialMessage.concat(" ");
-  // serialMessage.concat(incomingDAQReadings.oxVentComplete | incomingFlightReadings.oxVentComplete ? "True" : "False");
-  // // FLIGHT QUEUE LENGTH
-  // serialMessage.concat(" ");
-  // serialMessage.concat(incomingReadings.FlightQueueLength);
+  // // // OR the bits in case either FLIGHT or DAQ is in Abort mode
+  serialMessage.concat(" ");
+  serialMessage.concat(incomingDAQReadings.ethVentComplete | incomingFlightReadings.ethVentComplete ? "True" : "False");
+  serialMessage.concat(" ");
+  serialMessage.concat(incomingDAQReadings.oxVentComplete | incomingFlightReadings.oxVentComplete ? "True" : "False");
+  // // // FLIGHT QUEUE LENGTH
+  serialMessage.concat(" ");
+  serialMessage.concat(incomingReadings.FlightQueueLength);
   // // SD CARD STATUS
-  // serialMessage.concat(" ");
-  // serialMessage.concat(incomingReadings.sdCardInitialized ? "True" : "False");
+  //serialMessage.concat(" ");
+  //serialMessage.concat(incomingReadings.sdCardInitialized ? "True" : "False");
   // PT Offsets
-  // serialMessage.concat(" ");
-  // serialMessage.concat(incomingReadings.pt_offsets.PT_O1_offset);
-  // serialMessage.concat(" ");
-  // serialMessage.concat(incomingReadings.pt_offsets.PT_O2_offset);
-  // serialMessage.concat(" ");
-  // serialMessage.concat(incomingReadings.pt_offsets.PT_E1_offset);
-  // serialMessage.concat(" ");
-  // serialMessage.concat(incomingReadings.pt_offsets.PT_E2_offset);
-  // serialMessage.concat(" ");
-  // serialMessage.concat(incomingReadings.pt_offsets.PT_C1_offset);
-  // serialMessage.concat(" ");
-  // serialMessage.concat(incomingReadings.pt_offsets.PT_X_offset);
+  serialMessage.concat(" ");
+  serialMessage.concat(incomingReadings.pt_offsets.PT_O1_offset);
+  serialMessage.concat(" ");
+  serialMessage.concat(incomingReadings.pt_offsets.PT_O2_offset);
+  serialMessage.concat(" ");
+  serialMessage.concat(incomingReadings.pt_offsets.PT_E1_offset);
+  serialMessage.concat(" ");
+  serialMessage.concat(incomingReadings.pt_offsets.PT_E2_offset);
+  serialMessage.concat(" ");
+  serialMessage.concat(incomingReadings.pt_offsets.PT_C1_offset);
+  serialMessage.concat(" ");
+  serialMessage.concat(incomingReadings.pt_offsets.PT_X_offset);
 
   Serial.println(serialMessage);
 }
 
-void updateSendDataWithOffsets(int ptNumber, float newOffset) {
+void updateSendDataWithOffsets(int ptNumber, int newOffset) {
     if (ptNumber < 0 || ptNumber >= NUM_PTS) {
       return;
     }
