@@ -48,7 +48,8 @@ filename = file_base + f"_test{test_num}" + file_ext
 
 # for mac port_num = "/dev/cu.usbserial-0001"
 
-port_num = "/dev/cu.usbserial-0001" # CHECK YOUR PORT !!!
+# port_num = "/dev/cu.usbserial-0001" # CHECK YOUR PORT !!!
+port_num = "COM3" # CHECK YOUR PORT !!!
 esp32 = Serial(port=port_num, baudrate=115200)
 # !!! IF NO NUMBERS PRINTED ON UR TERMINAL => PRESS "EN" ON THE ESP !!!
 

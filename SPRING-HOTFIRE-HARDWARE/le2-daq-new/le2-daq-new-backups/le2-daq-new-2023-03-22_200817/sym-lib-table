@@ -1,3 +1,0 @@
-(sym_lib_table
-  (lib (name "esp32-ellie")(type "KiCad")(uri "${KIPRJMOD}/../hardware-sch-blocks /ELLIE/symbols/ESP32-DEVKITC-32D.kicad_sym")(options "")(descr ""))
-)

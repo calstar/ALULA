@@ -1,5 +1,0 @@
-(fp_lib_table
-  (lib (name "ellie")(type "KiCad")(uri "${KIPRJMOD}/../hardware-sch-blocks /ELLIE/footprints/Ellie_Project_Footprints.pretty")(options "")(descr ""))
-  (lib (name "PCIE_1x_Socket")(type "KiCad")(uri "${KIPRJMOD}/../hardware-sch-blocks /PCIE_x1_Socket")(options "")(descr ""))
-  (lib (name "AMPHENOL-PCIE-Socket")(type "KiCad")(uri "${KIPRJMOD}/../../Desktop/LE2/hardware-sch-blocks/AMPHENOL-PCIE-Socket")(options "")(descr ""))
-)
