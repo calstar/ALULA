@@ -33,7 +33,7 @@ x, PT_O1, PT_O2, PT_E1, PT_E2, PT_C1, PT_X = deque_list
 pt_deques = [PT_O1, PT_O2, PT_E1, PT_E2, PT_C1, PT_X]
 
 plot_titles = ["PT_O1", "PT_O2", "PT_E1", "PT_E2", "PT_C1", "PT_X", "TC1", "TC2", "TC3", "TC4"]
-button_names = ['Idle', 'Armed', 'Pressed', 'QD', 'Ignition', 'Mains', 'Abort']
+button_names = ['  Idle  ', ' Armed ', 'Pressed', '   QD   ', 'Ignition', ' Mains ', ' Abort ']
 pt_names = ['PT_O1', 'PT_O2', 'PT_E1', 'PT_E2', 'PT_C1', 'PT_X']
 pt_offsets = [0, 0, 0, 0, 0, 0]
 
@@ -48,7 +48,8 @@ filename = file_base + f"_test{test_num}" + file_ext
 
 # for mac port_num = "/dev/cu.usbserial-0001"
 
-port_num = "/dev/cu.usbserial-0001" # CHECK YOUR PORT !!!
+# port_num = "/dev/cu.usbserial-0001" # CHECK YOUR PORT !!!
+port_num = "COM3" # CHECK YOUR PORT !!!
 esp32 = Serial(port=port_num, baudrate=115200)
 # !!! IF NO NUMBERS PRINTED ON UR TERMINAL => PRESS "EN" ON THE ESP !!!
 
@@ -161,10 +162,10 @@ class LivePlotter(QMainWindow):
         self.ventLayout = QVBoxLayout()
 
         # Setup buttons
-        # Setup buttons
+        # setup state buttons
         for i, name in enumerate(button_names):
             btn = QPushButton(name)
-            btn.setStyleSheet("QPushButton {font-size: 50pt;}")
+            btn.setStyleSheet("QPushButton {font-size: 35pt}")
             self.initial_button_styles[btn] = btn.styleSheet()
             btn.clicked.connect(lambda _, name=name, number=i, btn=btn: self.handleButtonClick(name, number, btn))
             self.buttonLayout.addWidget(btn)
@@ -295,11 +296,11 @@ class LivePlotter(QMainWindow):
             if OX_COMPLETE == "True":
                 self.oxCompleteIndicator.setStyleSheet("background-color: green")
             else:
-                self.oxCompleteIndicator.setStyleSheet("background-color: red")
+                self.oxCompleteIndicator.setStyleSheet("background-color: #FFD1D1;")
             if ETH_COMPLETE == "True":
                 self.ethCompleteIndicator.setStyleSheet("background-color: green")
             else:
-                self.ethCompleteIndicator.setStyleSheet("background-color: red")
+                self.ethCompleteIndicator.setStyleSheet("background-color: #FFD1D1;")
             if AUTO_ABORT == "True":
                 self.abortIndicator.setStyleSheet("background-color: red")
                 if OX_VENT == "True":
@@ -327,8 +328,8 @@ class LivePlotter(QMainWindow):
 
     def updateButtonStyles(self):
         for i, btn in enumerate(self.buttons):
-            if i == int(COM_S) == int(FLIGHT_S) == int(DAQ_S):  # Highlight the button corresponding to COM_S value
-                btn.setStyleSheet("background-color: gray; font-size: 50pt;")
+            if i == int(COM_S):  # Highlight the button corresponding to COM_S value
+                btn.setStyleSheet("background-color: gray; font-size: 45pt; padding: 30px;")
             else:
                 btn.setStyleSheet(self.initial_button_styles[btn])  
 
