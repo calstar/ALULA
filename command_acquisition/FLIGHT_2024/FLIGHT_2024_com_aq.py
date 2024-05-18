@@ -33,7 +33,7 @@ x, PT_O1, PT_O2, PT_E1, PT_E2, PT_C1, PT_X = deque_list
 pt_deques = [PT_O1, PT_O2, PT_E1, PT_E2, PT_C1, PT_X]
 
 plot_titles = ["PT_O1", "PT_O2", "PT_E1", "PT_E2", "PT_C1", "PT_X", "TC1", "TC2", "TC3", "TC4"]
-button_names = ['Idle', 'Armed', 'Pressed', 'QD', 'Ignition', 'Hot Fire', 'Abort']
+button_names = ['Idle', 'Armed', 'Pressed', 'QD', 'Ignition', 'Mains', 'Abort']
 pt_names = ['PT_O1', 'PT_O2', 'PT_E1', 'PT_E2', 'PT_C1', 'PT_X']
 pt_offsets = [0, 0, 0, 0, 0, 0]
 
@@ -134,14 +134,10 @@ class LivePlotter(QMainWindow):
         self.graphWidgets = [pg.PlotWidget(title=plot_titles[i]) for i in range(num_plots)]
         for i, graphWidget in enumerate(self.graphWidgets):
             self.layout.addWidget(graphWidget, i // 3 + 1, i % 3)
-
-            if i != 6:  # For all other graphs
-                plotDataItem = graphWidget.plot([], [])
-                self.plotDataItems.append(plotDataItem)
-            else:  # For graph 6, initialize and store three PlotDataItems
-                self.plotDataItemsForGraph6 = [graphWidget.plot([], [], pen=pg.mkPen(color=(255, 0, 0))),
-                                        graphWidget.plot([], [], pen=pg.mkPen(color=(0, 255, 0))),
-                                        graphWidget.plot([], [], pen=pg.mkPen(color=(0, 0, 255)))]
+            
+            plotDataItem = graphWidget.plot([], [])
+            self.plotDataItems.append(plotDataItem)
+          
                 
 
         # Store initial button styles
@@ -267,10 +263,37 @@ class LivePlotter(QMainWindow):
 
             self.setWindowTitle(f"Time: {current_time}    COM: {COM_S}   DAQ: {DAQ_S}   FLIGHT: {FLIGHT_S}  ETH_COMPLETE: {ETH_COMPLETE}  OX_COMPLETE: {OX_COMPLETE}   AUTO_ABORT: {AUTO_ABORT}   ETH_VENT: {ETH_VENT} OX_VENT: {OX_VENT}    Q_LENGTH: {FLIGHT_Q_LENGTH}")
 
-            for i, plotDataItem in enumerate(self.plotDataItems):
-                if i < 10:  # Update standard plots directly
-                    plotDataItem.setData(list(x), list(deque_list[i + 1]))
-                    self.graphWidgets[i].setTitle(f"{plot_titles[i]}: {deque_list[i + 1][-1]:.2f}")
+            # for i, plotDataItem in enumerate(self.plotDataItems):
+            #     if i < 10:  # Update standard plots directly
+            # plotDataItem.setData(list(x), list(deque_list[i + 1]))
+            # self.graphWidgets[i].setTitle(f"{plot_titles[i]}: {deque_list[i + 1][-1]:.2f}")
+
+            self.plotDataItems[0].setData(list(x), list(PT_O1))  
+            self.graphWidgets[0].setTitle(f"PT_O1: {PT_O1[-1]:.2f},  OX: {OX_COMPLETE}")
+
+            self.plotDataItems[3].setData(list(x), list(PT_O2))  
+            self.graphWidgets[3].setTitle(f"PT_O2: {PT_O2[-1]:.2f}")
+
+            self.plotDataItems[1].setData(list(x), list(PT_C1))  
+            self.graphWidgets[1].setTitle(f"PT_C1: {PT_C1[-1]:.2f}")
+
+            self.plotDataItems[4].setData(list(x), list(PT_X))  
+            self.graphWidgets[4].setTitle(f"PT_X: {PT_X[-1]:.2f}")
+
+
+            self.plotDataItems[2].setData(list(x), list(PT_E1))  
+            self.graphWidgets[2].setTitle(f"PT_E1: {PT_E1[-1]:.2f},   ETH: {ETH_COMPLETE}")
+
+            self.plotDataItems[5].setData(list(x), list(PT_E2))  
+            self.graphWidgets[5].setTitle(f"PT_E2: {PT_E2[-1]:.2f}")
+
+            
+
+
+
+            
+
+
 
             for i, offset in enumerate(pt_offsets):
                 self.offsetButtons[i].setText("Update offset: " + pt_names[i] + f" ({pt_offsets[i]})")
@@ -306,17 +329,15 @@ class LivePlotter(QMainWindow):
             print(f"Error updating plot data: {e}")
 
     def handleButtonClick(self, name, number, btn):
-
         print(f"Button clicked: {name}")
         esp32.write(("s" + str(number)).encode())
-        #btn.setStyleSheet("background-color: yellow; font-size: 50pt;")
 
     def updateButtonStyles(self):
         for i, btn in enumerate(self.buttons):
-            if i == int(COM_S) == int(FLIGHT_S):  # Highlight the button corresponding to COM_S value
+            if i == int(COM_S) == int(FLIGHT_S) == int(DAQ_S):  # Highlight the button corresponding to COM_S value
                 btn.setStyleSheet("background-color: gray; font-size: 50pt;")
             else:
-                btn.setStyleSheet(self.initial_button_styles[btn])  # Revert other buttons to original style
+                btn.setStyleSheet(self.initial_button_styles[btn])  
 
 
     def ptOffsetButtonClick(self, name, id):
