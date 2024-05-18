@@ -1,6 +1,6 @@
-from PyQt5.QtWidgets import QApplication, QMainWindow, QGridLayout, QWidget, QPushButton, QVBoxLayout, QLineEdit
+from PyQt5.QtWidgets import QApplication, QMainWindow, QGridLayout, QWidget, QPushButton, QVBoxLayout, QLineEdit, QLabel
 import pyqtgraph as pg # pip install pyqtgraph
-from PyQt5.QtCore import QTimer
+from PyQt5.QtCore import QTimer, Qt
 import sys #only needed for mac
 from threading import Thread
 from queue import Queue
@@ -49,7 +49,7 @@ filename = file_base + f"_test{test_num}" + file_ext
 # for mac port_num = "/dev/cu.usbserial-0001"
 
 # port_num = "/dev/cu.usbserial-0001" # CHECK YOUR PORT !!!
-port_num = "COM3" # CHECK YOUR PORT !!!
+port_num = "/dev/cu.usbserial-0001" # CHECK YOUR PORT !!!
 esp32 = Serial(port=port_num, baudrate=115200)
 # !!! IF NO NUMBERS PRINTED ON UR TERMINAL => PRESS "EN" ON THE ESP !!!
 
@@ -134,12 +134,13 @@ class LivePlotter(QMainWindow):
 
         self.graphWidgets = [pg.PlotWidget(title=plot_titles[i]) for i in range(num_plots)]
         for i, graphWidget in enumerate(self.graphWidgets):
+            graphWidget.setFixedHeight(275)  # Set fixed height for each graph
+            
             self.layout.addWidget(graphWidget, i // 3 + 1, i % 3)
             
             plotDataItem = graphWidget.plot([], [])
             self.plotDataItems.append(plotDataItem)
-          
-                
+
 
         # Store initial button styles
         self.initial_button_styles = {}
@@ -159,13 +160,25 @@ class LivePlotter(QMainWindow):
 
         self.oxCompleteLayout = QVBoxLayout()
         self.ethCompleteLayout = QVBoxLayout()
-        self.ventLayout = QVBoxLayout()
+        # self.ventLayout = QVBoxLayout()
 
         # Setup buttons
         # setup state buttons
+        # for i, name in enumerate(button_names):
+        #     btn = QPushButton(name)
+        #     btn.setStyleSheet("QPushButton {font-size: 45pt;  padding: 20px;}")
+        #     self.initial_button_styles[btn] = btn.styleSheet()
+        #     btn.clicked.connect(lambda _, name=name, number=i, btn=btn: self.handleButtonClick(name, number, btn))
+        #     self.buttonLayout.addWidget(btn)
+        #     self.buttons.append(btn)
+
         for i, name in enumerate(button_names):
             btn = QPushButton(name)
-            btn.setStyleSheet("QPushButton {font-size: 35pt}")
+            if name == " Abort ":
+                btn.setStyleSheet("QPushButton {font-size: 45pt; padding: 20px;}")
+                btn.setFixedHeight(250)
+            else:
+                btn.setStyleSheet("QPushButton {font-size: 45pt; padding: 20px;}")
             self.initial_button_styles[btn] = btn.styleSheet()
             btn.clicked.connect(lambda _, name=name, number=i, btn=btn: self.handleButtonClick(name, number, btn))
             self.buttonLayout.addWidget(btn)
@@ -221,28 +234,36 @@ class LivePlotter(QMainWindow):
         self.oxCompleteIndicator = QPushButton("Ox\nComplete")
         self.ethCompleteIndicator = QPushButton("Eth\nComplete")
 
-        self.abortIndicator = QPushButton("ABORT")
-        self.ethVentIndicator = QPushButton("Ox\nvent")
-        self.oxVentIndicator = QPushButton("Eth\nvent")
+        # self.abortIndicator = QPushButton("ABORT")
+        # self.ethVentIndicator = QPushButton("Ox\nvent")
+        # self.oxVentIndicator = QPushButton("Eth\nvent")
+
+        # Create a QLabel for the text in between the buttons
+        self.statusLabel = QLabel()
+        self.statusLabel.setStyleSheet("font-size: 30pt; font-weight: bold; color: black")
+        self.statusLabel.setAlignment(Qt.AlignCenter)
 
         self.oxCompleteLayout.addWidget(self.oxCompleteIndicator)
         self.ethCompleteLayout.addWidget(self.ethCompleteIndicator)
 
-        self.ventLayout.addWidget(self.abortIndicator)
-        self.ventLayout.addWidget(self.oxVentIndicator)
-        self.ventLayout.addWidget(self.ethVentIndicator)
+        # self.ventLayout.addWidget(self.abortIndicator)
+        # self.ventLayout.addWidget(self.oxVentIndicator)
+        # self.ventLayout.addWidget(self.ethVentIndicator)
+
+        # Add the QLabel to the layout
+        self.layout.addWidget(self.statusLabel, 0, 1, 1, 1)
 
         oxCompleteWidget = QWidget()
         oxCompleteWidget.setLayout(self.oxCompleteLayout)
         ethCompleteWidget = QWidget()
         ethCompleteWidget.setLayout(self.ethCompleteLayout)
 
-        ventWidget = QWidget()
-        ventWidget.setLayout(self.ventLayout)
+        # ventWidget = QWidget()
+        # ventWidget.setLayout(self.ventLayout)
 
         self.layout.addWidget(oxCompleteWidget, 0, 0, 1, 1)
         self.layout.addWidget(ethCompleteWidget, 0, 2, 1, 1)
-        self.layout.addWidget(ventWidget, 6, 3, 1, 1)
+        # self.layout.addWidget(ventWidget, 6, 3, 1, 1)
 
         # Timer
         self.timer = QTimer()
@@ -262,15 +283,18 @@ class LivePlotter(QMainWindow):
                     for y_series in deque_list[1:]:  # Assuming self.y is a list of deques
                         y_series.popleft()
 
-            self.setWindowTitle(f"Time: {current_time}    COM: {COM_S}   DAQ: {DAQ_S}   FLIGHT: {FLIGHT_S}  ETH_COMPLETE: {ETH_COMPLETE}  OX_COMPLETE: {OX_COMPLETE}   AUTO_ABORT: {AUTO_ABORT}   ETH_VENT: {ETH_VENT} OX_VENT: {OX_VENT}    Q_LENGTH: {FLIGHT_Q_LENGTH}")
+            self.setWindowTitle(f"Time: {current_time}    COM: {COM_S}   DAQ: {DAQ_S}   FLIGHT: {FLIGHT_S}   AUTO_ABORT: {AUTO_ABORT}   ETH_VENT: {ETH_VENT} OX_VENT: {OX_VENT}    Q_LENGTH: {FLIGHT_Q_LENGTH}")
 
             # for i, plotDataItem in enumerate(self.plotDataItems):
             #     if i < 10:  # Update standard plots directly
             # plotDataItem.setData(list(x), list(deque_list[i + 1]))
             # self.graphWidgets[i].setTitle(f"{plot_titles[i]}: {deque_list[i + 1][-1]:.2f}")
 
+            # Update the status label text
+            self.statusLabel.setText(f" COM: {COM_S}   DAQ: {DAQ_S}   FLIGHT: {FLIGHT_S}")
+
             self.plotDataItems[0].setData(list(x), list(PT_O1))  
-            self.graphWidgets[0].setTitle(f"<span style='font-size: 15pt; font-weight: bold; color: white'>PT_O1: {PT_O1[-1]:.2f},  OX: {OX_COMPLETE}</span>")
+            self.graphWidgets[0].setTitle(f"<span style='font-size: 15pt; font-weight: bold; color: white'>PT_O1: {PT_O1[-1]:.2f}</span>")
 
             self.plotDataItems[3].setData(list(x), list(PT_O2))  
             self.graphWidgets[3].setTitle(f"<span style='font-size: 15pt; font-weight: bold; color: white'>PT_O2: {PT_O2[-1]:.2f}</span>")
@@ -282,15 +306,15 @@ class LivePlotter(QMainWindow):
             self.graphWidgets[4].setTitle(f"<span style='font-size: 15pt; font-weight: bold; color: white'>PT_X: {PT_X[-1]:.2f}</span>")
 
             self.plotDataItems[2].setData(list(x), list(PT_E1))  
-            self.graphWidgets[2].setTitle(f"<span style='font-size: 15pt; font-weight: bold; color: white'>PT_E1: {PT_E1[-1]:.2f},   ETH: {ETH_COMPLETE}</span>")
+            self.graphWidgets[2].setTitle(f"<span style='font-size: 15pt; font-weight: bold; color: white'>PT_E1: {PT_E1[-1]:.2f}</span>")
 
             self.plotDataItems[5].setData(list(x), list(PT_E2))  
             self.graphWidgets[5].setTitle(f"<span style='font-size: 15pt; font-weight: bold; color: white'>PT_E2: {PT_E2[-1]:.2f}</span>")
 
             
 
-            for i, offset in enumerate(pt_offsets):
-                self.offsetButtons[i].setText("Update offset: " + pt_names[i] + f" ({pt_offsets[i]})")
+            # for i, offset in enumerate(pt_offsets):
+            #     self.offsetButtons[i].setText("Update offset: " + pt_names[i] + f" ({pt_offsets[i]})")
         
             # Update indicator LED colors
             if OX_COMPLETE == "True":
@@ -301,20 +325,21 @@ class LivePlotter(QMainWindow):
                 self.ethCompleteIndicator.setStyleSheet("background-color: green")
             else:
                 self.ethCompleteIndicator.setStyleSheet("background-color: #FFD1D1;")
-            if AUTO_ABORT == "True":
-                self.abortIndicator.setStyleSheet("background-color: red")
-                if OX_VENT == "True":
-                    self.oxVentIndicator.setStyleSheet("background-color: green")
-                else:
-                    self.oxVentIndicator.setStyleSheet("background-color: red")
-                if ETH_VENT == "True":
-                    self.ethVentIndicator.setStyleSheet("background-color: green")
-                else:
-                    self.ethVentIndicator.setStyleSheet("background-color: red")
-            else:
-                self.abortIndicator.setStyleSheet("background-color: gray")
-                self.oxVentIndicator.setStyleSheet("background-color: gray")
-                self.ethVentIndicator.setStyleSheet("background-color: gray")
+
+            # if AUTO_ABORT == "True":
+            #     self.abortIndicator.setStyleSheet("background-color: red")
+            #     if OX_VENT == "True":
+            #         self.oxVentIndicator.setStyleSheet("background-color: green")
+            #     else:
+            #         self.oxVentIndicator.setStyleSheet("background-color: red")
+            #     if ETH_VENT == "True":
+            #         self.ethVentIndicator.setStyleSheet("background-color: green")
+            #     else:
+            #         self.ethVentIndicator.setStyleSheet("background-color: red")
+            # else:
+            #     self.abortIndicator.setStyleSheet("background-color: gray")
+            #     self.oxVentIndicator.setStyleSheet("background-color: gray")
+            #     self.ethVentIndicator.setStyleSheet("background-color: gray")
 
             self.updateButtonStyles()
 
@@ -328,8 +353,11 @@ class LivePlotter(QMainWindow):
 
     def updateButtonStyles(self):
         for i, btn in enumerate(self.buttons):
-            if i == int(COM_S):  # Highlight the button corresponding to COM_S value
-                btn.setStyleSheet("background-color: gray; font-size: 45pt; padding: 30px;")
+            if(i == int(COM_S) == 6) or (i == 6 and AUTO_ABORT == "True"):
+                btn.setStyleSheet("background-color: red; font-size: 45pt; padding: 20px;")
+                btn.setFixedHeight(250)
+            elif i == int(COM_S):  # Highlight the button corresponding to COM_S value
+                btn.setStyleSheet("background-color: gray; font-size: 45pt; padding: 20px;")
             else:
                 btn.setStyleSheet(self.initial_button_styles[btn])  
 
