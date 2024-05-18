@@ -269,31 +269,24 @@ class LivePlotter(QMainWindow):
             # self.graphWidgets[i].setTitle(f"{plot_titles[i]}: {deque_list[i + 1][-1]:.2f}")
 
             self.plotDataItems[0].setData(list(x), list(PT_O1))  
-            self.graphWidgets[0].setTitle(f"PT_O1: {PT_O1[-1]:.2f},  OX: {OX_COMPLETE}")
+            self.graphWidgets[0].setTitle(f"<span style='font-size: 15pt; font-weight: bold; color: white'>PT_O1: {PT_O1[-1]:.2f},  OX: {OX_COMPLETE}</span>")
 
             self.plotDataItems[3].setData(list(x), list(PT_O2))  
-            self.graphWidgets[3].setTitle(f"PT_O2: {PT_O2[-1]:.2f}")
+            self.graphWidgets[3].setTitle(f"<span style='font-size: 15pt; font-weight: bold; color: white'>PT_O2: {PT_O2[-1]:.2f}</span>")
 
             self.plotDataItems[1].setData(list(x), list(PT_C1))  
-            self.graphWidgets[1].setTitle(f"PT_C1: {PT_C1[-1]:.2f}")
+            self.graphWidgets[1].setTitle(f"<span style='font-size: 15pt; font-weight: bold; color: white'>PT_C1: {PT_C1[-1]:.2f}</span>")
 
             self.plotDataItems[4].setData(list(x), list(PT_X))  
-            self.graphWidgets[4].setTitle(f"PT_X: {PT_X[-1]:.2f}")
-
+            self.graphWidgets[4].setTitle(f"<span style='font-size: 15pt; font-weight: bold; color: white'>PT_X: {PT_X[-1]:.2f}</span>")
 
             self.plotDataItems[2].setData(list(x), list(PT_E1))  
-            self.graphWidgets[2].setTitle(f"PT_E1: {PT_E1[-1]:.2f},   ETH: {ETH_COMPLETE}")
+            self.graphWidgets[2].setTitle(f"<span style='font-size: 15pt; font-weight: bold; color: white'>PT_E1: {PT_E1[-1]:.2f},   ETH: {ETH_COMPLETE}</span>")
 
             self.plotDataItems[5].setData(list(x), list(PT_E2))  
-            self.graphWidgets[5].setTitle(f"PT_E2: {PT_E2[-1]:.2f}")
+            self.graphWidgets[5].setTitle(f"<span style='font-size: 15pt; font-weight: bold; color: white'>PT_E2: {PT_E2[-1]:.2f}</span>")
 
             
-
-
-
-            
-
-
 
             for i, offset in enumerate(pt_offsets):
                 self.offsetButtons[i].setText("Update offset: " + pt_names[i] + f" ({pt_offsets[i]})")
