@@ -26,6 +26,10 @@ bool WIFIDEBUG = false;
 bool SWITCHES = false; // If we are using switches
 bool GUI_DEBUG = false;
 
+int timerind = 0;
+int daqtimerind = 0;
+int sendperiod = 25;
+
 Switch SWITCH_ARMED = Switch(14);  //correct
 Switch SWITCH_PRESS = Switch(12);  //correct
 Switch SWITCH_QD = Switch(26);   //  correct
@@ -336,29 +340,35 @@ void dataSend() {
 
   // Send ABORT to flight
   if (COMState != FlightState || updatePTOffsets) {
-    esp_err_t result = esp_now_send(FlightBroadcastAddress, (uint8_t *) &sendCommands, sizeof(sendCommands));
-    updatePTOffsets = false;
-    if (WIFIDEBUG) {
-      if(result == ESP_OK) {
-        Serial.println("Successful Send to FLIGHT!");
-      } else {
-        Serial.println("Failed Send to FLIGHT");
+    if (millis() - timerind > sendperiod) {
+      esp_err_t result = esp_now_send(FlightBroadcastAddress, (uint8_t *) &sendCommands, sizeof(sendCommands));
+      updatePTOffsets = false;
+      timerind = millis();
+      if (WIFIDEBUG) {
+        if(result == ESP_OK) {
+          Serial.println("Successful Send to FLIGHT!");
+        } else {
+          Serial.println("Failed Send to FLIGHT");
+        }
       }
-    }
+  }
   }
 
   // Don't send data if states are already synced
   if (COMState != DAQState) {
-    esp_err_t result = esp_now_send(DAQBroadcastAddress, (uint8_t *) &sendCommands, sizeof(sendCommands));
-    if (WIFIDEBUG) { //printouts to debug wifi/comms
-      if (result == ESP_OK) {
-      Serial.println("Sent with success to DAQ");
-      }
-      else {
-        Serial.println("Error sending the data to DAQ");
+    if (millis() - daqtimerind > sendperiod) {
+      esp_err_t result = esp_now_send(DAQBroadcastAddress, (uint8_t *) &sendCommands, sizeof(sendCommands));
+      daqtimerind = millis();
+      if (WIFIDEBUG) { //printouts to debug wifi/comms
+        if (result == ESP_OK) {
+        Serial.println("Sent with success to DAQ");
+        }
+        else {
+          Serial.println("Error sending the data to DAQ");
+        }
       }
     }
-  }
+}
 }
 
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
