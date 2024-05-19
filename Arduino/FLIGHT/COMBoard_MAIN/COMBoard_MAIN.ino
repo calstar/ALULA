@@ -67,7 +67,8 @@ String stateNames[] = { "Idle", "Armed", "Press", "QD", "Ignition", "HOTFIRE", "
 //uint8_t broadcastAddress[] = {0x08, 0x3A, 0xF2, 0xB7, 0xEE, 0x00}; //TEST
 //{0x30, 0xC6, 0xF7, 0x2A, 0x28, 0x04}
 
-uint8_t DAQBroadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x4F, 0x3C, 0xA4}; 
+uint8_t DAQBroadcastAddress[] = {0xD4, 0x8A, 0xFC, 0xC7, 0x91, 0x2C};
+
 uint8_t FlightBroadcastAddress[] = {0x48, 0x27, 0xE2, 0x88, 0x39, 0x44}; //CORE A
 
 //Structure example to send data
@@ -368,6 +369,7 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   if (incomingReadings.sender == DAQ_ID) {
     incomingDAQReadings = incomingReadings;
     DAQState = incomingReadings.DAQState;
+    Serial.print(COMState); Serial.print(" "); Serial.println(DAQState);
     if (DAQ_DEBUG){
       Serial.print("DAQSTATE: ");
       Serial.println(DAQState);

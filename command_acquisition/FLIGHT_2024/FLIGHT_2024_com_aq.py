@@ -49,7 +49,7 @@ filename = file_base + f"_test{test_num}" + file_ext
 # for mac port_num = "/dev/cu.usbserial-0001"
 
 # port_num = "/dev/cu.usbserial-0001" # CHECK YOUR PORT !!!
-port_num = "/dev/cu.usbserial-0001" # CHECK YOUR PORT !!!
+port_num = "COM3" # CHECK YOUR PORT !!!
 esp32 = Serial(port=port_num, baudrate=115200)
 # !!! IF NO NUMBERS PRINTED ON UR TERMINAL => PRESS "EN" ON THE ESP !!!
 
@@ -78,7 +78,10 @@ def collection():
                 decoded_bytes = data[:len(data)-2].decode("utf-8")
                 values = decoded_bytes.split(" ")
                 write_buffer.append(values)
-
+                if len(values) == 2: #when flight not connected, only update daq and com states
+                    print(values)
+                    COM_S = values[0]
+                    DAQ_S = values[0]
 
                 if len(values) == 28:
 
@@ -134,7 +137,7 @@ class LivePlotter(QMainWindow):
 
         self.graphWidgets = [pg.PlotWidget(title=plot_titles[i]) for i in range(num_plots)]
         for i, graphWidget in enumerate(self.graphWidgets):
-            graphWidget.setFixedHeight(275)  # Set fixed height for each graph
+            graphWidget.setFixedHeight(300)  # Set fixed height for each graph
             
             self.layout.addWidget(graphWidget, i // 3 + 1, i % 3)
             
@@ -240,7 +243,7 @@ class LivePlotter(QMainWindow):
 
         # Create a QLabel for the text in between the buttons
         self.statusLabel = QLabel()
-        self.statusLabel.setStyleSheet("font-size: 30pt; font-weight: bold; color: black")
+        self.statusLabel.setStyleSheet("font-size: 10pt; font-weight: bold; color: black")
         self.statusLabel.setAlignment(Qt.AlignCenter)
 
         self.oxCompleteLayout.addWidget(self.oxCompleteIndicator)
