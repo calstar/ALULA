@@ -305,9 +305,9 @@ void loop() {
       break;
 
     case (ABORT):
-      break; // REDS ABORT SYSTEM
-      // abort_sequence();
-      // break;
+      // break; // REDS ABORT SYSTEM
+      abort_sequence();
+      break;
   }
 }
 
@@ -418,35 +418,36 @@ void checkAbort() {
 void abort_sequence() {
   // return; // REDS ABORT SYSTEM
 
-  mosfetOpenValve(MOSFET_VENT_LOX);
-  mosfetOpenValve(MOSFET_VENT_ETH);
+  // mosfetOpenValve(MOSFET_VENT_LOX); //ABORTING FROM VEHICLE
+  // mosfetOpenValve(MOSFET_VENT_ETH);
   // Waits for LOX pressure to decrease before venting Eth through pyro
   mosfetCloseValve(MOSFET_LOX_PRESS);
   mosfetCloseValve(MOSFET_ETH_PRESS);
   mosfetCloseValve(MOSFET_LOX_MAIN);
   mosfetCloseValve(MOSFET_ETH_MAIN);
   mosfetCloseValve(MOSFET_IGNITER);
+  mosfetCloseAllValves();
 
   int currtime = millis();
 
-  if (FLIGHT.filteredReadings.PT_O1 > ventTo) {  // vent only lox down to vent to pressure
-    mosfetOpenValve(MOSFET_VENT_LOX);
-    if (PRESS_DEBUG) {
-      FLIGHT.filteredReadings.PT_O1 = FLIGHT.filteredReadings.PT_O1 - (0.0005 * SIMULATION_DELAY);
-    }
-  } else {                              // lox vented to acceptable hold pressure
-    mosfetCloseValve(MOSFET_VENT_LOX);  // close lox
-    oxVentComplete = true;
-  }
-  if (FLIGHT.filteredReadings.PT_E1 > ventTo) {
-    mosfetOpenValve(MOSFET_VENT_ETH);  // vent ethanol
-    if (PRESS_DEBUG) {
-      FLIGHT.filteredReadings.PT_E1 = FLIGHT.filteredReadings.PT_E1 - (0.0005 * SIMULATION_DELAY);
-    }
-  } else {
-    mosfetCloseValve(MOSFET_VENT_ETH);
-    ethVentComplete = true;
-  }
+  // if (FLIGHT.filteredReadings.PT_O1 > ventTo) {  // vent only lox down to vent to pressure
+  //   mosfetOpenValve(MOSFET_VENT_LOX);
+  //   if (PRESS_DEBUG) {
+  //     FLIGHT.filteredReadings.PT_O1 = FLIGHT.filteredReadings.PT_O1 - (0.0005 * SIMULATION_DELAY);
+  //   }
+  // } else {                              // lox vented to acceptable hold pressure
+  //   mosfetCloseValve(MOSFET_VENT_LOX);  // close lox
+  //   oxVentComplete = true;
+  // }
+  // if (FLIGHT.filteredReadings.PT_E1 > ventTo) {
+  //   mosfetOpenValve(MOSFET_VENT_ETH);  // vent ethanol
+  //   if (PRESS_DEBUG) {
+  //     FLIGHT.filteredReadings.PT_E1 = FLIGHT.filteredReadings.PT_E1 - (0.0005 * SIMULATION_DELAY);
+  //   }
+  // } else {
+  //   mosfetCloseValve(MOSFET_VENT_ETH);
+  //   ethVentComplete = true;
+  // }
 }
 
 // Sync state of DAQ board with COM board.
