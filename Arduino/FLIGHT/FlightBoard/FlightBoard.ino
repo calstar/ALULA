@@ -60,7 +60,7 @@ bool AUTOABORT = false;
 #define MOSFET_VENT_ETH 47
 
 #define DATA_TIMEOUT 100
-#define IDLE_DELAY 150
+#define IDLE_DELAY 125
 #define GEN_DELAY 25
 float sendDelay = IDLE_DELAY; // Frequency of sending data [ms]  updated based on state
 
@@ -72,10 +72,11 @@ enum STATES { IDLE, ARMED, PRESS, QD, IGNITION, LAUNCH, ABORT };
 String stateNames[] = { "Idle", "Armed", "Press", "QD", "Ignition", "LAUNCH", "Abort" };
 
 // SD Card Parameters
-#define SD_CARD_CS 5 // Chip select pin
-const char* sdCardFilename = "/data.txt";
+#define SD_CARD_CS 40 // Chip select pin
+const char* sdCardFilename = "/ALULA.txt";
 File sdCardFile;
 
+String checkSDEnd;
 #define MAX_QUEUE_LENGTH 40
 
 template <class T>
@@ -223,18 +224,19 @@ struct_hx711 PT_X{ {}, HX_CLK, 5, .offset = 0, .slope = 1, .poly = 0};
 // LOADCELLS UNUSED IN FLIGHT
 
 //THERMOCOUPLE DEFINITIONS//
-#define TC_CLK 12//NEEDS CHECK
-// #define TC4_CLK 18
-#define TC_DO 13
+// #define TC_CLK 12//NEEDS CHECK
+// // #define TC4_CLK 18
+// #define TC_DO 13
 // #define TC4_DO 23
 
-#define SD_CLK 12
-#define SD_DO 13
+#define SD_CLK 20
+#define SD_MOSI 19
+#define SD_MISO 21
 
-struct_max31855 TC_1{ Adafruit_MAX31855(TC_CLK, 16, TC_DO), 16, .offset = 0, .slope = 1 };
-struct_max31855 TC_2{ Adafruit_MAX31855(TC_CLK, 18, TC_DO), 18, .offset = 0, .slope = 1 };
-struct_max31855 TC_3{ Adafruit_MAX31855(TC_CLK, 35, TC_DO), 35, .offset = 0, .slope = 1 };
-struct_max31855 TC_4{ Adafruit_MAX31855(TC_CLK, 34, TC_DO), 34, .offset = 0, .slope = 1 };
+// struct_max31855 TC_1{ Adafruit_MAX31855(TC_CLK, 16, TC_DO), 16, .offset = 0, .slope = 1 };
+// struct_max31855 TC_2{ Adafruit_MAX31855(TC_CLK, 18, TC_DO), 18, .offset = 0, .slope = 1 };
+// struct_max31855 TC_3{ Adafruit_MAX31855(TC_CLK, 35, TC_DO), 35, .offset = 0, .slope = 1 };
+// struct_max31855 TC_4{ Adafruit_MAX31855(TC_CLK, 34, TC_DO), 34, .offset = 0, .slope = 1 };
 
 //::::DEFINE READOUT VARIABLES:::://
 float sendTime;
@@ -269,10 +271,10 @@ struct struct_readings {
   float PT_E2;
   float PT_C1;
   float PT_X;
-  int TC_1;
-  int TC_2;
-  int TC_3;
-  int TC_4;
+  // int TC_1;
+  // int TC_2;
+  // int TC_3;
+  // int TC_4;
 };
 struct_readings rawReadings;
 
@@ -360,6 +362,25 @@ void updatePTOffsets(const struct_message &packet) {
   }
 }
 
+void setupSDCard() {
+  Serial.print("Initializing SD card...");
+  dataPacket.sdCardInitialized = SD.begin(SD_CARD_CS);
+  if (!dataPacket.sdCardInitialized) {
+    Serial.println("initialization failed!");
+    return;
+  }
+
+  Serial.println("SD card initialization done.");
+  sdCardFile = SD.open(sdCardFilename, FILE_WRITE);
+  dataPacket.sdCardInitialized = sdCardFile;
+
+  if (!dataPacket.sdCardInitialized && WIFIDEBUG) {
+    Serial.println("Error opening SD card file"); // Error handling if file opening fails
+  }
+
+  sdCardFile.println("5/17/2024 9:56");
+}
+
 // Initialize all sensors and parameters.
 void setup() {
   Serial.begin(115200);
@@ -388,12 +409,12 @@ void setup() {
   Serial.println("PT finished");
   // LOAD CELLS UNUSED IN FLIGHT
 
-  // Thermocouple.
-  pinMode(TC_1.cs, OUTPUT);
-  pinMode(TC_2.cs, OUTPUT);
-  pinMode(TC_3.cs, OUTPUT);
-  pinMode(TC_4.cs, OUTPUT);
-  Serial.println("Finised TC");
+  // // Thermocouple.
+  // pinMode(TC_1.cs, OUTPUT);
+  // pinMode(TC_2.cs, OUTPUT);
+  // pinMode(TC_3.cs, OUTPUT);
+  // pinMode(TC_4.cs, OUTPUT);
+  // Serial.println("Finised TC");
 
   // Broadcast setup.
   // Set device as a Wi-Fi Station
@@ -432,11 +453,11 @@ void setup() {
     return;
   }
 
-  memcpy(peerInfo.peer_addr, SDCardBroadcastAddress, 6);
-  if (esp_now_add_peer(&peerInfo) != ESP_OK) {
-    Serial.println("Failed to add peer");
-    return;
-  }
+  // memcpy(peerInfo.peer_addr, SDCardBroadcastAddress, 6);
+  // if (esp_now_add_peer(&peerInfo) != ESP_OK) {
+  //   Serial.println("Failed to add peer");
+  //   return;
+  // }
 
   setupSDCard();
 
@@ -454,6 +475,8 @@ void loop() {
   // mosfetOpenValve(MOSFET_VENT_LOX); //tests
   // mosfetOpenValve(MOSFET_VENT_ETH); //tests
   logData();
+  sdCardFile.flush();
+
   if (DEBUG) {serialReadFlightState();}
   switch (FlightState) {
     case (IDLE):
@@ -486,6 +509,7 @@ void loop() {
       abort_sequence();
       break;
   }
+ 
 }
 
 ////// State Functions. /////////
@@ -498,10 +522,10 @@ void reset() {
   PT_E2.resetReading();
   PT_C1.resetReading();
   PT_X.resetReading();
-  TC_1.resetReading();
-  TC_2.resetReading();
-  TC_3.resetReading();
-  TC_4.resetReading();
+  // TC_1.resetReading();
+  // TC_2.resetReading();
+  // TC_3.resetReading();
+  // TC_4.resetReading();
 }
 
 void serialReadFlightState() {
@@ -636,14 +660,15 @@ void getReadings() {
     PT_E2.readDataFromBoard();
     PT_C1.readDataFromBoard();
     PT_X.readDataFromBoard();
-    TC_1.readDataFromBoard();
-    TC_2.readDataFromBoard();
-    TC_3.readDataFromBoard();
-    TC_4.readDataFromBoard();
+    // TC_1.readDataFromBoard();
+    // TC_2.readDataFromBoard();
+    // TC_3.readDataFromBoard();
+    // TC_4.readDataFromBoard();
     updateDataPacket();
-    if (FlightState != IDLE) {
-      writeSDCard(packetToString(dataPacket));
-    }
+
+   
+    writeSDCard(packetToString(dataPacket));
+  
     printSensorReadings();
   }
 }
@@ -668,10 +693,10 @@ void updateDataPacket() {
   dataPacket.rawReadings.PT_E2 = PT_E2.rawReading;
   dataPacket.rawReadings.PT_C1 = PT_C1.rawReading;
   dataPacket.rawReadings.PT_X = PT_X.rawReading;
-  dataPacket.rawReadings.TC_1 = TC_1.rawReading;
-  dataPacket.rawReadings.TC_2 = TC_2.rawReading;
-  dataPacket.rawReadings.TC_3 = TC_3.rawReading;
-  dataPacket.rawReadings.TC_4 = TC_4.rawReading;
+  // dataPacket.rawReadings.TC_1 = TC_1.rawReading;
+  // dataPacket.rawReadings.TC_2 = TC_2.rawReading;
+  // dataPacket.rawReadings.TC_3 = TC_3.rawReading;
+  // dataPacket.rawReadings.TC_4 = TC_4.rawReading;
 
   dataPacket.filteredReadings.PT_O1 = PT_O1.filteredReading;
   dataPacket.filteredReadings.PT_O2 = PT_O2.filteredReading;
@@ -679,10 +704,10 @@ void updateDataPacket() {
   dataPacket.filteredReadings.PT_E2 = PT_E2.filteredReading;
   dataPacket.filteredReadings.PT_C1 = PT_C1.filteredReading;
   dataPacket.filteredReadings.PT_X = PT_X.filteredReading;
-  dataPacket.filteredReadings.TC_1 = TC_1.filteredReading;
-  dataPacket.filteredReadings.TC_2 = TC_2.filteredReading;
-  dataPacket.filteredReadings.TC_3 = TC_3.filteredReading;
-  dataPacket.filteredReadings.TC_4 = TC_4.filteredReading;
+  // dataPacket.filteredReadings.TC_1 = TC_1.filteredReading;
+  // dataPacket.filteredReadings.TC_2 = TC_2.filteredReading;
+  // dataPacket.filteredReadings.TC_3 = TC_3.filteredReading;
+  // dataPacket.filteredReadings.TC_4 = TC_4.filteredReading;
 
   dataPacket.COMState = COMState;
   dataPacket.DAQState = DAQState;
@@ -741,22 +766,6 @@ void sendQueue(Queue<struct_message> queue, uint8_t broadcastAddress[]) {
   }
 }
 
-void setupSDCard() {
-  Serial.print("Initializing SD card...");
-  dataPacket.sdCardInitialized = SD.begin(SD_CARD_CS);
-  if (!dataPacket.sdCardInitialized) {
-    Serial.println("initialization failed!");
-    return;
-  }
-
-  Serial.println("SD card initialization done.");
-  sdCardFile = SD.open(sdCardFilename, FILE_WRITE);
-  dataPacket.sdCardInitialized = sdCardFile;
-
-  if (!dataPacket.sdCardInitialized && WIFIDEBUG) {
-    Serial.println("Error opening SD card file"); // Error handling if file opening fails
-  }
-}
 
 void writeSDCard(String data) {
   if (!sdCardFile) {
@@ -765,8 +774,11 @@ void writeSDCard(String data) {
   }
 
   int currTime = millis();
-  sdCardFile.println(data);
-  sdCardFile.flush();
+  if (FlightState != IDLE){
+    sdCardFile.println(data);
+    sdCardFile.flush();
+  }
+
 }
 
 void printSensorReadings() {
@@ -785,13 +797,13 @@ void printSensorReadings() {
   serialMessage.concat(" ");
   serialMessage.concat(PT_X.rawReading);
   serialMessage.concat(" ");
-  serialMessage.concat(TC_1.filteredReading);
-  serialMessage.concat(" ");
-  serialMessage.concat(TC_2.filteredReading);
-  serialMessage.concat(" ");
-  serialMessage.concat(TC_3.filteredReading);
-  serialMessage.concat(" ");
-  serialMessage.concat(TC_4.filteredReading);
+  // serialMessage.concat(TC_1.filteredReading);
+  // serialMessage.concat(" ");
+  // serialMessage.concat(TC_2.filteredReading);
+  // serialMessage.concat(" ");
+  // serialMessage.concat(TC_3.filteredReading);
+  // serialMessage.concat(" ");
+  // serialMessage.concat(TC_4.filteredReading);
   // serialMessage.concat("\nEth comp: ");
   // serialMessage.concat(incomingDAQData.ethComplete ? "True" : "False");
   // serialMessage.concat(" Ox comp: ");
@@ -817,24 +829,23 @@ String readingsToString(const struct_readings packet) {
   data = data + packet.PT_E1 + " ";
   data = data + packet.PT_E2 + " ";
   data = data + packet.PT_C1 + " ";
-  data = data + packet.PT_X + " ";
+  data = data + packet.PT_X ;
 
-  data = data + packet.TC_1 + " ";
-  data = data + packet.TC_2 + " ";
-  data = data + packet.TC_3 + " ";
-  data = data + packet.TC_4;
+  // data = data + packet.TC_1 + " ";
+  // data = data + packet.TC_2 + " ";
+  // data = data + packet.TC_3 + " ";
+  // data = data + packet.TC_4;
 
   return data;
 }
 
 String packetToString(const struct_message packet) {
-  String data = "START\n";
-  data = data + millis() + "\n";
-  data += readingsToString(packet.filteredReadings) + "\n";
-  data = data + packet.COMState + " " + packet.DAQState + " " + packet.FlightState + "\n";
-  data = data + packet.FlightQueueLength + "\n";
+  String data = "";
+  data = data + millis() + " ";
+  data += readingsToString(packet.filteredReadings) + " ";
+  data = data + packet.COMState + " " + packet.DAQState + " " + packet.FlightState + " ";
+  data = data + packet.FlightQueueLength + " ";
   data = data + packet.oxComplete + " " + packet.ethComplete + " " + packet.oxVentComplete + " " + packet.ethVentComplete + "\n";
 
   return data;
 }
-
