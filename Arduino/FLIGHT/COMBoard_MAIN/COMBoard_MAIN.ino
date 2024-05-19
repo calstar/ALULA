@@ -26,6 +26,10 @@ bool WIFIDEBUG = false;
 bool SWITCHES = false; // If we are using switches
 bool GUI_DEBUG = false;
 
+int timerind = 0;
+int daqtimerind = 0;
+int sendperiod = 25;
+
 Switch SWITCH_ARMED = Switch(14);  //correct
 Switch SWITCH_PRESS = Switch(12);  //correct
 Switch SWITCH_QD = Switch(26);   //  correct
@@ -67,7 +71,7 @@ String stateNames[] = { "Idle", "Armed", "Press", "QD", "Ignition", "HOTFIRE", "
 //uint8_t broadcastAddress[] = {0x08, 0x3A, 0xF2, 0xB7, 0xEE, 0x00}; //TEST
 //{0x30, 0xC6, 0xF7, 0x2A, 0x28, 0x04}
 
-uint8_t DAQBroadcastAddress[] = {0xD4, 0x8A, 0xFC, 0xC7, 0x91, 0x2C};
+uint8_t DAQBroadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x50, 0x23, 0x34};
 
 uint8_t FlightBroadcastAddress[] = {0x48, 0x27, 0xE2, 0x88, 0x39, 0x44}; //CORE A
 
@@ -337,29 +341,35 @@ void dataSend() {
 
   // Send ABORT to flight
   if (COMState != FlightState || updatePTOffsets) {
-    esp_err_t result = esp_now_send(FlightBroadcastAddress, (uint8_t *) &sendCommands, sizeof(sendCommands));
-    updatePTOffsets = false;
-    if (WIFIDEBUG) {
-      if(result == ESP_OK) {
-        Serial.println("Successful Send to FLIGHT!");
-      } else {
-        Serial.println("Failed Send to FLIGHT");
+    if (millis() - timerind > sendperiod) {
+      esp_err_t result = esp_now_send(FlightBroadcastAddress, (uint8_t *) &sendCommands, sizeof(sendCommands));
+      updatePTOffsets = false;
+      timerind = millis();
+      if (WIFIDEBUG) {
+        if(result == ESP_OK) {
+          Serial.println("Successful Send to FLIGHT!");
+        } else {
+          Serial.println("Failed Send to FLIGHT");
+        }
       }
-    }
+  }
   }
 
   // Don't send data if states are already synced
   if (COMState != DAQState) {
-    esp_err_t result = esp_now_send(DAQBroadcastAddress, (uint8_t *) &sendCommands, sizeof(sendCommands));
-    if (WIFIDEBUG) { //printouts to debug wifi/comms
-      if (result == ESP_OK) {
-      Serial.println("Sent with success to DAQ");
-      }
-      else {
-        Serial.println("Error sending the data to DAQ");
+    if (millis() - daqtimerind > sendperiod) {
+      esp_err_t result = esp_now_send(DAQBroadcastAddress, (uint8_t *) &sendCommands, sizeof(sendCommands));
+      daqtimerind = millis();
+      if (WIFIDEBUG) { //printouts to debug wifi/comms
+        if (result == ESP_OK) {
+        Serial.println("Sent with success to DAQ");
+        }
+        else {
+          Serial.println("Error sending the data to DAQ");
+        }
       }
     }
-  }
+}
 }
 
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
