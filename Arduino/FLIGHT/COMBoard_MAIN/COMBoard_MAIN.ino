@@ -72,7 +72,8 @@ String stateNames[] = { "Idle", "Armed", "Press", "QD", "Ignition", "HOTFIRE", "
 //{0x30, 0xC6, 0xF7, 0x2A, 0x28, 0x04}
 uint8_t DAQBroadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x50, 0x23, 0x34};
 
-uint8_t FlightBroadcastAddress[] = {0x48, 0x27, 0xE2, 0x88, 0x39, 0x44}; //CORE A
+// uint8_t FlightBroadcastAddress[] = {0x48, 0x27, 0xE2, 0x88, 0x39, 0x44}; //CORE A
+uint8_t FlightBroadcastAddress[] = {0xC0, 0x4E, 0x30, 0x1A, 0x00, 0x14}; //RANDOM ESP
 
 //Structure example to send data
 //Must match the receiver structure
@@ -99,10 +100,10 @@ struct struct_readings {
   float PT_E2;
   float PT_C1;
   float PT_X;
-  int TC_1;
-  int TC_2;
-  int TC_3;
-  int TC_4;
+  // int TC_1;
+  // int TC_2;
+  // int TC_3;
+  // int TC_4;
 };
 
 struct struct_message {
