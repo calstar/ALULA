@@ -38,8 +38,8 @@ bool WIFIDEBUG = true;  // Don't send/receive data.
 #define SIMULATION_DELAY 25
 
 // MODEL DEFINED PARAMETERS FOR TEST/HOTFIRE. Pressures in psi //
-float pressureFuel = 100;  //495;  // Set pressure for fuel
-float pressureOx = 100;    //465;  // Set pressure for lox
+float pressureFuel = 495;  //495;  // Set pressure for fuel
+float pressureOx = 465;    //465;  // Set pressure for lox
 float threshold = 0.98;   // re-psressurrization threshold (/1x)
 float ventTo = 5;          // c2se solenoids at this pressure to preserve lifetime.
 #define abortPressure 700  // Cutoff pressure to automatically trigger abort

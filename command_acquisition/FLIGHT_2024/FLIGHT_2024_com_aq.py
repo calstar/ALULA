@@ -37,7 +37,7 @@ button_names = ['  Idle  ', ' Armed ', 'Pressed', '   QD   ', 'Ignition', ' Main
 pt_names = ['PT_O1', 'PT_O2', 'PT_E1', 'PT_E2', 'PT_C1', 'PT_X']
 pt_offsets = [0, 0, 0, 0, 0, 0]
 
-file_base = f"FLIGHTtest_{time.strftime('%Y-%m-%d', time.gmtime())}"
+file_base = f"AlulaFlight_{time.strftime('%Y-%m-%d', time.gmtime())}"
 file_ext = ".csv"
 test_num = 1
 
@@ -81,7 +81,7 @@ def collection():
                 if len(values) == 2: #when flight not connected, only update daq and com states
                     print(values)
                     COM_S = values[0]
-                    DAQ_S = values[0]
+                    DAQ_S = values[1]
 
                 if len(values) == 28:
 
@@ -137,7 +137,7 @@ class LivePlotter(QMainWindow):
 
         self.graphWidgets = [pg.PlotWidget(title=plot_titles[i]) for i in range(num_plots)]
         for i, graphWidget in enumerate(self.graphWidgets):
-            graphWidget.setFixedHeight(300)  # Set fixed height for each graph
+            graphWidget.setFixedHeight(650)  # Set fixed height for each graph
             
             self.layout.addWidget(graphWidget, i // 3 + 1, i % 3)
             
@@ -179,7 +179,7 @@ class LivePlotter(QMainWindow):
             btn = QPushButton(name)
             if name == " Abort ":
                 btn.setStyleSheet("QPushButton {font-size: 45pt; padding: 20px;}")
-                btn.setFixedHeight(250)
+                btn.setFixedHeight(500)
             else:
                 btn.setStyleSheet("QPushButton {font-size: 45pt; padding: 20px;}")
             self.initial_button_styles[btn] = btn.styleSheet()
@@ -201,12 +201,12 @@ class LivePlotter(QMainWindow):
         # Setup textboxes
         for pt_name in enumerate(pt_names):
             textbox = QLineEdit()
-            textbox.setStyleSheet("QLineEdit {font-size: 15pt;}")
+            textbox.setStyleSheet("QLineEdit {font-size: 10pt;}")
             self.offsetTextLayout.addWidget(textbox)
             self.offsetTextboxes.append(textbox)
 
         for i, pt_name in enumerate(pt_names):
-            btn = QPushButton("ZERO offset")
+            btn = QPushButton(pt_name + ": ZERO offset")
             btn.setStyleSheet("QPushButton {font-size: 10pt;}")
             btn.clicked.connect(lambda _, name=pt_name, number=i: self.ptZeroOffsetButtonClick(name, number))
             self.zeroOffsetButtonLayout.addWidget(btn)
@@ -243,7 +243,7 @@ class LivePlotter(QMainWindow):
 
         # Create a QLabel for the text in between the buttons
         self.statusLabel = QLabel()
-        self.statusLabel.setStyleSheet("font-size: 10pt; font-weight: bold; color: black")
+        self.statusLabel.setStyleSheet("font-size: 20pt; font-weight: bold; color: black")
         self.statusLabel.setAlignment(Qt.AlignCenter)
 
         self.oxCompleteLayout.addWidget(self.oxCompleteIndicator)
@@ -358,7 +358,7 @@ class LivePlotter(QMainWindow):
         for i, btn in enumerate(self.buttons):
             if(i == int(COM_S) == 6) or (i == 6 and AUTO_ABORT == "True"):
                 btn.setStyleSheet("background-color: red; font-size: 45pt; padding: 20px;")
-                btn.setFixedHeight(250)
+                btn.setFixedHeight(500)
             elif i == int(COM_S):  # Highlight the button corresponding to COM_S value
                 btn.setStyleSheet("background-color: gray; font-size: 45pt; padding: 20px;")
             else:
