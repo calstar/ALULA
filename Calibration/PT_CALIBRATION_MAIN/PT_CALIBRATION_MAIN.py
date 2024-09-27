@@ -9,7 +9,7 @@ import csv
 import math
 
 def read_serial():
-    port_num = "COM19"
+    port_num = "COM4"
     esp32 = Serial(port=port_num, baudrate=115200)
                                                                               
     try:
@@ -49,7 +49,7 @@ def graphing(X, Y):
     num_cols = math.ceil(math.sqrt(instrument_count))
     num_rows = math.ceil(instrument_count / num_cols)
 
-    fig, axs = plt.subplots(num_rows, num_cols, figsize=(12, 3* num_cols))
+    fig, axs = plt.subplots(num_rows, num_cols, figsize=(12, 3* num_cols), squeeze = False)
 
     val_row = []
     for j in range(instrument_count):
